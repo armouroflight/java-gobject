@@ -1,0 +1,2 @@
+#!/bin/sh
+exec ${DEBUG} java ${JAVA_OPTS} -cp "@CLASSPATH@" org.gnome.gir.compiler.CodeFactory "$@"

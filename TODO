@@ -1,0 +1,3 @@
+- Documentation on mapping (FooGlobals, signals. etc)
+- Investigate mapping gtk-doc to Javadoc somehow
+- Handle out parameters
