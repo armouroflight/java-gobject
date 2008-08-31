@@ -102,6 +102,21 @@ public abstract class GObject extends RefCountedObject {
     	this(new Initializer(GObjectAPI.gobj.g_object_new(gtype, extendInitArgs(args))));
     }
     
+    private static Object[] initMapToObjectArray(Map<String,Object> args) {
+    	Object[] ret = new Object[args.size()*2];
+    	int i = 0;
+    	for (Map.Entry<String, Object> arg : args.entrySet()) {
+    		ret[i] = arg.getKey();
+    		ret[i+1] = arg.getValue();
+    		i += 2;
+    	}
+    	return ret;
+    }
+    
+    protected GObject(GType gtype, Map<String,Object> args) {
+    	this(gtype, initMapToObjectArray(args));
+    }
+    
     GType getType(Class<?> klass) {
     	return GType.OBJECT;
     }

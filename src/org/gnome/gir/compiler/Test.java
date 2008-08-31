@@ -66,10 +66,14 @@ public class Test extends GObject {
 	}
 	
 	public Test() {
-		super(getGType(), null);
+		super(getGType(), (Object[])null);
 	}
 	
 	public Test(Object[] args) {
+		super(getGType(), args);
+	}
+	
+	public Test(Map<String,Object> args) {
 		super(getGType(), args);
 	}
 

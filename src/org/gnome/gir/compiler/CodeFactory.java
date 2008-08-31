@@ -229,6 +229,9 @@ public class CodeFactory {
 	
 	private Type typeFromInfo(BaseInfo info) {
 		requireNamespaceOf(info);
+		/* Unfortunately, flags are best mapped as plain Integer  for now */
+		if (info instanceof FlagsInfo)
+			return Type.getObjectType("java/lang/Integer");
 		return Type.getObjectType(getInternalNameMapped(info.getNamespace(), info.getName()));		
 	}
 	
@@ -644,6 +647,25 @@ public class CodeFactory {
 		mv.visitMaxs(3, 2);
 		mv.visitEnd();
 		
+		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/Map;)V", 
+				"(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
+		mv.visitVarInsn(ALOAD, 1);
+		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V");
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 1);
+		mv.visitMaxs(3, 2);
+		mv.visitEnd();		
+		
 		mv = compilation.peer.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V", null, null);
 		mv.visitCode();
 		l0 = new Label();
@@ -662,6 +684,26 @@ public class CodeFactory {
 		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l0, l2, 2);
 		mv.visitMaxs(3, 3);
 		mv.visitEnd();
+		
+		mv = compilation.peer.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V", 
+				"(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitVarInsn(ALOAD, 1);
+		mv.visitVarInsn(ALOAD, 2);
+		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V");
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("gtype", "Lorg/gnome/gir/gobject/GType;", null, l0, l2, 1);		
+		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 2);
+		mv.visitMaxs(3, 3);
+		mv.visitEnd();		
 	}
 	
 	private void compileStaticConstructor(ObjectInfo info, InfoCompilation compilation, FunctionInfo fi) {	
