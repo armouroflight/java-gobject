@@ -68,7 +68,7 @@ public interface GObjectAPI extends Library {
     void g_object_get_property(GObject obj, String property, GValue data);
     void g_object_set(GObject obj, String propertyName, Object... data);
     void g_object_get(GObject obj, String propertyName, Object... data);
-    Pointer g_object_new(GType object_type, Object... args);
+    Pointer g_object_new(GType object_type, String firstParam, Object... args);
     
     interface GClosureNotify extends Callback {
         void callback(Pointer data, Pointer closure);

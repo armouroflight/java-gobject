@@ -127,4 +127,17 @@ public class Test extends GObject {
 		Object[] args = new Object[] { GTypeInstance.peekInterface(this.handle(), Test.getGType()), blah };
 		f.invoke(Void.class, args, Internals.invocationOptions);
 	}
+	
+	private static Object[] afoo(boolean foo, Object...args) {
+		return args;
+	}
+	
+	private static int bar(String baz, Object...args) {
+		return args.length;
+	}
+	
+	public static final void main(String... args) {
+		Object[] o = new Object[] { "hello", "world"};
+		System.out.printf("%d", bar("Moo", afoo(true, o)));
+	}
 }

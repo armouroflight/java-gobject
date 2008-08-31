@@ -48,6 +48,7 @@ package org.gnome.gir.gobject;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -83,38 +84,50 @@ public abstract class GObject extends RefCountedObject {
         }
     }
     
-    private static Object[] extendInitArgs(Object[] args) {
-    	Object[] ret;    	
-    	if (args == null) {
-    		ret = new Object[1];
-    		ret[0] = null;
-    	} else {
+    private static Initializer getInitializer(GType gtype, Object[] args) {
+    	Object[] newArgs;
+    	String firstProp = null;
+    	if (args != null && args.length > 0) {
     		if ((args.length % 2) != 0)
     			throw new IllegalArgumentException("Number of construct parameters must be even");
-    		ret = new Object[args.length+1];
-        	System.arraycopy(args, 0, ret, 0, args.length);
-        	ret[args.length] = null;
+    		firstProp = (String) args[0];
+    		newArgs = new Object[args.length];
+        	System.arraycopy(args, 1, newArgs, 0, args.length);
+        	newArgs[args.length-1] = null;
+    	} else {
+    		newArgs = new Object[1];
+    		newArgs[0] = null;
     	}
-    	return ret;
+    	return new Initializer(GObjectAPI.gobj.g_object_new(gtype, firstProp, newArgs));
     }
     
     protected GObject(GType gtype, Object[] args) {
-    	this(new Initializer(GObjectAPI.gobj.g_object_new(gtype, extendInitArgs(args))));
+    	this(getInitializer(gtype, args));
     }
     
-    private static Object[] initMapToObjectArray(Map<String,Object> args) {
-    	Object[] ret = new Object[args.size()*2];
+    private static Initializer getInitializer(GType gtype, Map<String,Object> args) {
+    	String firstProp = null;
+    	Object[] newArgs = new Object[args.size()*2];
     	int i = 0;
-    	for (Map.Entry<String, Object> arg : args.entrySet()) {
-    		ret[i] = arg.getKey();
-    		ret[i+1] = arg.getValue();
+    	Iterator<Map.Entry<String, Object>> it = args.entrySet().iterator();
+    	if (it.hasNext()) {
+    		Map.Entry<String, Object> entry = it.next();
+    		firstProp = entry.getKey();
+    		newArgs[i] = entry.getValue();
+    		i++;
+    	}
+    	while (it.hasNext()) {
+    		Map.Entry<String, Object> entry = it.next();    		
+    		newArgs[i] = entry.getKey();
+    		newArgs[i+1] = entry.getValue();
     		i += 2;
     	}
-    	return ret;
+    	newArgs[i] = null;
+    	return new Initializer(GObjectAPI.gobj.g_object_new(gtype, firstProp, newArgs));
     }
     
     protected GObject(GType gtype, Map<String,Object> args) {
-    	this(gtype, initMapToObjectArray(args));
+    	this(getInitializer(gtype, args));
     }
     
     GType getType(Class<?> klass) {
