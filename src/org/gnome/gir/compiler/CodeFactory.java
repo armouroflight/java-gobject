@@ -121,6 +121,10 @@ public class CodeFactory {
 			put("GLib.String", "org/gnome/gir/gobject/GString");	
 			put("GLib.Callback", "com/sun/jna/Callback");
 			
+			String[] glibUnmapped = new String[] { "Mutex", "Cond" };
+			for (String unmapped : glibUnmapped)
+				put("GLib." + unmapped, "com/sun/jna/Pointer");			
+			
 			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
 			put("GObject.Object", "org/gnome/gir/gobject/GObject");
 			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
@@ -128,7 +132,8 @@ public class CodeFactory {
 			put("GObject.TypePlugin", "org/gnome/gir/gobject/GTypePlugin");
 			put("GObject.TypeModule", "org/gnome/gir/gobject/GTypeModule");					
 			put("GObject.ObjectClass", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
-			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");					
+			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");
+			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
 			
 			for (String name : new String[] { "Context" }) {
 				put("Cairo." + name, "com/sun/jna/Pointer");
@@ -168,9 +173,13 @@ public class CodeFactory {
 		//Transfer transfer = arg.getOwnershipTransfer();
 		TypeTag tag = type.getTag();
 		
-		if (tag.equals(TypeTag.INTERFACE))
+		if (tag.equals(TypeTag.VOID)) {
+			// FIXME - for now we change random Voids into Pointer, but this seems to
+			// be a G-I bug
+			return Type.getType(Pointer.class);		
+		} else if (tag.equals(TypeTag.INTERFACE)) {
 			return typeFromInfo(type.getInterface());		
-		else if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
+		} else if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
 			return toTypeBase(tag);
 		} else if (type.isPointer()) {
 			return toJavaRef(tag);
@@ -180,6 +189,25 @@ public class CodeFactory {
 	}
 	
 	public Type toJava(FieldInfo arg) {
+		TypeInfo type = arg.getType();
+		if (type.getTag().equals(TypeTag.INTERFACE)) {
+			BaseInfo iface = arg.getType().getInterface();
+			/* Special case structure members; we need to use the
+			 * $ByReference tag if the member is actually a pointer.
+			 */
+			if (iface instanceof StructInfo) {
+				StructInfo struct = (StructInfo) iface;
+				String internalName = getInternalNameMapped(struct);
+				if (type.isPointer() && internalName.startsWith(dynamicNamespace))
+					internalName += "$ByReference";
+				return Type.getObjectType(internalName);
+			} else if (iface instanceof InterfaceInfo || iface instanceof ObjectInfo ||
+					iface instanceof BoxedInfo) {
+				/* Interfaces/Objects/Boxed are always Pointer for now
+				 */
+				return Type.getType(Pointer.class);
+			}
+		}
 		return toJava(arg.getType());
 	}	
 	
@@ -255,7 +283,7 @@ public class CodeFactory {
 	}
 	
 	private List<Type> getCallableArgs(CallableInfo callable, boolean isMethod,
-				boolean allowError, boolean allowUserData) {
+				boolean allowError) {
 		ArgInfo[] args = callable.getArgs();
 		List<Type> types = new ArrayList<Type>();
 		boolean skipFirst = isMethod;
@@ -272,12 +300,6 @@ public class CodeFactory {
 			t = toJava(arg);
 			if (t == null) {
 				logger.warning("Unhandled argument: " + arg);
-				return null;
-			}
-			// Skip user data parameters
-			boolean isLast = i == args.length-1;			
-			if (t.equals(Type.VOID_TYPE) && (!allowUserData || !isLast)) {
-				logger.warning("Found void in middle of argument list: " + arg);				
 				return null;
 			}
 			if (skipFirst)
@@ -604,7 +626,7 @@ public class CodeFactory {
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
-						enumNameToUpper(valueInfo.getName()), "I", null, null);
+						enumNameToUpper(valueInfo.getName()), "J", null, valueInfo.getValue());
 			fv.visitEnd();				
 		}
 		compilation.peer.close();
@@ -729,7 +751,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false, false);		 
+		List<Type> args = getCallableArgs(fi, false, false);		 
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
 		
 		int nArgs = args.size();
@@ -773,7 +795,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false, false);		
+		List<Type> args = getCallableArgs(fi, false, false);		
 		BaseInfo parent = info.getParent(); 
 		String parentInternalType = getInternalNameMapped(parent);
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
@@ -836,7 +858,6 @@ public class CodeFactory {
 		FieldVisitor fv = sigCompilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
 				"METHOD_NAME", "Ljava/lang/String;", null, sigHandlerName);
 		fv.visitEnd();
-		
 		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));		
 		
 		MethodVisitor mv = sigCompilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, sigHandlerName, descriptor, null, null);
@@ -891,6 +912,8 @@ public class CodeFactory {
 			CallableCompilationContext ctx = tryCompileCallable(sig);
 			if (ctx == null)
 				continue;
+			// Insert the object as first parameter
+			ctx.argTypes.add(0, typeFromInfo(info));				
 			compileSignal(info, compilation, ctx, sig);
 		}
 		
@@ -922,7 +945,7 @@ public class CodeFactory {
 			boolean isConstructor = (fi.getFlags() & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
 			if (!isConstructor)
 				continue;
-			List<Type> args = getCallableArgs(fi, false, false, false);
+			List<Type> args = getCallableArgs(fi, false, false);
 			if (args == null) {
 				logger.warning("Skipping constructor with unhandled arg signature: " + fi.getSymbol());
 				continue;
@@ -1001,19 +1024,12 @@ public class CodeFactory {
 		boolean throwsGError;
 		boolean isInterfaceMethod = false;
 		InterfaceInfo targetInterface = null;
-		boolean hasUserdata;
 		public CallableCompilationContext(Type returnType, ArgInfo[] args,
 				List<Type> argTypes, boolean throwsGError) {
 			this.returnType = returnType;
 			this.args = args;
 			this.argTypes = argTypes;
 			this.throwsGError = throwsGError;
-			if (argTypes.size() > 0) {
-				if (argTypes.get(argTypes.size()-1).equals(Type.VOID_TYPE)) {
-					this.hasUserdata = true;
-					argTypes.remove(argTypes.size()-1);
-				}
-			}
 		}
 	}
 	
@@ -1024,11 +1040,11 @@ public class CodeFactory {
 			return null;
 		}
 		ArgInfo[] argInfos = si.getArgs();		
-		List<Type> args = getCallableArgs(si, false, false, true);
+		List<Type> args = getCallableArgs(si, false, false);
 		if (args == null) {
 			logger.warning("Skipping callable with unhandled arg signature: " + si.getName());
 			return null;
-		}
+		}	
 		return new CallableCompilationContext(returnType, argInfos, args, false);
 	}	
 	
@@ -1046,7 +1062,7 @@ public class CodeFactory {
 			return null;
 		}
 		List<Type> args = getCallableArgs(fi, (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0,
-					throwsGError, true);
+					throwsGError);
 		if (args == null) {
 			logger.warning("Skipping function with unhandled arg signature: " + fi.getSymbol());
 			return null;
@@ -1089,8 +1105,6 @@ public class CodeFactory {
 		int nInvokeArgs = nArgs;
 		if (includeThis)
 			nInvokeArgs += 1;
-		if (ctx.hasUserdata)
-			nInvokeArgs += 1;
 		int functionOffset = nInvokeArgs+1;
 		int arrayOffset = functionOffset+1;
 		int resultOffset = arrayOffset+1;		
@@ -1132,15 +1146,9 @@ public class CodeFactory {
 			mv.visitVarInsn(ALOAD, i);
 			mv.visitInsn(AASTORE);
 		}
-		if (ctx.hasUserdata) {
-			mv.visitInsn(DUP);
-			mv.visitIntInsn(BIPUSH, nInvokeArgs);
-			mv.visitInsn(ACONST_NULL);
-			mv.visitInsn(AASTORE);
-		}
 		if (ctx.throwsGError) {
 			mv.visitInsn(DUP);
-			mv.visitIntInsn(BIPUSH, nInvokeArgs + (ctx.hasUserdata ? 1 : 0));
+			mv.visitIntInsn(BIPUSH, nInvokeArgs);
 			mv.visitVarInsn(ALOAD, errorOffset);
 			mv.visitInsn(AASTORE);
 		}
@@ -1236,10 +1244,37 @@ public class CodeFactory {
 	}
 	
 	private void compile(StructInfo info) {
+		MethodVisitor mv;
 		InfoCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
 		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "com/sun/jna/Structure", null);	
+		
+		InnerClassCompilation byRef = compilation.peer.newInner("ByReference");				
+		compilation.peer.writer.visitInnerClass(compilation.peer.internalName + "$ByReference",
+				compilation.peer.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
+		byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
+				byRef.internalName, null, compilation.peer.internalName, new String[] { "com/sun/jna/Structure$ByReference"});
+		
+		InnerClassCompilation byValue = compilation.peer.newInner("ByValue");				
+		compilation.peer.writer.visitInnerClass(compilation.peer.internalName + "$ByValue",
+				compilation.peer.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
+		byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
+				byValue.internalName, null, compilation.peer.internalName, new String[] { "com/sun/jna/Structure$ByValue"});		
+		
+		/* constructor */
+		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		mv.visitCode();
+		Label l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/Structure", "<init>", "()V");
+		mv.visitInsn(RETURN);
+		Label l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l1, 0);
+		mv.visitMaxs(1, 1);
+		mv.visitEnd();		
 		
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : info.getMethods()) {
@@ -1285,6 +1320,7 @@ public class CodeFactory {
 	}
 	
 	private void compile(CallbackInfo info) {
+		MethodVisitor mv;		
 		InfoCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
@@ -1293,9 +1329,24 @@ public class CodeFactory {
 		
 		CallableCompilationContext ctx = tryCompileCallable(info);
 		
+		FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;", null, null);
+		fv.visitEnd();
+		
+		mv = compilation.peer.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+		mv.visitCode();
+		Label l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance", "()Lorg/gnome/gir/gobject/GTypeMapper;");
+		mv.visitFieldInsn(PUTSTATIC, compilation.peer.internalName, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;");
+		Label l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		mv.visitMaxs(1, 0);
+		mv.visitEnd();		
+		
 		if (ctx != null) {
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));			
-			MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, 
+			mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, 
 					"callback", descriptor, null, null);
 			mv.visitEnd();
 		}
