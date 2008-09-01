@@ -68,8 +68,10 @@ import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
 import org.gnome.gir.repository.CallableInfo;
+import org.gnome.gir.repository.CallbackInfo;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.EnumInfo;
+import org.gnome.gir.repository.FieldInfo;
 import org.gnome.gir.repository.FlagsInfo;
 import org.gnome.gir.repository.FunctionInfo;
 import org.gnome.gir.repository.FunctionInfoFlags;
@@ -149,16 +151,43 @@ public class CodeFactory {
 		return toTypeBase(tag);		
 	}
 	
-	public static Type toJava(ArgInfo arg) {
+	private Type typeFromInfo(TypeInfo info) {
+		BaseInfo base = info.getInterface();
+		return typeFromInfo(base);
+	}
+	
+	private Type typeFromInfo(BaseInfo info) {
+		requireNamespaceOf(info);
+		/* Unfortunately, flags are best mapped as plain Integer  for now */
+		if (info instanceof FlagsInfo)
+			return Type.getObjectType("java/lang/Integer");
+		return Type.getObjectType(getInternalNameMapped(info.getNamespace(), info.getName()));		
+	}	
+	
+	public Type toJava(TypeInfo type) {	
 		//Transfer transfer = arg.getOwnershipTransfer();
-		TypeInfo type = arg.getType();
 		TypeTag tag = type.getTag();
-		if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
+		
+		if (tag.equals(TypeTag.INTERFACE))
+			return typeFromInfo(type.getInterface());		
+		else if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
 			return toTypeBase(tag);
 		} else if (type.isPointer()) {
 			return toJavaRef(tag);
 		} else {
 			return toTypeBase(tag);
+		}	
+	}
+	
+	public Type toJava(FieldInfo arg) {
+		return toJava(arg.getType());
+	}	
+	
+	public Type toJava(ArgInfo arg) {
+		if (arg.getDirection() == Direction.IN) {
+			return toJava(arg.getType());
+		} else {
+			return Type.getType(PointerType.class);
 		}
 	}
 	
@@ -180,6 +209,8 @@ public class CodeFactory {
 			return Type.getType(Double.class);
 		if (t.equals(Type.getType(String.class)) || t.equals(Type.getType(File.class)))
 			return Type.getType(PointerByReference.class);
+		if (t.equals(Type.VOID_TYPE))
+			return Type.getType(Pointer.class);
 		return t;
 	}
 	
@@ -195,7 +226,8 @@ public class CodeFactory {
 		if (tag == TypeTag.INT32 || tag == TypeTag.UINT32 ||
 				tag == TypeTag.INT || tag == TypeTag.UINT)
 			return Type.getType(Integer.class);
-		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64)
+		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64
+				|| tag == TypeTag.SIZE || tag == TypeTag.SSIZE)
 			return Type.getType(Long.class);
 		if (tag == TypeTag.FLOAT)
 			return Type.getType(Float.class);
@@ -217,26 +249,13 @@ public class CodeFactory {
 			if (!requireNamespaceOf(info.getInterface()))
 				return Type.getType(Pointer.class);
 			else
-				return typeFromInterface(info);
+				return typeFromInfo(info);
 		}
 		return toJava(info.getTag());
 	}
 	
-	private Type typeFromInterface(TypeInfo info) {
-		BaseInfo interfaceInfo = info.getInterface();
-		return typeFromInfo(interfaceInfo);
-	}
-	
-	private Type typeFromInfo(BaseInfo info) {
-		requireNamespaceOf(info);
-		/* Unfortunately, flags are best mapped as plain Integer  for now */
-		if (info instanceof FlagsInfo)
-			return Type.getObjectType("java/lang/Integer");
-		return Type.getObjectType(getInternalNameMapped(info.getNamespace(), info.getName()));		
-	}
-	
 	private List<Type> getCallableArgs(CallableInfo callable, boolean isMethod,
-				boolean allowError) {
+				boolean allowError, boolean allowUserData) {
 		ArgInfo[] args = callable.getArgs();
 		List<Type> types = new ArrayList<Type>();
 		boolean skipFirst = isMethod;
@@ -250,19 +269,17 @@ public class CodeFactory {
 					continue;
 				return null;
 			}
-			if (arg.getDirection() == Direction.IN) {
-				if (tag.equals(TypeTag.INTERFACE)) {
-					t = typeFromInterface(info);
-				} else {
-					t = toJava(arg);
-				}
-			} else {
-				t = Type.getType(PointerType.class);
+			t = toJava(arg);
+			if (t == null) {
+				logger.warning("Unhandled argument: " + arg);
+				return null;
 			}
-			if (t == null)
+			// Skip user data parameters
+			boolean isLast = i == args.length-1;			
+			if (t.equals(Type.VOID_TYPE) && (!allowUserData || !isLast)) {
+				logger.warning("Found void in middle of argument list: " + arg);				
 				return null;
-			if (t.equals(Type.VOID_TYPE))
-				return null;
+			}
 			if (skipFirst)
 				skipFirst = false;
 			else
@@ -595,8 +612,10 @@ public class CodeFactory {
 	
 	private String ucaseToCamel(String ucase) {
 		String[] components = ucase.split("_");
-		for (int i = 1; i < components.length; i++)
-			components[i] = "" + Character.toUpperCase(components[i].charAt(0)) + components[i].substring(1);
+		for (int i = 1; i < components.length; i++) {
+			if (components[i].length() > 0)
+				components[i] = "" + Character.toUpperCase(components[i].charAt(0)) + components[i].substring(1);
+		}
 		StringBuilder builder = new StringBuilder();
 		for (String component : components)
 			builder.append(component);
@@ -710,7 +729,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false);		 
+		List<Type> args = getCallableArgs(fi, false, false, false);		 
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
 		
 		int nArgs = args.size();
@@ -754,7 +773,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false);		
+		List<Type> args = getCallableArgs(fi, false, false, false);		
 		BaseInfo parent = info.getParent(); 
 		String parentInternalType = getInternalNameMapped(parent);
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
@@ -903,7 +922,7 @@ public class CodeFactory {
 			boolean isConstructor = (fi.getFlags() & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
 			if (!isConstructor)
 				continue;
-			List<Type> args = getCallableArgs(fi, false, false);
+			List<Type> args = getCallableArgs(fi, false, false, false);
 			if (args == null) {
 				logger.warning("Skipping constructor with unhandled arg signature: " + fi.getSymbol());
 				continue;
@@ -982,29 +1001,36 @@ public class CodeFactory {
 		boolean throwsGError;
 		boolean isInterfaceMethod = false;
 		InterfaceInfo targetInterface = null;
+		boolean hasUserdata;
 		public CallableCompilationContext(Type returnType, ArgInfo[] args,
 				List<Type> argTypes, boolean throwsGError) {
 			this.returnType = returnType;
 			this.args = args;
 			this.argTypes = argTypes;
 			this.throwsGError = throwsGError;
+			if (argTypes.size() > 0) {
+				if (argTypes.get(argTypes.size()-1).equals(Type.VOID_TYPE)) {
+					this.hasUserdata = true;
+					argTypes.remove(argTypes.size()-1);
+				}
+			}
 		}
 	}
 	
-	private CallableCompilationContext tryCompileCallable(SignalInfo si) {
+	private CallableCompilationContext tryCompileCallable(CallableInfo si) {
 		Type returnType = getCallableReturn(si);
 		if (returnType == null) {
-			logger.warning("Skipping signal with unhandled return signature: " + si.getName());
+			logger.warning("Skipping callable with unhandled return signature: " + si.getName());
 			return null;
 		}
 		ArgInfo[] argInfos = si.getArgs();		
-		List<Type> args = getCallableArgs(si, false, false);
+		List<Type> args = getCallableArgs(si, false, false, true);
 		if (args == null) {
-			logger.warning("Skipping signal with unhandled arg signature: " + si.getName());
+			logger.warning("Skipping callable with unhandled arg signature: " + si.getName());
 			return null;
 		}
 		return new CallableCompilationContext(returnType, argInfos, args, false);
-	}
+	}	
 	
 	private CallableCompilationContext tryCompileCallable(FunctionInfo fi, Set<String> seenSignatures) {
 		Type returnType = getCallableReturn(fi);
@@ -1014,9 +1040,13 @@ public class CodeFactory {
 		}
 		ArgInfo[] argInfos = fi.getArgs();
 		boolean throwsGError = argInfos.length > 0 && 
-			argInfos[argInfos.length-1].getType().getTag().equals(TypeTag.ERROR);		
+			argInfos[argInfos.length-1].getType().getTag().equals(TypeTag.ERROR);
+		if (throwsGError && returnType.equals(Type.VOID_TYPE)) {
+			logger.warning("Skipping function which returns Void and uses GError: " + fi.getSymbol());			
+			return null;
+		}
 		List<Type> args = getCallableArgs(fi, (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0,
-					throwsGError);
+					throwsGError, true);
 		if (args == null) {
 			logger.warning("Skipping function with unhandled arg signature: " + fi.getSymbol());
 			return null;
@@ -1059,6 +1089,8 @@ public class CodeFactory {
 		int nInvokeArgs = nArgs;
 		if (includeThis)
 			nInvokeArgs += 1;
+		if (ctx.hasUserdata)
+			nInvokeArgs += 1;
 		int functionOffset = nInvokeArgs+1;
 		int arrayOffset = functionOffset+1;
 		int resultOffset = arrayOffset+1;		
@@ -1100,9 +1132,15 @@ public class CodeFactory {
 			mv.visitVarInsn(ALOAD, i);
 			mv.visitInsn(AASTORE);
 		}
-		if (ctx.throwsGError) {
+		if (ctx.hasUserdata) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, nInvokeArgs);
+			mv.visitInsn(ACONST_NULL);
+			mv.visitInsn(AASTORE);
+		}
+		if (ctx.throwsGError) {
+			mv.visitInsn(DUP);
+			mv.visitIntInsn(BIPUSH, nInvokeArgs + (ctx.hasUserdata ? 1 : 0));
 			mv.visitVarInsn(ALOAD, errorOffset);
 			mv.visitInsn(AASTORE);
 		}
@@ -1210,6 +1248,16 @@ public class CodeFactory {
 				continue;			
 			writeCallable(ACC_PUBLIC, info, compilation, fi, ctx);	
 		}
+		
+		for (FieldInfo fi : info.getFields()) {
+			String name = ucaseToCamel(fi.getName());
+			Type type = toJava(fi);
+			if (type.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
+				type = Type.getType(Pointer.class);
+			FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC, name, type.getDescriptor(), null, null);
+			fv.visitEnd();				
+		}
+		
 		compilation.peer.close();
 	}
 	
@@ -1234,7 +1282,26 @@ public class CodeFactory {
 		mv.visitEnd();			
 		
 		compilation.peer.close();	
-	}		
+	}
+	
+	private void compile(CallbackInfo info) {
+		InfoCompilation compilation = getCompilation(info);
+		
+		String internalName = getInternalName(info);
+		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
+				new String[] { "com/sun/jna/Callback" });
+		
+		CallableCompilationContext ctx = tryCompileCallable(info);
+		
+		if (ctx != null) {
+			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));			
+			MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, 
+					"callback", descriptor, null, null);
+			mv.visitEnd();
+		}
+		
+		compilation.peer.close();	
+	}	
 	
 	private boolean requireNamespaceOf(BaseInfo info) {
 		return requireNamespace(info.getNamespace());
@@ -1276,6 +1343,8 @@ public class CodeFactory {
 				compile((BoxedInfo) baseInfo);
 			} else if (baseInfo instanceof InterfaceInfo) {
 				compile((InterfaceInfo) baseInfo);
+			} else if (baseInfo instanceof CallbackInfo) {
+				compile((CallbackInfo) baseInfo);
 			} else {
 				logger.warning("unhandled info " + baseInfo.getName());
 			}
