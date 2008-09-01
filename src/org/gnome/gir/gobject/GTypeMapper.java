@@ -71,6 +71,14 @@ import com.sun.jna.TypeConverter;
  * @author wayne
  */
 public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
+	
+	private static GTypeMapper instance;
+	public synchronized static GTypeMapper getInstance() {
+		if (instance == null)
+			instance = new GTypeMapper();
+		return instance;
+	}
+	
     public GTypeMapper() {
         addToNativeConverter(URI.class, uriConverter);    	
     }
