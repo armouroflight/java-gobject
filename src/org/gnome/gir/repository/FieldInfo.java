@@ -23,9 +23,12 @@
 
 package org.gnome.gir.repository;
 
-import com.sun.jna.PointerType;
 
-public class FieldInfo extends PointerType {
+public class FieldInfo extends BaseInfo {
+	protected FieldInfo(Initializer init) {
+		super(init);
+	}
+
 	public FieldInfoFlags getFlags() {
 		return Repository.getNativeLibrary().g_field_info_get_flags(this);
 	}
