@@ -541,6 +541,8 @@ public abstract class GObject extends RefCountedObject {
                 
                 return method.invoke(closure, methodParameters);
             } catch (Throwable t) {
+            	System.err.println("Signal invocation failed");
+            	t.printStackTrace();
                 return Integer.valueOf(0);
             }
         }
