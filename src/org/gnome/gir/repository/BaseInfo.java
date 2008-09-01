@@ -21,6 +21,8 @@ public class BaseInfo extends RefCountedObject {
 			return new EnumInfo(init);
 		if (itype == InfoType.FLAGS.ordinal())
 			return new FlagsInfo(init);
+		if (itype == InfoType.FIELD.ordinal())
+			return new FieldInfo(init);		
 		if (itype == InfoType.OBJECT.ordinal())
 			return new ObjectInfo(init);
 		if (itype == InfoType.FUNCTION.ordinal())
