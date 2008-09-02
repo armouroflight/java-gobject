@@ -52,6 +52,8 @@ import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.Union;
 import com.sun.jna.ptr.PointerByReference;
 
 /**
@@ -177,4 +179,37 @@ public interface GlibAPI extends Library {
             return valueOf(_prev);
         }
     }
+    
+    public static final class GMutex extends Structure {
+    	
+    }
+    
+    /* FIXME - this only works on POSIX */
+    public static final class GStaticMutex extends Structure
+    {
+      GMutex runtime_mutex;
+      public static final class StaticMutex extends Union {
+        public byte pad[] = new byte[40];
+        public double dummy_double;
+        Pointer dummy_pointer;
+        long dummy_long;
+      };
+      StaticMutex static_mutex;
+    };
+ 
+    public static final class GSystemThread extends Union
+    {
+      public char   data[] = new char[8];
+      public double dummy_double;
+      public Pointer dummy_pointer;
+      public long   dummy_long;
+    };
+    
+    public static final class GStaticRecMutex extends Structure
+    {
+      /*< private >*/
+      public GStaticMutex mutex;
+      public int depth;
+      public GSystemThread owner;
+    };
 }

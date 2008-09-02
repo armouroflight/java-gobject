@@ -45,13 +45,15 @@
 
 package org.gnome.gir.gobject;
 
+import java.util.HashMap;
+
+import org.gnome.gir.gobject.GObjectAPI.GClosureNotify;
+
 import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
-import java.util.HashMap;
-
-import org.gnome.gir.gobject.GObjectAPI.GClosureNotify;
+import com.sun.jna.Structure;
 
 /**
  *
@@ -89,4 +91,12 @@ public interface GSignalAPI extends Library {
     
     // Do nothing, but provide a base Callback class that gets automatic type conversion
     public static interface GSignalCallbackProxy extends com.sun.jna.CallbackProxy {}
+    
+    public static final class GSignalInvocationHint extends Structure
+    {
+      public int		signal_id;
+      public GQuark	detail;
+      public int	run_type;
+    };
+    
 }

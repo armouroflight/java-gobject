@@ -120,20 +120,53 @@ public class CodeFactory {
 			put("GLib.OptionEntry", "org/gnome/gir/gobject/GOptionEntry");
 			put("GLib.String", "org/gnome/gir/gobject/GString");	
 			put("GLib.Callback", "com/sun/jna/Callback");
+			put("GLib.Mutex", "org/gnome/gir/gobject/GLibAPI$GMutex");
+			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");			
 			
-			String[] glibUnmapped = new String[] { "Mutex", "Cond" };
-			for (String unmapped : glibUnmapped)
-				put("GLib." + unmapped, "com/sun/jna/Pointer");			
+			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
+					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
+					"ThreadPool", "Source", "CompareDataFunc",  };
+			for (String unmapped : glibPointerUnmapped)
+				put("GLib." + unmapped, "com/sun/jna/Pointer");
+			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
+			for (String unmapped : glibIntegerUnmapped)
+				put("GLib." + unmapped, "java/lang/integer");			
 			
 			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
 			put("GObject.Object", "org/gnome/gir/gobject/GObject");
 			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
 			put("GObject.Type", "org/gnome/gir/gobject/GType");
+			put("GObject.Value", "org/gnome/gir/gobject/GValue");			
 			put("GObject.TypePlugin", "org/gnome/gir/gobject/GTypePlugin");
-			put("GObject.TypeModule", "org/gnome/gir/gobject/GTypeModule");					
-			put("GObject.ObjectClass", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
+			put("GObject.TypeModule", "org/gnome/gir/gobject/GTypeModule");	
+			put("GObject.TypeClass", "org/gnome/gir/gobject/GObjectAPI$GTypeClass");			
+			put("GObject.TypeQuery", "org/gnome/gir/gobject/GObjectAPI$GTypeQuery");
+			put("GObject.TypeInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeInfo");
+			put("GObject.InterfaceInfo", "org/gnome/gir/gobject/GObjectAPI$GInterfaceInfo");
+			put("GObject.TypeValueTable", "org/gnome/gir/gobject/GObjectAPI$GTypeValueTable");			
+			put("GObject.TypeFundamentalInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeFundamentalInfo");			
+			put("GObject.Class", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
+			put("GObject.InitiallyUnownedClass", "org/gnome/gir/gobject/GObjectAPI$GInitiallyUnownedClass");			
 			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");
 			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
+			put("GObject.TypeInterface", "org/gnome/gir/gobject/GObjectAPI$GTypeInterface");			
+			put("GObject.String", "org/gnome/gir/gobject/GString");
+			put("GObject.Closure", "org/gnome/gir/gobject/GClosure");			
+			put("GObject.SignalInvocationHint", "org/gnome/gir/gobject/GSignalAPI$GSignalInvocationHint");			
+			put("GObject.EnumValue", "org/gnome/gir/gobject/GObjectAPI$GEnumValue");
+			put("GObject.EnumClass", "org/gnome/gir/gobject/GObjectAPI$GEnumClass");			
+			put("GObject.FlagsValue", "org/gnome/gir/gobject/GObjectAPI$GFlagsValue");
+			put("GObject.FlagsClass", "org/gnome/gir/gobject/GObjectAPI$GFlagsClass");
+			
+			String[] gobjectUnmapped = new String[] { "Callback", "BaseInitFunc", "InstanceInitFunc", 
+					"SignalAccumulator", "ClosureMarshal", "ClassInitFunc", "SignalEmissionHook",
+					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc" };
+			for (String unmapped : gobjectUnmapped)
+				put("GObject." + unmapped, "com/sun/jna/Pointer");
+			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType", 
+					"TypeFlags", "ParamFlags"  };
+			for (String unmapped : gobjectIntegerUnmapped)
+				put("GObject." + unmapped, "java/lang/integer");				
 			
 			for (String name : new String[] { "Context" }) {
 				put("Cairo." + name, "com/sun/jna/Pointer");
@@ -166,7 +199,10 @@ public class CodeFactory {
 		/* Unfortunately, flags are best mapped as plain Integer  for now */
 		if (info instanceof FlagsInfo)
 			return Type.getObjectType("java/lang/Integer");
-		return Type.getObjectType(getInternalNameMapped(info.getNamespace(), info.getName()));		
+		String internalName = getInternalNameMapped(info.getNamespace(), info.getName());
+		if (internalName != null)
+			return Type.getObjectType(internalName);
+		return null;
 	}	
 	
 	public Type toJava(TypeInfo type) {	
@@ -327,6 +363,8 @@ public class CodeFactory {
 		String val = overrides.get(key);
 		if (val != null)
 			return val;
+		if (namespace.equals("GLib") || namespace.equals("GObject"))
+			throw new RuntimeException(String.format("Unmapped internal ns=%s name=%s", namespace, name));
 		return getInternalName(namespace, name);
 	}
 	

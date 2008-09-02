@@ -51,6 +51,7 @@ import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
 
 /**
  *
@@ -191,6 +192,9 @@ public interface GObjectAPI extends Library {
         }
     }
     
+    public static final class GInitiallyUnownedClass extends Structure {
+    	private GInitiallyUnownedClass() {}
+    }
     
     public static interface GBaseInitFunc extends Callback {
         public void callback(Pointer g_class);
@@ -236,6 +240,38 @@ public interface GObjectAPI extends Library {
         public volatile /* GTypeValueTable */ Pointer value_table;                
     }
     
+    public static final class GTypeFundamentalInfo extends Structure
+    {
+      public int type_flags;
+    };
+    
+    public static final class GInterfaceInfo extends Structure
+    {
+      public Pointer     interface_init;
+      public Pointer interface_finalize;
+      public Pointer interface_data;
+    };
+    
+    public static final class GTypeInterface extends Structure {
+      /*< private >*/
+      public GType g_type;         /* iface type */
+      public GType g_instance_type;
+    };
+    
+    public static final class GTypeValueTable
+    {
+      public Pointer value_init;
+      public Pointer value_free;
+      public Pointer value_copy;
+      /* varargs functionality (optional) */
+      public Pointer value_peek_pointer;
+      public String collect_format;
+      public Pointer collect_value;
+      public String lcopy_format;
+      public Pointer lcopy_value;
+    };
+    
+    
     static class GParamSpec extends com.sun.jna.Structure {
         public volatile GTypeInstance g_type_instance;
         public volatile String g_name;
@@ -258,4 +294,97 @@ public interface GObjectAPI extends Library {
     	public static final int SIGNALS = 1 << 1;
     	public static final int MASK = 0x03;    
     }
+    
+    /**
+     * GEnumClass:
+     * @g_type_class: the parent class
+     * @minimum: the smallest possible value.
+     * @maximum: the largest possible value.
+     * @n_values: the number of possible values.
+     * @values: an array of #GEnumValue structs describing the 
+     *  individual values.
+     * 
+     * The class of an enumeration type holds information about its 
+     * possible values.
+     */
+    public static final class GEnumClass extends Structure
+    {
+      public GTypeClass  g_type_class;
+
+      /*< public >*/  
+      public int	      minimum;
+      public int	      maximum;
+      public int	      n_values;
+      public GEnumValue[]  values;
+    };
+    /**
+     * GFlagsClass:
+     * @g_type_class: the parent class
+     * @mask: a mask covering all possible values.
+     * @n_values: the number of possible values.
+     * @values: an array of #GFlagsValue structs describing the 
+     *  individual values.
+     * 
+     * The class of a flags type holds information about its 
+     * possible values.
+     */
+    public static final class GFlagsClass extends Structure
+    {
+      public GTypeClass   g_type_class;
+      
+      /*< public >*/  
+      public int	       mask;
+      public int	       n_values;
+      public GFlagsValue[] values;
+    };
+    /**
+     * GEnumValue:
+     * @value: the enum value
+     * @value_name: the name of the value
+     * @value_nick: the nickname of the value
+     * 
+     * A structure which contains a single enum value, it's name, and it's
+     * nickname.
+     */
+    public static final class GEnumValue extends Structure
+    {
+      public int	 value;
+      public String value_name;
+      public String value_nick;
+    };
+    /**
+     * GFlagsValue:
+     * @value: the flags value
+     * @value_name: the name of the value
+     * @value_nick: the nickname of the value
+     * 
+     * A structure which contains a single flags value, it's name, and it's
+     * nickname.
+     */
+    public static final class GFlagsValue extends Structure
+    {
+      public int	 value;
+      public String value_name;
+      public String value_nick;
+    };
+    
+    /**
+     * GTypeQuery:
+     * @type: the #GType value of the type.
+     * @type_name: the name of the type.
+     * @class_size: the size of the class structure.
+     * @instance_size: the size of the instance structure.
+     * 
+     * A structure holding information for a specific type. It is
+     * filled in by the g_type_query() function.
+     */
+    public static final class GTypeQuery extends Structure
+    {
+      public GType		type;
+      public String type_name;
+      public int		class_size;
+      public int		instance_size;
+    };
+    
+    
 }
