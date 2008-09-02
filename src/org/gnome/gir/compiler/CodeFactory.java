@@ -465,41 +465,18 @@ public class CodeFactory {
 			return publicName;
 		}
 	}
-	
-	private class InfoCompilation {
-		public ClassCompilation peer;
-		public ClassCompilation api;
-		
-		private Set<String> definedApiSymbols = new HashSet<String>();
-		
-		protected InfoCompilation(ClassCompilation peer, ClassCompilation api) {
-			this.peer = peer;
-			this.api = api;
-		}
-		
-		public boolean tryDefineApi(String symbol, String descriptor) {
-			String dualString = symbol + "/" + descriptor;
-			if (definedApiSymbols.contains(dualString))
-				return false;
-			definedApiSymbols.add(dualString);
-			return true;
-		}
-	}
 
-	public InfoCompilation getCompilation(String namespace, String name) {
+	public ClassCompilation getCompilation(String namespace, String name) {
 		String peerInternalName = getInternalName(namespace, name);
-		InfoCompilation ret = writers.get(peerInternalName);
+		ClassCompilation ret = writers.get(peerInternalName);
 		if (ret == null) {
-			String peerName = name + "$1";
-			ClassCompilation peer = new ClassCompilation(namespace, name);
-			ClassCompilation api = new ClassCompilation(namespace, peerName);
-			ret = new InfoCompilation(peer, api);
+			ret = new ClassCompilation(namespace, name);
 			writers.put(peerInternalName, ret);
 		}
 		return ret;
 	}	
 	
-	public InfoCompilation getCompilation(BaseInfo info) {
+	public ClassCompilation getCompilation(BaseInfo info) {
 		return getCompilation(info.getNamespace(), info.getName());
 	}
 	
@@ -507,7 +484,7 @@ public class CodeFactory {
 		return getInternalName(namespace, namespace+"Globals");
 	}
 	
-	public InfoCompilation getGlobals(String namespace) {
+	public ClassCompilation getGlobals(String namespace) {
 		return getCompilation(namespace, namespace + "Globals");
 	}
 	
@@ -515,7 +492,7 @@ public class CodeFactory {
 		return getGlobalsName(info.getNamespace()) + "$Internals";
 	}
 	
-	public InfoCompilation getCompilation(FunctionInfo info) {
+	public ClassCompilation getCompilation(FunctionInfo info) {
 		return getGlobals(info.getNamespace());
 	}		
 	
@@ -523,8 +500,8 @@ public class CodeFactory {
 	private final Set<String> alreadyCompiled = new HashSet<String>();
 	private final Set<String> loadFailed = new HashSet<String>();
 	private final Set<String> pendingCompilation = new HashSet<String>();	
-	private final Map<String, InfoCompilation> writers = new HashMap<String, InfoCompilation>();
-	private final Map<String, InfoCompilation> globals = new HashMap<String, InfoCompilation>();
+	private final Map<String, ClassCompilation> writers = new HashMap<String, ClassCompilation>();
+	private final Map<String, ClassCompilation> globals = new HashMap<String, ClassCompilation>();
 	private final Map<String,String> namespaceShlibMapping = new HashMap<String, String>();
 	
 	private CodeFactory(Repository repo) {
@@ -553,26 +530,26 @@ public class CodeFactory {
 	}
 	
 	private void compile(EnumInfo info) {
-		InfoCompilation compilation = getCompilation(info);
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.peer.internalName, 
-				"Ljava/lang/Enum<L" + compilation.peer.internalName + ";>;", "java/lang/Enum", null);
+		ClassCompilation compilation = getCompilation(info);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.internalName, 
+				"Ljava/lang/Enum<L" + compilation.internalName + ";>;", "java/lang/Enum", null);
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			String name = enumNameToUpper(valueInfo.getName());			
-			FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC + ACC_ENUM, 
-						name, "L" + compilation.peer.internalName + ";", null, null);
+			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC + ACC_ENUM, 
+						name, "L" + compilation.internalName + ";", null, null);
 			fv.visitEnd();				
 		}
 		
 		/* And now a HUGE chunk of stuff to comply with the enum spec */
 		
-		String arrayDescriptor = "[L" + compilation.peer.internalName + ";";		
+		String arrayDescriptor = "[L" + compilation.internalName + ";";		
 		
-		FieldVisitor fv = compilation.peer.writer.visitField(ACC_PRIVATE + ACC_FINAL + ACC_STATIC + ACC_SYNTHETIC, 
+		FieldVisitor fv = compilation.writer.visitField(ACC_PRIVATE + ACC_FINAL + ACC_STATIC + ACC_SYNTHETIC, 
 				"ENUM$VALUES", arrayDescriptor, null, null);
 		fv.visitEnd();
 		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -587,44 +564,44 @@ public class CodeFactory {
 		mv.visitMaxs(3, 3);
 		mv.visitEnd();		
 		
-		mv = compilation.peer.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+		mv = compilation.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
 		int i = 0;
 		for (ValueInfo valueInfo : values) {
 			String name = enumNameToUpper(valueInfo.getName());
-			mv.visitTypeInsn(NEW, compilation.peer.internalName);
+			mv.visitTypeInsn(NEW, compilation.internalName);
 			mv.visitInsn(DUP);
 			mv.visitLdcInsn(name);
 			mv.visitIntInsn(BIPUSH, i);
 			i++;
-			mv.visitMethodInsn(INVOKESPECIAL, compilation.peer.internalName, "<init>", "(Ljava/lang/String;I)V");
-			mv.visitFieldInsn(PUTSTATIC, compilation.peer.internalName, 
-						name, "L" + compilation.peer.internalName+ ";");			
+			mv.visitMethodInsn(INVOKESPECIAL, compilation.internalName, "<init>", "(Ljava/lang/String;I)V");
+			mv.visitFieldInsn(PUTSTATIC, compilation.internalName, 
+						name, "L" + compilation.internalName+ ";");			
 		}
 		mv.visitIntInsn(BIPUSH, values.length);
-		mv.visitTypeInsn(ANEWARRAY, compilation.peer.internalName);
+		mv.visitTypeInsn(ANEWARRAY, compilation.internalName);
 		i = 0;
 		for (ValueInfo valueInfo : values) {
 			String name = enumNameToUpper(valueInfo.getName());			
 			mv.visitInsn(DUP);			
 			mv.visitIntInsn(BIPUSH, i);
 			i++;
-			mv.visitFieldInsn(GETSTATIC, compilation.peer.internalName, name, 
-						"L" + compilation.peer.internalName + ";");
+			mv.visitFieldInsn(GETSTATIC, compilation.internalName, name, 
+						"L" + compilation.internalName + ";");
 			mv.visitInsn(AASTORE);			
 		}
-		mv.visitFieldInsn(PUTSTATIC, compilation.peer.internalName, "ENUM$VALUES", arrayDescriptor);
+		mv.visitFieldInsn(PUTSTATIC, compilation.internalName, "ENUM$VALUES", arrayDescriptor);
 		mv.visitInsn(RETURN);
 		mv.visitMaxs(4, 0);
 		mv.visitEnd();	
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "values", "()" + arrayDescriptor, null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "values", "()" + arrayDescriptor, null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
-		mv.visitFieldInsn(GETSTATIC, compilation.peer.internalName, "ENUM$VALUES", arrayDescriptor);
+		mv.visitFieldInsn(GETSTATIC, compilation.internalName, "ENUM$VALUES", arrayDescriptor);
 		mv.visitInsn(DUP);
 		mv.visitVarInsn(ASTORE, 0);
 		mv.visitInsn(ICONST_0);
@@ -632,7 +609,7 @@ public class CodeFactory {
 		mv.visitInsn(ARRAYLENGTH);
 		mv.visitInsn(DUP);
 		mv.visitVarInsn(ISTORE, 1);
-		mv.visitTypeInsn(ANEWARRAY, compilation.peer.internalName);
+		mv.visitTypeInsn(ANEWARRAY, compilation.internalName);
 		mv.visitInsn(DUP);
 		mv.visitVarInsn(ASTORE, 2);
 		mv.visitInsn(ICONST_0);
@@ -643,31 +620,31 @@ public class CodeFactory {
 		mv.visitMaxs(5, 3);
 		mv.visitEnd();
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "valueOf", "(Ljava/lang/String;)L" + compilation.peer.internalName + ";", null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "valueOf", "(Ljava/lang/String;)L" + compilation.internalName + ";", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
-		mv.visitLdcInsn(Type.getType("L" + compilation.peer.internalName + ";"));
+		mv.visitLdcInsn(Type.getType("L" + compilation.internalName + ";"));
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitMethodInsn(INVOKESTATIC, "java/lang/Enum", "valueOf", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;");
-		mv.visitTypeInsn(CHECKCAST, compilation.peer.internalName);
+		mv.visitTypeInsn(CHECKCAST, compilation.internalName);
 		mv.visitInsn(ARETURN);
 		mv.visitMaxs(2, 1);
 		mv.visitEnd();		
 		
-		compilation.peer.close();
+		compilation.close();
 	}
 	
 	private void compile(FlagsInfo info) {
-		InfoCompilation compilation = getCompilation(info);
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, compilation.peer.internalName, null, "java/lang/Object", null);
+		ClassCompilation compilation = getCompilation(info);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, compilation.internalName, null, "java/lang/Object", null);
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
-			FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
+			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
 						enumNameToUpper(valueInfo.getName()), "J", null, valueInfo.getValue());
 			fv.visitEnd();				
 		}
-		compilation.peer.close();
+		compilation.close();
 	}	
 	
 	private String ucaseToCamel(String ucase) {
@@ -687,16 +664,16 @@ public class CodeFactory {
 		return Character.toUpperCase(camel.charAt(0)) + camel.substring(1);
 	}	
 	
-	private void compileDefaultConstructor(ObjectInfo info, InfoCompilation compilation) {		
+	private void compileDefaultConstructor(ObjectInfo info, ClassCompilation compilation) {		
 		BaseInfo parent = info.getParent(); 
 		String parentInternalType = getInternalNameMapped(parent);
 		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
-		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
 		mv.visitInsn(ACONST_NULL);
 		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V");
 		Label l1 = new Label();
@@ -704,16 +681,16 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		Label l2 = new Label();
 		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitMaxs(3, 1);
 		mv.visitEnd();
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "([Ljava/lang/Object;)V", null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "([Ljava/lang/Object;)V", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
-		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
 		mv.visitVarInsn(ALOAD, 1);
 		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V");
 		l1 = new Label();
@@ -721,18 +698,18 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		l2 = new Label();
 		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l0, l2, 1);
 		mv.visitMaxs(3, 2);
 		mv.visitEnd();
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/Map;)V", 
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/Map;)V", 
 				"(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
-		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "getGType", "()Lorg/gnome/gir/gobject/GType;");
 		mv.visitVarInsn(ALOAD, 1);
 		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V");
 		l1 = new Label();
@@ -740,12 +717,12 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		l2 = new Label();
 		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 1);
 		mv.visitMaxs(3, 2);
 		mv.visitEnd();		
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V", null, null);
+		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
@@ -758,13 +735,13 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		l2 = new Label();
 		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("gtype", "Lorg/gnome/gir/gobject/GType;", null, l0, l2, 1);		
 		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l0, l2, 2);
 		mv.visitMaxs(3, 3);
 		mv.visitEnd();
 		
-		mv = compilation.peer.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V", 
+		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V", 
 				"(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
 		mv.visitCode();
 		l0 = new Label();
@@ -778,14 +755,14 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		l2 = new Label();
 		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("gtype", "Lorg/gnome/gir/gobject/GType;", null, l0, l2, 1);		
 		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 2);
 		mv.visitMaxs(3, 3);
 		mv.visitEnd();		
 	}
 	
-	private void compileStaticConstructor(ObjectInfo info, InfoCompilation compilation, FunctionInfo fi) {	
+	private void compileStaticConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
@@ -795,11 +772,11 @@ public class CodeFactory {
 		int nArgs = args.size();
 		
 		String name = ucaseToCamel(fi.getName());
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
-		mv.visitTypeInsn(NEW, compilation.peer.internalName);
+		mv.visitTypeInsn(NEW, compilation.internalName);
 		mv.visitInsn(DUP);
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "library", "Lcom/sun/jna/NativeLibrary;");
 		mv.visitLdcInsn(fi.getSymbol());
@@ -816,9 +793,9 @@ public class CodeFactory {
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
 		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", "(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		mv.visitTypeInsn(CHECKCAST, "com/sun/jna/Pointer");
-		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "initializer", 
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "initializer", 
 			"(Lcom/sun/jna/Pointer;)Lorg/gnome/gir/gobject/Handle$Initializer;");		
-		mv.visitMethodInsn(INVOKESPECIAL, compilation.peer.internalName, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
+		mv.visitMethodInsn(INVOKESPECIAL, compilation.internalName, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
 		mv.visitInsn(ARETURN);
 		Label l4 = new Label();
 		mv.visitLabel(l4);
@@ -829,7 +806,7 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}	
 	
-	private void compileConstructor(ObjectInfo info, InfoCompilation compilation, FunctionInfo fi) {	
+	private void compileConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
@@ -840,7 +817,7 @@ public class CodeFactory {
 		
 		int nArgs = args.size();
 		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -862,7 +839,7 @@ public class CodeFactory {
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
 		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", "(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		mv.visitTypeInsn(CHECKCAST, "com/sun/jna/Pointer");
-		mv.visitMethodInsn(INVOKESTATIC, compilation.peer.internalName, "initializer", 
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "initializer", 
 			"(Lcom/sun/jna/Pointer;)Lorg/gnome/gir/gobject/Handle$Initializer;");		
 		mv.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
 		Label l3 = new Label();
@@ -870,7 +847,7 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		Label l4 = new Label();
 		mv.visitLabel(l4);
-		mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l4, 0);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l4, 0);
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitLocalVariable(argInfos[i].getName(), args.get(i).toString(), null, l0, l3, i+1);
 		}
@@ -878,17 +855,17 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}
 	
-	private void compileSignal(ObjectInfo info, InfoCompilation compilation, CallableCompilationContext ctx, SignalInfo sig) {
+	private void compileSignal(ObjectInfo info, ClassCompilation compilation, CallableCompilationContext ctx, SignalInfo sig) {
 		String rawSigName = sig.getName();
 		String sigName = rawSigName.replace('-', '_');
 		String sigClass = ucaseToPascal(sigName);
 		String sigHandlerName = "on" + sigClass;
-		InnerClassCompilation sigCompilation = compilation.peer.newInner(sigClass);
-		compilation.peer.writer.visitInnerClass(sigCompilation.internalName, compilation.peer.internalName, sigClass, 
+		InnerClassCompilation sigCompilation = compilation.newInner(sigClass);
+		compilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, sigClass, 
 				ACC_PUBLIC + ACC_ABSTRACT + ACC_STATIC + ACC_INTERFACE);
 		sigCompilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, 
 				sigCompilation.internalName, null, "java/lang/Object", new String[] { "org/gnome/gir/gobject/Closure" });
-		sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.peer.internalName, 
+		sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, 
 				sigClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
 		
 		
@@ -902,18 +879,18 @@ public class CodeFactory {
 		mv.visitEnd();
 		
 		/* public final long connect(SIGCLASS proxy) */
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_FINAL, "connect", "(L"+ sigCompilation.internalName + ";)J", null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_FINAL, "connect", "(L"+ sigCompilation.internalName + ";)J", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitLdcInsn(rawSigName);
 		mv.visitVarInsn(ALOAD, 1);
-		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.peer.internalName, "connect", "(Ljava/lang/String;Lorg/gnome/gir/gobject/Closure;)J");
+		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connect", "(Ljava/lang/String;Lorg/gnome/gir/gobject/Closure;)J");
 		mv.visitInsn(LRETURN);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L"+ compilation.peer.internalName + ";", null, l0, l1, 0);
+		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l1, 0);
 		mv.visitLocalVariable("c", "L" + sigCompilation.internalName + ";", null, l0, l1, 1);
 		mv.visitMaxs(3, 2);
 		mv.visitEnd();
@@ -923,7 +900,7 @@ public class CodeFactory {
 		
 	private void compile(ObjectInfo info) {
 		Label l0, l1, l2;
-		InfoCompilation compilation = getCompilation(info);
+		ClassCompilation compilation = getCompilation(info);
 		
 		if (info.getNamespace().equals("GObject") && info.getName().equals("Object"))
 			return;
@@ -944,7 +921,7 @@ public class CodeFactory {
 			interfaces[i] = getInternalNameMapped(giInterfaces[i]);
 		}
 		
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, parentInternalName, interfaces);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, parentInternalName, interfaces);
 		
 		for (SignalInfo sig : info.getSignals()) {
 			CallableCompilationContext ctx = tryCompileCallable(sig);
@@ -957,7 +934,7 @@ public class CodeFactory {
 		
 		writeGetGType(info, compilation);
 		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
@@ -1033,15 +1010,15 @@ public class CodeFactory {
 				writeCallable(ACC_PUBLIC, info, compilation, fi, ctx);
 			}
 		}
-		compilation.peer.close();	
+		compilation.close();	
 	}
 	
 	private void compile(InterfaceInfo info) {
-		InfoCompilation compilation = getCompilation(info);
+		ClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
 		
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", null);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", null);
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : info.getMethods()) {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
@@ -1049,10 +1026,10 @@ public class CodeFactory {
 				continue;			
 			String name = ucaseToCamel(fi.getName());
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
-			MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, null, null);
+			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, null, null);
 			mv.visitEnd();			
 		}
-		compilation.peer.close();	
+		compilation.close();	
 	}
 	
 	private static final class CallableCompilationContext {
@@ -1122,7 +1099,7 @@ public class CodeFactory {
 	}
 	
 	private void writeCallable(int accessFlags,
-			RegisteredTypeInfo parent, InfoCompilation compilation, FunctionInfo fi,
+			RegisteredTypeInfo parent, ClassCompilation compilation, FunctionInfo fi,
 			CallableCompilationContext ctx) {
 		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
 		String name = ucaseToCamel(fi.getName());
@@ -1131,7 +1108,7 @@ public class CodeFactory {
 		if (ctx.throwsGError) {
 			exceptions = new String[] { "org/gnome/gir/gobject/GErrorException" };
 		}
-		MethodVisitor mv = compilation.peer.writer.visitMethod(accessFlags, 
+		MethodVisitor mv = compilation.writer.visitMethod(accessFlags, 
 				name, descriptor, null, exceptions);
 		
 		String globalInternalsName = getInternals(fi);
@@ -1171,7 +1148,7 @@ public class CodeFactory {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, 0);
 			mv.visitVarInsn(ALOAD, 0);
-			mv.visitMethodInsn(INVOKEVIRTUAL, compilation.peer.internalName, "handle", "()Lcom/sun/jna/Pointer;");
+			mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "handle", "()Lcom/sun/jna/Pointer;");
 			mv.visitMethodInsn(INVOKESTATIC, getInternalName(ctx.targetInterface), 
 					"getGType", "()Lorg/gnome/gir/gobject/GType;");
 			mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeInstance", 
@@ -1240,7 +1217,7 @@ public class CodeFactory {
 		Label l4 = new Label();
 		mv.visitLabel(l4);
 		if (includeThis) 
-			mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l4, 0);
+			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l4, 0);
 		int off = includeThis ? 1 : 0;
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitLocalVariable(ctx.args[i+off].getName(), ctx.argTypes.get(i).toString(), null, l0, l4, i+off);		
@@ -1253,9 +1230,9 @@ public class CodeFactory {
 		mv.visitMaxs(8, errorOffset+1);
 	}
 
-	private void writeGetGType(RegisteredTypeInfo rti, InfoCompilation compilation) {
+	private void writeGetGType(RegisteredTypeInfo rti, ClassCompilation compilation) {
 		String globalInternalsName = getInternals(rti);		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "getGType", "()Lorg/gnome/gir/gobject/GType;", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "getGType", "()Lorg/gnome/gir/gobject/GType;", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -1273,7 +1250,7 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}
 	
-	private void compileGlobal(InfoCompilation compilation, FunctionInfo fi,
+	private void compileGlobal(ClassCompilation compilation, FunctionInfo fi,
 			Set<String> globalSigs) {
 		CallableCompilationContext ctx = tryCompileCallable(fi, globalSigs);
 		if (ctx == null)
@@ -1283,25 +1260,25 @@ public class CodeFactory {
 	
 	private void compile(StructInfo info) {
 		MethodVisitor mv;
-		InfoCompilation compilation = getCompilation(info);
+		ClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "com/sun/jna/Structure", null);	
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "com/sun/jna/Structure", null);	
 		
-		InnerClassCompilation byRef = compilation.peer.newInner("ByReference");				
-		compilation.peer.writer.visitInnerClass(compilation.peer.internalName + "$ByReference",
-				compilation.peer.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
+		InnerClassCompilation byRef = compilation.newInner("ByReference");				
+		compilation.writer.visitInnerClass(compilation.internalName + "$ByReference",
+				compilation.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
 		byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
-				byRef.internalName, null, compilation.peer.internalName, new String[] { "com/sun/jna/Structure$ByReference"});
+				byRef.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByReference"});
 		
-		InnerClassCompilation byValue = compilation.peer.newInner("ByValue");				
-		compilation.peer.writer.visitInnerClass(compilation.peer.internalName + "$ByValue",
-				compilation.peer.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
+		InnerClassCompilation byValue = compilation.newInner("ByValue");				
+		compilation.writer.visitInnerClass(compilation.internalName + "$ByValue",
+				compilation.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
 		byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
-				byValue.internalName, null, compilation.peer.internalName, new String[] { "com/sun/jna/Structure$ByValue"});		
+				byValue.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByValue"});		
 		
 		/* constructor */
-		mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -1310,7 +1287,7 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l1, 0);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 		mv.visitMaxs(1, 1);
 		mv.visitEnd();		
 		
@@ -1327,20 +1304,20 @@ public class CodeFactory {
 			Type type = toJava(fi);
 			if (type.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
 				type = Type.getType(Pointer.class);
-			FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC, name, type.getDescriptor(), null, null);
+			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, type.getDescriptor(), null, null);
 			fv.visitEnd();				
 		}
 		
-		compilation.peer.close();
+		compilation.close();
 	}
 	
 	private void compile(BoxedInfo info) {
-		InfoCompilation compilation = getCompilation(info);
+		ClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "org/gnome/gir/gobject/GBoxed", null);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "org/gnome/gir/gobject/GBoxed", null);
 		
-		MethodVisitor mv = compilation.peer.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -1350,32 +1327,32 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L" + compilation.peer.internalName + ";", null, l0, l1, 0);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 		mv.visitMaxs(1, 1);
 		mv.visitEnd();			
 		
-		compilation.peer.close();	
+		compilation.close();	
 	}
 	
 	private void compile(CallbackInfo info) {
 		MethodVisitor mv;		
-		InfoCompilation compilation = getCompilation(info);
+		ClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
-		compilation.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
 				new String[] { "com/sun/jna/Callback" });
 		
 		CallableCompilationContext ctx = tryCompileCallable(info);
 		
-		FieldVisitor fv = compilation.peer.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;", null, null);
+		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;", null, null);
 		fv.visitEnd();
 		
-		mv = compilation.peer.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+		mv = compilation.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance", "()Lorg/gnome/gir/gobject/GTypeMapper;");
-		mv.visitFieldInsn(PUTSTATIC, compilation.peer.internalName, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;");
+		mv.visitFieldInsn(PUTSTATIC, compilation.internalName, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;");
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitInsn(RETURN);
@@ -1384,12 +1361,12 @@ public class CodeFactory {
 		
 		if (ctx != null) {
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));			
-			mv = compilation.peer.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, 
+			mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, 
 					"callback", descriptor, null, null);
 			mv.visitEnd();
 		}
 		
-		compilation.peer.close();	
+		compilation.close();	
 	}	
 	
 	private boolean requireNamespaceOf(BaseInfo info) {
@@ -1440,18 +1417,18 @@ public class CodeFactory {
 		}		
 	}
 	
-	private void initGlobalsClass(InfoCompilation globals) {
+	private void initGlobalsClass(ClassCompilation globals) {
 		Label l0, l1, l2, l3;
 		MethodVisitor mv;
 
 		/* We have two inner classes - one is Internals, and one is an anonymous HashMap inside Internals */
-		InnerClassCompilation internals = globals.peer.newInner("Internals");		
-		InnerClassCompilation internalsInner = globals.peer.newInner("Internals$1");
+		InnerClassCompilation internals = globals.newInner("Internals");		
+		InnerClassCompilation internalsInner = globals.newInner("Internals$1");
 
-		globals.peer.writer.visitInnerClass(internals.internalName, globals.peer.internalName, "Internals", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
+		globals.writer.visitInnerClass(internals.internalName, globals.internalName, "Internals", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
 		internals.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, 
 				internals.internalName, null, "java/lang/Object", null);
-		internals.writer.visitInnerClass(internals.internalName, globals.peer.internalName, "Internals", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);		
+		internals.writer.visitInnerClass(internals.internalName, globals.internalName, "Internals", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);		
 
 		internals.writer.visitInnerClass(internalsInner.internalName, null, null, 0);
 		internalsInner.writer.visit(V1_6, ACC_FINAL + ACC_SUPER, internalsInner.internalName,
@@ -1461,7 +1438,7 @@ public class CodeFactory {
 
 		
 		/* private constructor */
-		mv = globals.peer.writer.visitMethod(ACC_PRIVATE, "<init>", "()V", null, null);
+		mv = globals.writer.visitMethod(ACC_PRIVATE, "<init>", "()V", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
@@ -1470,7 +1447,7 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L" + globals.peer.internalName + ";", null, l0, l1, 0);
+		mv.visitLocalVariable("this", "L" + globals.internalName + ";", null, l0, l1, 0);
 		mv.visitMaxs(1, 1);
 		mv.visitEnd();
 		
@@ -1489,7 +1466,7 @@ public class CodeFactory {
 		};
 		*/		
 		
-		FieldVisitor fv = globals.peer.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "library", "Lcom/sun/jna/NativeLibrary;", null, null);
+		FieldVisitor fv = globals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "library", "Lcom/sun/jna/NativeLibrary;", null, null);
 		fv.visitEnd();		
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "library", "Lcom/sun/jna/NativeLibrary;", null, null);
@@ -1498,7 +1475,7 @@ public class CodeFactory {
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "repo", "Lorg/gnome/gir/repository/Repository;", null, null);
 		fv.visitEnd();
 
-		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "namespace", "Ljava/lang/String;", null, globals.peer.namespace);
+		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "namespace", "Ljava/lang/String;", null, globals.namespace);
 		fv.visitEnd();
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "invocationOptions", 
@@ -1510,9 +1487,9 @@ public class CodeFactory {
 		l0 = new Label();
 		mv.visitLabel(l0);
 		/* The JNA NativeLibrary expects it without the .so */
-		String shlib = repo.getSharedLibrary(globals.peer.namespace);
+		String shlib = repo.getSharedLibrary(globals.namespace);
 		if (shlib == null)
-			shlib = namespaceShlibMapping.get(globals.peer.namespace);
+			shlib = namespaceShlibMapping.get(globals.namespace);
 		if (shlib.endsWith(".so"))
 			shlib = shlib.substring(0, shlib.length()-3);
 		mv.visitLdcInsn(shlib);
@@ -1586,14 +1563,14 @@ public class CodeFactory {
 			throw new RuntimeException(e);
 		}
 		
-		InfoCompilation global = getGlobals(namespace);
-		global.peer.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, global.peer.internalName, null, "java/lang/Object", null);
+		ClassCompilation global = getGlobals(namespace);
+		global.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, global.internalName, null, "java/lang/Object", null);
 		initGlobalsClass(global);
 		globals.put(namespace, global);
 		
 		compileNamespaceComponents(namespace);
 		
-		global.peer.close();
+		global.close();
 	}	
 	
 	private List<StubClass> compileNamespace(String namespace) {
@@ -1604,10 +1581,10 @@ public class CodeFactory {
 	private List<StubClass> finish() {
 		logger.info("Compiled " + writers.size() + " info objects");		
 		List<StubClass> ret = new LinkedList<StubClass>();
-		for (InfoCompilation infoc : writers.values()) {
-			infoc.peer.close();
-			ret.add(infoc.peer);
-			for (InnerClassCompilation inner : infoc.peer.innerClasses) {
+		for (ClassCompilation infoc : writers.values()) {
+			infoc.close();
+			ret.add(infoc);
+			for (InnerClassCompilation inner : infoc.innerClasses) {
 				ret.add(inner);
 			}
 		}
