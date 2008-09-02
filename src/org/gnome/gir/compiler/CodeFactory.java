@@ -752,11 +752,13 @@ public class CodeFactory {
 
 		ArgInfo[] argInfos = fi.getArgs();
 		List<Type> args = getCallableArgs(fi, false, false);		 
-		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
+		String descriptor = Type.getMethodDescriptor(typeFromInfo(info), args.toArray(new Type[0]));
 		
 		int nArgs = args.size();
 		
 		String name = ucaseToCamel(fi.getName());
+		if (name.equals("new"))
+			name = "newDefault";
 		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, null, null);
 		mv.visitCode();
 		Label l0 = new Label();
