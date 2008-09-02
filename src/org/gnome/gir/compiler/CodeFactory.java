@@ -130,7 +130,7 @@ public class CodeFactory {
 				put("GLib." + unmapped, "com/sun/jna/Pointer");
 			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
 			for (String unmapped : glibIntegerUnmapped)
-				put("GLib." + unmapped, "java/lang/integer");			
+				put("GLib." + unmapped, "java/lang/Integer");			
 			
 			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
 			put("GObject.Object", "org/gnome/gir/gobject/GObject");
@@ -166,7 +166,7 @@ public class CodeFactory {
 			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType", 
 					"TypeFlags", "ParamFlags"  };
 			for (String unmapped : gobjectIntegerUnmapped)
-				put("GObject." + unmapped, "java/lang/integer");				
+				put("GObject." + unmapped, "java/lang/Integer");				
 			
 			for (String name : new String[] { "Context" }) {
 				put("Cairo." + name, "com/sun/jna/Pointer");
