@@ -378,59 +378,59 @@ public class CodeFactory {
 		return publicDynamicNamespace + namespace + "." + caps;
 	}
 	
-	public interface StubClass {
-		public String getNamespace();
-		public String getPublicName();
-		public byte[] getBytes();
-	}
-	
-	private static final class InnerClassCompilation implements StubClass {
+	private static abstract class ClassCompilation {
 		String namespace;
 		String baseName;
 		String internalName;
 		ClassWriter writer;
-		public InnerClassCompilation(String namespace, String baseName) {
+		public ClassCompilation(String namespace, String baseName) {
 			this.namespace = namespace;
 			this.baseName = baseName;
 			this.internalName = getInternalName(namespace, baseName);
 			this.writer = new ClassWriter(0);
 		}
-		@Override
+
 		public byte[] getBytes() {
 			return writer.toByteArray();
 		}
 		
-		@Override
 		public String getNamespace() {
 			return namespace;
 		}
 		
-		@Override
 		public String getPublicName() {
 			return CodeFactory.getPublicName(namespace, baseName);
 		}
+		
+		public abstract void close();
 	}	
 	
-	private static final class ClassCompilation implements StubClass {
-		ClassWriter writer;
-		Set<InnerClassCompilation> innerClasses;
-		String namespace;
-		String baseName;
-		String publicName;
-		String internalName;
-		private boolean closed = false;
-		
-		public ClassCompilation(String namespace,
-				String name) {
-			this.writer = new ClassWriter(0);
-			this.innerClasses = new HashSet<InnerClassCompilation>();
-			this.namespace = namespace;
-			this.baseName = name.substring(0, 1).toUpperCase() + name.substring(1);
-			this.publicName = CodeFactory.getPublicName(namespace, name);
-			this.internalName = getInternalName(namespace, name);
+	private static class InnerClassCompilation extends ClassCompilation {
+		public InnerClassCompilation(String namespace, String baseName) {
+			super(namespace, baseName);
+		}
+
+		@Override
+		public void close() {
+			throw new IllegalArgumentException();
 		}
 		
-		public InnerClassCompilation newInner() {
+	}
+	
+	private static final class StubClassCompilation extends ClassCompilation {
+		Set<InnerClassCompilation> innerClasses;
+		String publicName;
+		private boolean closed = false;
+		
+		public StubClassCompilation(String namespace,
+				String name) {
+			super(namespace, name);
+			this.innerClasses = new HashSet<InnerClassCompilation>();
+			this.baseName = name.substring(0, 1).toUpperCase() + name.substring(1);
+			this.publicName = CodeFactory.getPublicName(namespace, name);
+		}
+		
+		public ClassCompilation newInner() {
 			int size = innerClasses.size();
 			InnerClassCompilation cw = new InnerClassCompilation(namespace, baseName + "$" + size+1);
 			innerClasses.add(cw);
@@ -449,34 +449,19 @@ public class CodeFactory {
 				closed = true;
 			}
 		}
-
-		@Override
-		public byte[] getBytes() {
-			return writer.toByteArray();
-		}
-		
-		@Override
-		public String getNamespace() {
-			return namespace;
-		}
-
-		@Override
-		public String getPublicName() {
-			return publicName;
-		}
 	}
 
-	public ClassCompilation getCompilation(String namespace, String name) {
+	public StubClassCompilation getCompilation(String namespace, String name) {
 		String peerInternalName = getInternalName(namespace, name);
-		ClassCompilation ret = writers.get(peerInternalName);
+		StubClassCompilation ret = writers.get(peerInternalName);
 		if (ret == null) {
-			ret = new ClassCompilation(namespace, name);
+			ret = new StubClassCompilation(namespace, name);
 			writers.put(peerInternalName, ret);
 		}
 		return ret;
 	}	
 	
-	public ClassCompilation getCompilation(BaseInfo info) {
+	public StubClassCompilation getCompilation(BaseInfo info) {
 		return getCompilation(info.getNamespace(), info.getName());
 	}
 	
@@ -484,7 +469,7 @@ public class CodeFactory {
 		return getInternalName(namespace, namespace+"Globals");
 	}
 	
-	public ClassCompilation getGlobals(String namespace) {
+	public StubClassCompilation getGlobals(String namespace) {
 		return getCompilation(namespace, namespace + "Globals");
 	}
 	
@@ -500,8 +485,8 @@ public class CodeFactory {
 	private final Set<String> alreadyCompiled = new HashSet<String>();
 	private final Set<String> loadFailed = new HashSet<String>();
 	private final Set<String> pendingCompilation = new HashSet<String>();	
-	private final Map<String, ClassCompilation> writers = new HashMap<String, ClassCompilation>();
-	private final Map<String, ClassCompilation> globals = new HashMap<String, ClassCompilation>();
+	private final Map<String, StubClassCompilation> writers = new HashMap<String, StubClassCompilation>();
+	private final Map<String, StubClassCompilation> globals = new HashMap<String, StubClassCompilation>();
 	private final Map<String,String> namespaceShlibMapping = new HashMap<String, String>();
 	
 	private CodeFactory(Repository repo) {
@@ -509,8 +494,8 @@ public class CodeFactory {
 		this.alreadyCompiled.add("GLib");
 	}
 	
-	private static final Map<Repository,List<StubClass>> loadedRepositories 
-		= new WeakHashMap<Repository, List<StubClass>>();
+	private static final Map<Repository,List<ClassCompilation>> loadedRepositories 
+		= new WeakHashMap<Repository, List<ClassCompilation>>();
 	
 	private static String getInternalName(BaseInfo info) {
 		return getInternalName(info.getNamespace(), info.getName());
@@ -855,7 +840,7 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}
 	
-	private void compileSignal(ObjectInfo info, ClassCompilation compilation, CallableCompilationContext ctx, SignalInfo sig) {
+	private void compileSignal(ObjectInfo info, StubClassCompilation compilation, CallableCompilationContext ctx, SignalInfo sig) {
 		String rawSigName = sig.getName();
 		String sigName = rawSigName.replace('-', '_');
 		String sigClass = ucaseToPascal(sigName);
@@ -900,7 +885,7 @@ public class CodeFactory {
 		
 	private void compile(ObjectInfo info) {
 		Label l0, l1, l2;
-		ClassCompilation compilation = getCompilation(info);
+		StubClassCompilation compilation = getCompilation(info);
 		
 		if (info.getNamespace().equals("GObject") && info.getName().equals("Object"))
 			return;
@@ -1014,7 +999,7 @@ public class CodeFactory {
 	}
 	
 	private void compile(InterfaceInfo info) {
-		ClassCompilation compilation = getCompilation(info);
+		StubClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
 		
@@ -1029,7 +1014,8 @@ public class CodeFactory {
 			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, null, null);
 			mv.visitEnd();			
 		}
-		compilation.close();	
+
+		compilation.close();
 	}
 	
 	private static final class CallableCompilationContext {
@@ -1260,7 +1246,7 @@ public class CodeFactory {
 	
 	private void compile(StructInfo info) {
 		MethodVisitor mv;
-		ClassCompilation compilation = getCompilation(info);
+		StubClassCompilation compilation = getCompilation(info);
 		
 		String internalName = getInternalName(info);
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "com/sun/jna/Structure", null);	
@@ -1417,7 +1403,7 @@ public class CodeFactory {
 		}		
 	}
 	
-	private void initGlobalsClass(ClassCompilation globals) {
+	private void initGlobalsClass(StubClassCompilation globals) {
 		Label l0, l1, l2, l3;
 		MethodVisitor mv;
 
@@ -1563,7 +1549,7 @@ public class CodeFactory {
 			throw new RuntimeException(e);
 		}
 		
-		ClassCompilation global = getGlobals(namespace);
+		StubClassCompilation global = getGlobals(namespace);
 		global.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, global.internalName, null, "java/lang/Object", null);
 		initGlobalsClass(global);
 		globals.put(namespace, global);
@@ -1573,15 +1559,15 @@ public class CodeFactory {
 		global.close();
 	}	
 	
-	private List<StubClass> compileNamespace(String namespace) {
+	private List<ClassCompilation> compileNamespace(String namespace) {
 		compileNamespaceSingle(namespace);
 		return finish();
 	}
 	
-	private List<StubClass> finish() {
+	private List<ClassCompilation> finish() {
 		logger.info("Compiled " + writers.size() + " info objects");		
-		List<StubClass> ret = new LinkedList<StubClass>();
-		for (ClassCompilation infoc : writers.values()) {
+		List<ClassCompilation> ret = new LinkedList<ClassCompilation>();
+		for (StubClassCompilation infoc : writers.values()) {
 			infoc.close();
 			ret.add(infoc);
 			for (InnerClassCompilation inner : infoc.innerClasses) {
@@ -1591,7 +1577,7 @@ public class CodeFactory {
 		return ret;		
 	}
 	
-	private List<StubClass> compileNamespaceRecursive(String namespace) {
+	private List<ClassCompilation> compileNamespaceRecursive(String namespace) {
 		pendingCompilation.add(namespace);
 		while (pendingCompilation.size() > 0) {
 			String pending = pendingCompilation.iterator().next();
@@ -1604,8 +1590,8 @@ public class CodeFactory {
 		return finish();
 	}
 	
-	private static List<StubClass> getStubsUnlocked(Repository repo, String namespace) {
-		List<StubClass> ret = loadedRepositories.get(namespace);
+	private static List<ClassCompilation> getStubsUnlocked(Repository repo, String namespace) {
+		List<ClassCompilation> ret = loadedRepositories.get(namespace);
 		if (ret != null) {
 			return ret;
 		}
@@ -1619,20 +1605,20 @@ public class CodeFactory {
 		return ret;
 	}
 	
-	public static List<StubClass> getNativeStubs(Repository repo, String namespace) {
+	public static List<ClassCompilation> getNativeStubs(Repository repo, String namespace) {
 		synchronized (loadedRepositories) {
 			return getStubsUnlocked(repo, namespace);
 		}
 	}
 	
-	public static List<StubClass> compile(Repository repo, String namespace) {
+	public static List<ClassCompilation> compile(Repository repo, String namespace) {
 		CodeFactory cf = new CodeFactory(repo);
 		return cf.compileNamespace(namespace);
 	}
 	
-	public static ClassLoader getLoader(List<StubClass> stubs) {
+	public static ClassLoader getLoader(List<ClassCompilation> stubs) {
 		final Map<String,byte[]> map = new HashMap<String,byte[]>();
-		for (StubClass stub: stubs)
+		for (ClassCompilation stub: stubs)
 			map.put(stub.getPublicName(), stub.getBytes());
 		return new ClassLoader() {
 			@Override
@@ -1669,12 +1655,12 @@ public class CodeFactory {
 		}
 		
 		logger.info("Compiling namespace: " + namespace);		
-		List<StubClass> stubs;
+		List<ClassCompilation> stubs;
 		stubs = CodeFactory.compile(repo, namespace);
 
 		Set<String> classNames = new HashSet<String>();
 		ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(destFile));
-		for (StubClass stub : stubs) {
+		for (ClassCompilation stub : stubs) {
 			byte[] code = stub.getBytes();
 			String className = stub.getPublicName().replace('.', '/');
 			classNames.add(className);
