@@ -3,7 +3,6 @@ package org.gnome.gir.compiler;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.gnome.gir.gobject.Closure;
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObject;
@@ -13,6 +12,7 @@ import org.gnome.gir.gobject.GTypeMapper;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
 
+import com.sun.jna.Callback;
 import com.sun.jna.Function;
 import com.sun.jna.Library;
 import com.sun.jna.NativeLibrary;
@@ -56,7 +56,7 @@ public class Test extends GObject {
 				.invoke(Pointer.class, new Object[] { dir, foo, blah }, Internals.invocationOptions)));
 	}
 	
-	public interface Clicked extends Closure {
+	public interface Clicked extends Callback {
 		public static final String METHOD_NAME = "onClicked";
 		public void onClicked(Test t);
 	}

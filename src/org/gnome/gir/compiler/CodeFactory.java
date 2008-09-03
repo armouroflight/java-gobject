@@ -851,10 +851,11 @@ public class CodeFactory {
 		compilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, sigClass, 
 				ACC_PUBLIC + ACC_ABSTRACT + ACC_STATIC + ACC_INTERFACE);
 		sigCompilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, 
-				sigCompilation.internalName, null, "java/lang/Object", new String[] { "org/gnome/gir/gobject/Closure" });
+				sigCompilation.internalName, null, "java/lang/Object", new String[] { "com/sun/jna/Callback" });
 		sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, 
 				sigClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
 		
+		writeJnaCallbackTypeMapper(sigCompilation);
 		
 		/* public static final String METHOD_NAME = */
 		FieldVisitor fv = sigCompilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
@@ -873,7 +874,7 @@ public class CodeFactory {
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitLdcInsn(rawSigName);
 		mv.visitVarInsn(ALOAD, 1);
-		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connect", "(Ljava/lang/String;Lorg/gnome/gir/gobject/Closure;)J");
+		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connect", "(Ljava/lang/String;Lcom/sun/jna/Callback;)J");
 		mv.visitInsn(LRETURN);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
@@ -1342,20 +1343,11 @@ public class CodeFactory {
 		compilation.close();	
 	}
 	
-	private void compile(CallbackInfo info) {
-		MethodVisitor mv;		
-		ClassCompilation compilation = getCompilation(info);
-		
-		String internalName = getInternalName(info);
-		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
-				new String[] { "com/sun/jna/Callback" });
-		
-		CallableCompilationContext ctx = tryCompileCallable(info);
-		
+	private void writeJnaCallbackTypeMapper(ClassCompilation compilation) {
 		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;", null, null);
 		fv.visitEnd();
 		
-		mv = compilation.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -1366,6 +1358,19 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		mv.visitMaxs(1, 0);
 		mv.visitEnd();		
+	}
+	
+	private void compile(CallbackInfo info) {
+		MethodVisitor mv;		
+		ClassCompilation compilation = getCompilation(info);
+		
+		String internalName = getInternalName(info);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
+				new String[] { "com/sun/jna/Callback" });
+		
+		CallableCompilationContext ctx = tryCompileCallable(info);
+
+		writeJnaCallbackTypeMapper(compilation);
 		
 		if (ctx != null) {
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));			

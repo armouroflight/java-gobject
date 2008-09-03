@@ -45,7 +45,6 @@
 
 package org.gnome.gir.gobject;
 
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -57,8 +56,6 @@ import org.gnome.gir.gobject.GObjectAPI.GToggleNotify;
 
 import com.sun.jna.Callback;
 import com.sun.jna.NativeLong;
-import com.sun.jna.NativeMapped;
-import com.sun.jna.NativeMappedConverter;
 import com.sun.jna.Pointer;
 
 /**
@@ -67,11 +64,10 @@ import com.sun.jna.Pointer;
  */
 public abstract class GObject extends RefCountedObject {
     private static final Map<GObject, Boolean> strongReferences = new ConcurrentHashMap<GObject, Boolean>();
-    
-    private Map<Class<?>, Map<Object, SignalCallback>> signalListeners;
-    private Map<String, Map<Closure, ClosureProxy>> signalClosures;
-    
+
     private final IntPtr objectID = new IntPtr(System.identityHashCode(this));
+    
+    private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
     
     /**
      * A tagging interface used in the code generator - if a method returns an interface,
@@ -386,212 +382,24 @@ public abstract class GObject extends RefCountedObject {
     protected NativeLong g_signal_connect(String signal, Callback callback) {
         return GObjectAPI.gobj.g_signal_connect_data(this, signal, callback, null, null, 0);
     }
-    private class SignalCallback {
-
-        protected SignalCallback(String signal, Callback cb) {
-            this.cb  = cb;
-            id = g_signal_connect(signal, cb);
-            if (id.intValue() == 0) {
-                throw new IllegalArgumentException(String.format("Failed to connect signal '%s'", signal));
-            }
+ 
+    public synchronized long connect(String signal, Callback closure) {
+        NativeLong connectID = GSignalAPI.gsignal.g_signal_connect_data(GObject.this, 
+                signal, closure, null, null, 0);
+        if (connectID.intValue() == 0) {
+            throw new IllegalArgumentException(String.format("Failed to connect signal '%s'", signal));
         }
-        synchronized protected void disconnect() {
-            if (id != null && id.intValue() != 0) {
-                GObjectAPI.gobj.g_signal_handler_disconnect(GObject.this, id);
-                id = null;
-            }
-        }
-        protected void finalize() {
-            // Ensure the native callback is removed
-            disconnect();
-        }
-        Callback cb;
-        NativeLong id;
-    }
-    private synchronized final Map<Class<?>, Map<Object, SignalCallback>> getListenerMap() {
-        if (signalListeners == null) {
-            signalListeners = new ConcurrentHashMap<Class<?>, Map<Object, SignalCallback>>();
-        }
-        return signalListeners;
-    }
-    private synchronized final Map<String, Map<Closure, ClosureProxy>> getClosureMap() {
-        if (signalClosures == null) {
-            signalClosures = new ConcurrentHashMap<String, Map<Closure, ClosureProxy>>();
-        }
-        return signalClosures;
+        long id = connectID.longValue();
+        signalHandlers.put(id, closure);
+        return id;
     }
     
-    public <T> void connect(Class<T> listenerClass, T listener, Callback cb) {
-        String signal = listenerClass.getSimpleName().toLowerCase().replaceAll("_", "-");
-        connect(signal, listenerClass, listener, cb);
-    }
-    
-    public synchronized <T> void connect(String signal, Class<T> listenerClass, T listener, Callback cb) {
-        final Map<Class<?>, Map<Object, SignalCallback>> signals = getListenerMap();
-        Map<Object, SignalCallback> m = signals.get(listenerClass);
-        if (m == null) {
-            m = new HashMap<Object, SignalCallback>();
-            signals.put(listenerClass, m);
-        }
-        m.put(listener, new SignalCallback(signal, cb));
-    }
-    
-    public synchronized <T> void disconnect(Class<T> listenerClass, T listener) {
-        final Map<Class<?>, Map<Object, SignalCallback>> signals = getListenerMap();
-        Map<Object, SignalCallback> map = signals.get(listenerClass);
-        if (map != null) {
-            SignalCallback cb = map.remove(listener);
-            if (cb != null) {
-                cb.disconnect();
-            }
-            if (map.isEmpty()) {
-                signals.remove(listenerClass);
-                if (signalListeners.isEmpty()) {
-                    signalListeners = null;
-                }
-            }
-        }
-    }
-    private final class ClosureProxy implements GSignalAPI.GSignalCallbackProxy {
-        private final Closure closure;
-        @SuppressWarnings("unused")
-		private final String signal;
-        private final Method method;
-        private final Class<?>[] parameterTypes;
-        NativeLong id;
-        
-        protected ClosureProxy(String signal, Closure closure) {
-            this.closure = closure;
-            this.signal = signal;
-            Method invoke = null;
-            for (Method m : closure.getClass().getDeclaredMethods()) {
-                if (m.getName().startsWith("on")) {
-                    invoke = m;
-                    break;
-                }
-            }
-            if (invoke == null) {
-                throw new IllegalArgumentException(closure.getClass() 
-                        + " does not have an invoke method");
-            }
-            invoke.setAccessible(true);
-            this.method = invoke;
-            //
-            // The closure does not have a 'user_data' pointer, so push it in as the 
-            // last arg.  The last arg will be dropped later in callback()
-            //
-            parameterTypes = new Class[method.getParameterTypes().length + 1];
-            parameterTypes[parameterTypes.length - 1] = Pointer.class;
-            for (int i = 0; i < method.getParameterTypes().length; ++i) {
-                Class<?> paramType = method.getParameterTypes()[i];
-                Class<?> nativeType = paramType;
-                if (NativeObject.class.isAssignableFrom(paramType)) {
-                    nativeType = Pointer.class;
-                } else if (Enum.class.isAssignableFrom(paramType)) {
-                    nativeType = int.class;
-                } else if (String.class.isAssignableFrom(paramType)) {
-                    nativeType = Pointer.class;
-                } else if (Boolean.class.isAssignableFrom(paramType)) {
-                    nativeType = int.class;
-                }
-                parameterTypes[i] = nativeType;
-            }
-            NativeLong connectID = GSignalAPI.gsignal.g_signal_connect_data(GObject.this, 
-                    signal, this, null, null, 0);
-            if (connectID.intValue() == 0) {
-                throw new IllegalArgumentException(String.format("Failed to connect signal '%s'", signal));
-            }
-            this.id = connectID;
-        }
-        synchronized protected void disconnect() {
-            if (id != null && id.intValue() != 0) {
-                GObjectAPI.gobj.g_signal_handler_disconnect(GObject.this, id);
-                id = null;
-            }
-        }
-        @Override
-        protected void finalize() {
-            // Ensure the native callback is removed
-            disconnect();
-        }
-        @SuppressWarnings("unchecked")
-        public Object callback(Object[] parameters) {
-            
-            try {
-                // Drop the last arg - it is the 'user_data' pointer
-                Object[] methodParameters = new Object[parameters.length - 1];
-            
-                for (int i = 0; i < methodParameters.length; ++i) {
-                    Class paramType = method.getParameterTypes()[i];
-                    Object nativeParam = parameters[i];
-                    Object javaParam = nativeParam;
-                    if (nativeParam == null) {
-                        continue;
-                    }
-                 
-                    if (NativeObject.class.isAssignableFrom(paramType)) {
-                        javaParam = NativeObject.objectFor((Pointer) nativeParam, 
-                                paramType, 1, true);
-                    } else if (Enum.class.isAssignableFrom(paramType)) {
-                        javaParam = EnumMapper.getInstance().valueOf((Integer) nativeParam, 
-                                paramType);
-                    } else if (String.class.isAssignableFrom(paramType)) {
-                        javaParam = ((Pointer) nativeParam).getString(0);
-                    } else if (Boolean.class.isAssignableFrom(paramType)) {
-                        javaParam = Boolean.valueOf(((Integer) nativeParam).intValue() != 0);
-                    } else if (NativeMapped.class.isAssignableFrom(paramType)) {
-                    	javaParam = NativeMappedConverter.getInstance(paramType).fromNative(nativeParam, null);
-                    } else {
-                        javaParam = nativeParam;
-                    }
-                    methodParameters[i] = javaParam;
-                }
-                
-                return method.invoke(closure, methodParameters);
-            } catch (Throwable t) {
-            	System.err.println("Signal invocation failed");
-            	t.printStackTrace();
-                return Integer.valueOf(0);
-            }
-        }
-
-        public Class<?>[] getParameterTypes() {
-            return parameterTypes;
-        }
-
-        public Class<?> getReturnType() {
-            return method.getReturnType();
-        }
-    }
-    public synchronized long connect(String signal, Closure closure) {
-        final Map<String, Map<Closure, ClosureProxy>> signals = getClosureMap();
-        Map<Closure, ClosureProxy> m = signals.get(signal);
-        if (m == null) {
-            m = new HashMap<Closure, ClosureProxy>();
-            signals.put(signal, m);
-        }
-        ClosureProxy cp = new ClosureProxy(signal, closure); 
-        m.put(closure, cp);
-        return cp.id.longValue();
-    }
-    public synchronized void disconnect(String signal, Closure closure) {
-        final Map<String, Map<Closure, ClosureProxy>> signals = signalClosures;
-        if (signals == null) {
-            return;
-        }
-        Map<Closure, ClosureProxy> map = signals.get(signal);
-        if (map != null) {
-            ClosureProxy cb = map.remove(signal);
-            if (cb != null) {
-                cb.disconnect();
-            }
-            if (map.isEmpty()) {
-                signals.remove(signal);
-                if (signalClosures.isEmpty()) {
-                    signalClosures = null;
-                }
-            }
-        }
+    public synchronized void disconnect(String signal, long id) {
+    	Callback cb = signalHandlers.get(id);
+    	if (cb == null)
+    		throw new IllegalArgumentException("Invalid signal handler id:" + id);
+    	GSignalAPI.gsignal.g_signal_handler_disconnect(GObject.this, new NativeLong(id));
+    	signalHandlers.remove(id);
     }
     
     public static GObject objectFor(Pointer ptr, Class<? extends GObject> defaultClass) {
