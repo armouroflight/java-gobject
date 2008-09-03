@@ -884,9 +884,27 @@ public class CodeFactory {
 		
 		sigCompilation.writer.visitEnd();
 	}
+	
+	private void writeHandleInitializer(ClassCompilation compilation, String parentInternalName) {
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V", null, null);
+		mv.visitCode();
+		Label l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitVarInsn(ALOAD, 1);
+		mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
+		Label l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		Label l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("init", "Lorg/gnome/gir/gobject/Handle$Initializer;", null, l0, l2, 1);
+		mv.visitMaxs(2, 2);
+		mv.visitEnd();	
+	}
 		
 	private void compile(ObjectInfo info) {
-		Label l0, l1, l2;
 		StubClassCompilation compilation = getCompilation(info);
 		
 		if (info.getNamespace().equals("GObject") && info.getName().equals("Object"))
@@ -921,22 +939,7 @@ public class CodeFactory {
 		
 		writeGetGType(info, compilation);
 		
-		MethodVisitor mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V", null, null);
-		mv.visitCode();
-		l0 = new Label();
-		mv.visitLabel(l0);
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitVarInsn(ALOAD, 1);
-		mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
-		l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitInsn(RETURN);
-		l2 = new Label();
-		mv.visitLabel(l2);
-		mv.visitLocalVariable("this", "L" + internalName + ";", null, l0, l2, 0);
-		mv.visitLocalVariable("init", "Lorg/gnome/gir/gobject/Handle$Initializer;", null, l0, l2, 1);
-		mv.visitMaxs(2, 2);
-		mv.visitEnd();	
+		writeHandleInitializer(compilation, parentInternalName);
 		
 		compileDefaultConstructor(info, compilation);
 		
@@ -985,7 +988,7 @@ public class CodeFactory {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
 			if (ctx == null)
 				continue;			
-			writeCallable(ACC_PUBLIC, info, compilation, fi, ctx);
+			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
 			for (FunctionInfo fi: iface.getMethods()) {
@@ -994,7 +997,7 @@ public class CodeFactory {
 					continue;
 				ctx.isInterfaceMethod = true;
 				ctx.targetInterface = iface;
-				writeCallable(ACC_PUBLIC, info, compilation, fi, ctx);
+				writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 			}
 		}
 		compilation.close();	
@@ -1005,7 +1008,8 @@ public class CodeFactory {
 		
 		String internalName = getInternalName(info);
 		
-		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", null);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
+				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : info.getMethods()) {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
@@ -1017,6 +1021,22 @@ public class CodeFactory {
 			mv.visitEnd();			
 		}
 
+		InnerClassCompilation anonProxy = compilation.newInner("AnonStub");
+		compilation.writer.visitInnerClass(anonProxy.internalName,
+				compilation.internalName, "AnonStub", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
+		anonProxy.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER + ACC_FINAL, anonProxy.internalName, null, "org/gnome/gir/gobject/GObject", 
+				new String[] { compilation.internalName });
+		writeHandleInitializer(anonProxy, "org/gnome/gir/gobject/GObject");
+		sigs = new HashSet<String>();		
+		for (FunctionInfo fi: info.getMethods()) {
+			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+			if (ctx == null)
+				continue;
+			ctx.isInterfaceMethod = false;
+			ctx.targetInterface = info;
+			writeCallable(ACC_PUBLIC, anonProxy, fi, ctx);
+		}		
+	
 		compilation.close();
 	}
 	
@@ -1086,8 +1106,7 @@ public class CodeFactory {
 		return new CallableCompilationContext(returnType, argInfos, args, throwsGError);
 	}
 	
-	private void writeCallable(int accessFlags,
-			RegisteredTypeInfo parent, ClassCompilation compilation, FunctionInfo fi,
+	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
 			CallableCompilationContext ctx) {
 		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
 		String name = ucaseToCamel(fi.getName());
@@ -1216,6 +1235,7 @@ public class CodeFactory {
 			mv.visitLocalVariable("result", "L" + ctx.returnType.getInternalName() + ";", null, l2, l4, resultOffset);
 		}
 		mv.visitMaxs(8, errorOffset+1);
+		mv.visitEnd();
 	}
 
 	private void writeGetGType(RegisteredTypeInfo rti, ClassCompilation compilation) {
@@ -1243,7 +1263,7 @@ public class CodeFactory {
 		CallableCompilationContext ctx = tryCompileCallable(fi, globalSigs);
 		if (ctx == null)
 			return;	
-		writeCallable(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, null, compilation, fi, ctx);
+		writeCallable(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, compilation, fi, ctx);
 	}
 	
 	private void compile(StructInfo info) {
@@ -1284,7 +1304,7 @@ public class CodeFactory {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
 			if (ctx == null)
 				continue;			
-			writeCallable(ACC_PUBLIC, info, compilation, fi, ctx);	
+			writeCallable(ACC_PUBLIC, compilation, fi, ctx);	
 		}
 		
 		for (FieldInfo fi : info.getFields()) {

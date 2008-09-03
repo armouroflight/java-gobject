@@ -168,7 +168,17 @@ public abstract class NativeObject extends Handle {
         return objectFor(ptr, cls, needRef ? 1 : 0, ownsHandle);
     }
     
-    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, int refAdjust, boolean ownsHandle) {
+    private static Class<?> getStubClassFor(Class<?> proxyClass) {
+    	Class<?>[] declared = proxyClass.getDeclaredClasses();
+    	for (Class<?> c: declared) {
+    		if (c.getName().endsWith("$AnonStub"))
+    			return c;
+    	}
+    	throw new RuntimeException("Couldn't find Stub for interface: " + proxyClass);
+    }
+    
+    @SuppressWarnings("unchecked")
+	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, int refAdjust, boolean ownsHandle) {
         // Ignore null pointers
         if (ptr == null) {
             return null;
@@ -184,15 +194,21 @@ public abstract class NativeObject extends Handle {
             }
             return cls.cast(obj);
         }
-        
-        //
-        // If it is a GObject or MiniObject, read the g_class field to find
-        // the most exact class match
-        //
-        //  || MiniObject.class.isAssignableFrom(cls)
-        if (GObject.class.isAssignableFrom(cls)) {
+       
+
+        /* Special-case GObject.GObjectProxy here - these are interface values
+         * for which we don't know of a current concrete class.
+         */
+        if (GObject.GObjectProxy.class.isAssignableFrom(cls)) {
+        	cls = (Class<T>) getStubClassFor(cls);
+        /* For GObject, read the g_class field to find
+         * the most exact class match
+         */        	
+        } else if (GObject.class.isAssignableFrom(cls)) {
             cls = classFor(ptr, cls);
         }
+        /* Ok, something else, let's try to find an Initializer constructor
+         */
         try {
             Constructor<T> constructor = cls.getDeclaredConstructor(Initializer.class);
             constructor.setAccessible(true);

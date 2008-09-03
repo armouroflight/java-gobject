@@ -72,6 +72,13 @@ public abstract class GObject extends RefCountedObject {
     private Map<String, Map<Closure, ClosureProxy>> signalClosures;
     
     private final IntPtr objectID = new IntPtr(System.identityHashCode(this));
+    
+    /**
+     * A tagging interface used in the code generator - if a method returns an interface,
+     * we have it extend this interface so we know it's a GObject. 
+     * @author walters
+     */
+    public static interface GObjectProxy {};
 
     public GObject(Initializer init) { 
         super(init.needRef ? initializer(init.ptr, false, init.ownsHandle) : init);
@@ -521,6 +528,7 @@ public abstract class GObject extends RefCountedObject {
                     if (nativeParam == null) {
                         continue;
                     }
+                 
                     if (NativeObject.class.isAssignableFrom(paramType)) {
                         javaParam = NativeObject.objectFor((Pointer) nativeParam, 
                                 paramType, 1, true);

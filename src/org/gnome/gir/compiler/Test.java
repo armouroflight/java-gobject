@@ -36,11 +36,11 @@ public class Test extends GObject {
 		PointerByReference error = new PointerByReference(null);
 		Function target = Internals.library.getFunction("glib_baz");
 		Object[] args = new Object[] { x, z };
-		Test result = (Test) target.invoke(Integer.class, args, Internals.invocationOptions); 
+		Pointer result = (Pointer) target.invoke(Pointer.class, args, Internals.invocationOptions); 
 		if (result == null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}		
-		return result;
+		return (Test) objectFor(result, Test.class);
 	}	
 	
 	public static Test newWithFoo(String blah) {
