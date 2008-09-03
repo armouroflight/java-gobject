@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.gnome.gir.gobject.GObjectAPI.GParamSpec;
 import org.gnome.gir.gobject.GObjectAPI.GToggleNotify;
+import org.gnome.gir.gobject.GObjectAPI.GWeakNotify;
 
 import com.sun.jna.Callback;
 import com.sun.jna.NativeLong;
@@ -67,7 +68,14 @@ public abstract class GObject extends RefCountedObject {
 
     private final IntPtr objectID = new IntPtr(System.identityHashCode(this));
     
+    /* Hold a strong Java reference between this proxy object and any signal
+     * handlers installed.  Often this would be done anyways, but if you're
+     * just calling System.out.println in a callback, it would otherwise
+     * be elgible for GC.
+     */
     private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
+    
+    private GWeakNotify weakNotify = null;
     
     /**
      * A tagging interface used in the code generator - if a method returns an interface,
@@ -76,14 +84,32 @@ public abstract class GObject extends RefCountedObject {
      */
     public static interface GObjectProxy {};
 
+    /**
+     * The core GObject initializer function, intended for invocation from
+     * return values of unmanaged code.
+     * @param init
+     */
     public GObject(Initializer init) { 
         super(init.needRef ? initializer(init.ptr, false, init.ownsHandle) : init);
         if (init.ownsHandle) {
             strongReferences.put(this, Boolean.TRUE);
+            /* The toggle reference is our primary means of memory management between
+             * this Proxy object and the GObject.
+             */
             GObjectAPI.gobj.g_object_add_toggle_ref(init.ptr, toggle, objectID);
             if (!init.needRef) {
                 unref();
             }
+            
+            /* See the comment for signalHandlers */
+            weakNotify = new GWeakNotify() {
+				@Override
+				public void callback(Pointer data, Pointer obj) {
+					// Clear out the signal handler references
+					signalHandlers = null;
+				}
+            };
+            GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
         }
     }
     
