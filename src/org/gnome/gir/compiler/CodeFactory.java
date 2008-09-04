@@ -1726,6 +1726,9 @@ public class CodeFactory {
 		Set<File> jarPaths = new HashSet<File>();
 		for (String dir : dataDirs) {
 			File typelibsDir = new File(dir, "girepository");
+			if (!typelibsDir.canWrite()) // Exists and writable
+				continue;
+			
 			for (String filename : typelibsDir.list()) {
 				String namespace;
 				String version = null;
