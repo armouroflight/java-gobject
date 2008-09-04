@@ -394,10 +394,6 @@ public abstract class GObject extends RefCountedObject {
             super.invalidate();
         }
     }
-    
-    protected NativeLong g_signal_connect(String signal, Callback callback) {
-        return GObjectAPI.gobj.g_signal_connect_data(this, signal, callback, null, null, 0);
-    }
  
     public synchronized long connect(String signal, Callback closure) {
         NativeLong connectID = GSignalAPI.gsignal.g_signal_connect_data(GObject.this, 
@@ -459,7 +455,9 @@ public abstract class GObject extends RefCountedObject {
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) NativeObject.instanceFor(obj);
 			// Clear out the signal handler references
-			o.signalHandlers = null;
+			synchronized (o) {
+				o.signalHandlers = null;
+			}
 		}
     };    
 }

@@ -49,8 +49,9 @@ import com.sun.jna.Pointer;
 public class IntPtr extends Number {
 	private static final long serialVersionUID = 1L;
 	public final Number value;
+
     public IntPtr(int value) {
-        this.value = Pointer.SIZE == 8 ? new Long(value) : new Integer(value);
+        this.value = Pointer.SIZE == 8 ? Long.valueOf(value) : Integer.valueOf(value);
     }
     
     public String toString() {        

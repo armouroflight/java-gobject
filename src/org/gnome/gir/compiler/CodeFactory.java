@@ -41,11 +41,9 @@ import gnu.getopt.Getopt;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -345,17 +343,6 @@ public class CodeFactory {
 		}
 		
 		return types;
-	}
-
-	public static final class RepositoryClassSet {
-		Map<String,byte[]> klasses;
-
-		public RepositoryClassSet() {
-		}
-
-		public Map<String, byte[]> getKlasses() {
-			return Collections.unmodifiableMap(klasses);
-		}
 	}
 	
 	private static String getInternalNameMapped(String namespace, String name) {
@@ -1701,15 +1688,11 @@ public class CodeFactory {
 	}
 	
 	public static void verifyJarFiles(Set<File> jarPaths) throws IOException {
-		Set<URL> urls = new HashSet<URL>();
+		List<URL> urls = new ArrayList<URL>();
 		Set<String> allClassnames = new HashSet<String>();		
 		logger.info("Verifying " + jarPaths.size() + " jar paths");
 		for (File jarPath : jarPaths) {
-			try {
-				urls.add(jarPath.toURI().toURL());
-			} catch (MalformedURLException e) {
-				throw new RuntimeException(e);
-			}
+			urls.add(jarPath.toURI().toURL());
 			ZipFile zf = new ZipFile(jarPath);
 			for (Enumeration<? extends ZipEntry> e = zf.entries(); e.hasMoreElements();) {
 				String name = e.nextElement().getName();

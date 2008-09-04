@@ -30,6 +30,6 @@ public class GQuark implements NativeMapped {
 	}
 	@Override
 	public Object toNative() {
-		return new Integer(value);
+		return Integer.valueOf(value);
 	}
 }
