@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/usr/share/java/jna.jar" sourcepath="/src/fedora/jna/devel/jna-3.0.2/src"/>
+	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-analysis.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-commons.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-tree.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-util.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/gnu-getopt.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
