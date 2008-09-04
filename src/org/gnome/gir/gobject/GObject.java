@@ -75,8 +75,6 @@ public abstract class GObject extends RefCountedObject {
      */
     private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
     
-    private GWeakNotify weakNotify = null;
-    
     /**
      * A tagging interface used in the code generator - if a method returns an interface,
      * we have it extend this interface so we know it's a GObject. 
@@ -101,14 +99,6 @@ public abstract class GObject extends RefCountedObject {
                 unref();
             }
             
-            /* See the comment for signalHandlers */
-            weakNotify = new GWeakNotify() {
-				@Override
-				public void callback(Pointer data, Pointer obj) {
-					// Clear out the signal handler references
-					signalHandlers = null;
-				}
-            };
             GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
         }
     }
@@ -463,4 +453,13 @@ public abstract class GObject extends RefCountedObject {
             }
         }
     };
+    
+    private static final GWeakNotify weakNotify = new GWeakNotify() {
+		@Override
+		public void callback(Pointer data, Pointer obj) {
+			GObject o = (GObject) NativeObject.instanceFor(obj);
+			// Clear out the signal handler references
+			o.signalHandlers = null;
+		}
+    };    
 }
