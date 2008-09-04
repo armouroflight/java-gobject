@@ -2,9 +2,12 @@ from org.gnome.gir.dynamic.WebKit import *
 from org.gnome.gir.dynamic.Gtk import *
 from org.gnome.gir.gobject import *
 
-GObjectGlobals.init()
 GtkGlobals.initCheck(None, None)
-win = Window(WindowType.TOPLEVEL);
+win = Window(WindowType.TOPLEVEL)
+#class DeleteHandler(Widget.DeleteEvent):
+#  def onDeleteEvent(self, w, e):
+#    GtkGlobals.mainQuit()
+#win.connect(DeleteHandler())
 sw = ScrolledWindow(None, None)
 win.add(sw)
 wv = WebView()
