@@ -45,15 +45,32 @@
 
 package org.gnome.gir.gobject;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.sun.jna.FromNativeContext;
+import com.sun.jna.Function;
 import com.sun.jna.NativeLong;
 
-/**
- *
- */
+
 public class GType extends NativeLong {
 	private static final long serialVersionUID = 1L;
 
+    private static final Map<Class<?>,Function> ifaceGetTypeMap 
+    	= new ConcurrentHashMap<Class<?>, Function>();
+    
+    public static final void registerIface(Class<?> klass, Function getType) {
+    	ifaceGetTypeMap.put(klass, getType);
+    };
+    
+    public static GType getIfaceGType(Class<?> klass) {
+    	Function f = ifaceGetTypeMap.get(klass);
+    	if (f == null)
+    		return INVALID;
+    	NativeLong result = (NativeLong) f.invoke(NativeLong.class, null);
+    	return new GType(result.longValue());
+    }
+    
     public static final void init() {
     	GObjectAPI.gobj.g_type_init();
     }
@@ -120,5 +137,9 @@ public class GType extends NativeLong {
     @Override
     public Object fromNative(Object nativeValue, FromNativeContext context) {
         return valueOf(((Number) nativeValue).longValue());
-    }    
+    }
+    
+    public String toString() {
+    	return "GType(" + GObjectAPI.gobj.g_type_name(this) + ")";
+    }
 }

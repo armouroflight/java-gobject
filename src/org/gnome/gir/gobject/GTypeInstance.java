@@ -56,8 +56,7 @@ public class GTypeInstance extends Structure {
     public void write() { }
     
     public static Pointer peekInterface(Pointer pointer, GType type) {
-    	GTypeInstance instance = new GTypeInstance();
-    	instance.useMemory(pointer);
-    	return GObjectAPI.gobj.g_type_interface_peek(instance.g_class, type);
+    	Pointer g_class = pointer.getPointer(0);
+    	return GObjectAPI.gobj.g_type_interface_peek(g_class, type);
     }
 }

@@ -404,7 +404,7 @@ public class CodeFactory {
 		
 	}
 	
-	private static final class StubClassCompilation extends ClassCompilation {
+	private static class StubClassCompilation extends ClassCompilation {
 		Set<InnerClassCompilation> innerClasses;
 		String publicName;
 		private boolean closed = false;
@@ -437,6 +437,14 @@ public class CodeFactory {
 			}
 		}
 	}
+	
+	public static final class GlobalsCompilation extends StubClassCompilation {
+		Map<String,String> interfaceTypes = new HashMap<String,String>();
+		public MethodVisitor clinit;
+		public GlobalsCompilation(String namespace, String name) {
+			super(namespace, name);
+		}
+	}
 
 	public StubClassCompilation getCompilation(String namespace, String name) {
 		String peerInternalName = getInternalName(namespace, name);
@@ -456,8 +464,8 @@ public class CodeFactory {
 		return getInternalName(namespace, namespace+"Globals");
 	}
 	
-	public StubClassCompilation getGlobals(String namespace) {
-		return getCompilation(namespace, namespace + "Globals");
+	public GlobalsCompilation getGlobals(String namespace) {
+		return globals.get(namespace);
 	}
 	
 	public String getInternals(BaseInfo info) {
@@ -473,7 +481,7 @@ public class CodeFactory {
 	private final Set<String> loadFailed = new HashSet<String>();
 	private final Set<String> pendingCompilation = new HashSet<String>();	
 	private final Map<String, StubClassCompilation> writers = new HashMap<String, StubClassCompilation>();
-	private final Map<String, StubClassCompilation> globals = new HashMap<String, StubClassCompilation>();
+	private final Map<String, GlobalsCompilation> globals = new HashMap<String, GlobalsCompilation>();
 	private final Map<String,String> namespaceShlibMapping = new HashMap<String, String>();
 	
 	private CodeFactory(Repository repo) {
@@ -864,8 +872,6 @@ public class CodeFactory {
 		int access = ACC_PUBLIC;
 		if (isInterfaceSource)
 			access += ACC_ABSTRACT;
-		else
-			access += ACC_FINAL;
 		MethodVisitor mv = compilation.writer.visitMethod(access, "connect", "(L"+ internalName + ";)J", null, null);
 		if (!isInterfaceSource) {
 			mv.visitCode();
@@ -1005,7 +1011,7 @@ public class CodeFactory {
 					continue;
 				// Insert the object as first parameter
 				ctx.argTypes.add(0, typeFromInfo(iface));				
-				compileSignal(compilation, ctx, sig, true, true);
+				compileSignal(compilation, ctx, sig, false, true);
 			}			
 		}
 		compilation.close();	
@@ -1013,11 +1019,13 @@ public class CodeFactory {
 	
 	private void compile(InterfaceInfo info) {
 		StubClassCompilation compilation = getCompilation(info);
+		GlobalsCompilation globals = getGlobals(info.getNamespace());
 		
 		String internalName = getInternalName(info);
 		
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
 				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
+		globals.interfaceTypes.put(internalName, info.getTypeInit());
 		
 		for (SignalInfo sig : info.getSignals()) {
 			CallableCompilationContext ctx = tryCompileCallable(sig);
@@ -1169,18 +1177,7 @@ public class CodeFactory {
 		mv.visitLabel(l1);
 		mv.visitIntInsn(BIPUSH, nInvokeArgs + (ctx.throwsGError ? 1 : 0));
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
-		if (ctx.isInterfaceMethod) {
-			mv.visitInsn(DUP);
-			mv.visitIntInsn(BIPUSH, 0);
-			mv.visitVarInsn(ALOAD, 0);
-			mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "handle", "()Lcom/sun/jna/Pointer;");
-			mv.visitMethodInsn(INVOKESTATIC, getInternalName(ctx.targetInterface), 
-					"getGType", "()Lorg/gnome/gir/gobject/GType;");
-			mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeInstance", 
-					"peekInterface", "(Lcom/sun/jna/Pointer;Lorg/gnome/gir/gobject/GType;)Lcom/sun/jna/Pointer;");
-			mv.visitInsn(AASTORE);
-		}
-		for (int i = ctx.isInterfaceMethod ? 1 : 0; i < nInvokeArgs; i++) {
+		for (int i = 0; i < nInvokeArgs; i++) {		
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
 			mv.visitVarInsn(ALOAD, i);
@@ -1447,7 +1444,7 @@ public class CodeFactory {
 		}		
 	}
 	
-	private void initGlobalsClass(StubClassCompilation globals) {
+	private void initGlobalsClass(GlobalsCompilation globals) {
 		Label l0, l1, l2, l3;
 		MethodVisitor mv;
 
@@ -1511,36 +1508,6 @@ public class CodeFactory {
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "invocationOptions", 
 				"Ljava/util/Map;", "Ljava/util/Map<Ljava/lang/Object;Ljava/lang/Object;>;", null);
 		fv.visitEnd();		
-		
-		mv = internals.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
-		mv.visitCode();
-		l0 = new Label();
-		mv.visitLabel(l0);
-		/* The JNA NativeLibrary expects it without the .so */
-		String shlib = repo.getSharedLibrary(globals.namespace);
-		if (shlib == null)
-			shlib = namespaceShlibMapping.get(globals.namespace);
-		if (shlib.endsWith(".so"))
-			shlib = shlib.substring(0, shlib.length()-3);
-		mv.visitLdcInsn(shlib);
-		mv.visitMethodInsn(INVOKESTATIC, "com/sun/jna/NativeLibrary", "getInstance", "(Ljava/lang/String;)Lcom/sun/jna/NativeLibrary;");
-		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "library", "Lcom/sun/jna/NativeLibrary;");
-		l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault", "()Lorg/gnome/gir/repository/Repository;");
-		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "repo", "Lorg/gnome/gir/repository/Repository;");
-		l2 = new Label();
-		mv.visitLabel(l2);
-		mv.visitTypeInsn(NEW, internalsInner.internalName);
-		mv.visitInsn(DUP);
-		mv.visitMethodInsn(INVOKESPECIAL, internalsInner.internalName, "<init>", "()V");
-		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "invocationOptions", "Ljava/util/Map;");
-		l3 = new Label();
-		mv.visitLabel(l3);
-		mv.visitInsn(RETURN);
-		mv.visitMaxs(2, 0);
-		mv.visitEnd();		
-
 
 		mv = internalsInner.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
@@ -1579,8 +1546,30 @@ public class CodeFactory {
 		mv.visitMaxs(1, 1);
 		mv.visitEnd();
 		
-		internalsInner.writer.visitEnd();
-		internals.writer.visitEnd();
+		mv = internals.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		/* The JNA NativeLibrary expects it without the .so */
+		String shlib = repo.getSharedLibrary(globals.namespace);
+		if (shlib == null)
+			shlib = namespaceShlibMapping.get(globals.namespace);
+		if (shlib.endsWith(".so"))
+			shlib = shlib.substring(0, shlib.length()-3);
+		mv.visitLdcInsn(shlib);
+		mv.visitMethodInsn(INVOKESTATIC, "com/sun/jna/NativeLibrary", "getInstance", "(Ljava/lang/String;)Lcom/sun/jna/NativeLibrary;");
+		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "library", "Lcom/sun/jna/NativeLibrary;");
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault", "()Lorg/gnome/gir/repository/Repository;");
+		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "repo", "Lorg/gnome/gir/repository/Repository;");
+		l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitTypeInsn(NEW, internalsInner.internalName);
+		mv.visitInsn(DUP);
+		mv.visitMethodInsn(INVOKESPECIAL, internalsInner.internalName, "<init>", "()V");
+		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "invocationOptions", "Ljava/util/Map;");
+		globals.clinit = mv;		
 	}
 	
 	private void compileNamespaceSingle(String namespace) {
@@ -1593,12 +1582,26 @@ public class CodeFactory {
 			throw new RuntimeException(e);
 		}
 		
-		StubClassCompilation global = getGlobals(namespace);
+		String globalName = namespace + "Globals";
+		String peerInternalName = getInternalName(namespace, globalName);
+		GlobalsCompilation global = new GlobalsCompilation(namespace, globalName);
+		writers.put(peerInternalName, global);		
+		globals.put(namespace, global);
 		global.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, global.internalName, null, "java/lang/Object", null);
 		initGlobalsClass(global);
-		globals.put(namespace, global);
-		
+
 		compileNamespaceComponents(namespace);
+		
+		for (Map.Entry<String, String> iface : global.interfaceTypes.entrySet()) {
+			global.clinit.visitLdcInsn(Type.getType("L" + iface.getKey() + ";"));
+			global.clinit.visitFieldInsn(GETSTATIC, peerInternalName + "$Internals", "library", "Lcom/sun/jna/NativeLibrary;");
+			global.clinit.visitLdcInsn(iface.getValue());
+			global.clinit.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/NativeLibrary", "getFunction", "(Ljava/lang/String;)Lcom/sun/jna/Function;");
+			global.clinit.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GType", "registerIface", "(Ljava/lang/Class;Lcom/sun/jna/Function;)V");			
+		}
+		global.clinit.visitInsn(RETURN);
+		global.clinit.visitMaxs(3, 0);
+		global.clinit.visitEnd();
 		
 		global.close();
 	}	

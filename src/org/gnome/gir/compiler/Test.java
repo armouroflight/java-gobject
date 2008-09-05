@@ -20,7 +20,7 @@ import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 import com.sun.jna.ptr.PointerByReference;
 
-public class Test extends GObject {
+public class Test extends GObject implements TestIface {
 	
 	public void foo(String x, Double y, Integer z) throws GErrorException {
 		PointerByReference error = new PointerByReference(null);
@@ -96,6 +96,12 @@ public class Test extends GObject {
 				put(Library.OPTION_TYPE_MAPPER, new GTypeMapper());
 			}
 		};
+		static {
+			GType.registerIface(TestIface.class, library.getFunction("test_iface_get_type"));			
+		}
+		static {
+			GType.registerIface(TestIface.class, library.getFunction("test_iface_get_type"));			
+		}		
 	};
 
 	public static final void init() {
@@ -124,7 +130,7 @@ public class Test extends GObject {
 	
 	public void ifaceFoo(String blah) {
 		Function f = Internals.library.getFunction("gtk_propagate_event");
-		Object[] args = new Object[] { GTypeInstance.peekInterface(this.handle(), Test.getGType()), blah };
+		Object[] args = new Object[] { GTypeInstance.peekInterface(this.handle(), GType.getIfaceGType(TestIface.class)), blah };
 		f.invoke(Void.class, args, Internals.invocationOptions);
 	}
 	
