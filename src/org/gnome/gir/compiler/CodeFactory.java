@@ -881,8 +881,18 @@ public class CodeFactory {
 				compileConstructor(info, compilation, first);
 			} else {
 				logger.info("Constructor name " + first.getSymbol() + " clashes");
+				FunctionInfo defaultCtor = null;
 				for (FunctionInfo ctor : ctorGroup) {
-					compileStaticConstructor(info, compilation, ctor);
+					if (ctor.getName().equals("new"))
+						defaultCtor = ctor;
+				}
+				if (defaultCtor != null) {
+					compileConstructor(info, compilation, defaultCtor);
+				}
+				for (FunctionInfo ctor : ctorGroup) {
+					if (ctor != defaultCtor) {
+						compileStaticConstructor(info, compilation, ctor);
+					}
 				}
 			}
 		}
