@@ -829,48 +829,60 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}
 	
-	private void compileSignal(ObjectInfo info, StubClassCompilation compilation, CallableCompilationContext ctx, SignalInfo sig) {
+	private void compileSignal(StubClassCompilation compilation, CallableCompilationContext ctx, SignalInfo sig,
+				boolean isInterfaceSource, boolean isInterfaceTarget) {
 		String rawSigName = sig.getName();
 		String sigName = rawSigName.replace('-', '_');
 		String sigClass = ucaseToPascal(sigName);
 		String sigHandlerName = "on" + sigClass;
-		InnerClassCompilation sigCompilation = compilation.newInner(sigClass);
-		compilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, sigClass, 
-				ACC_PUBLIC + ACC_ABSTRACT + ACC_STATIC + ACC_INTERFACE);
-		sigCompilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, 
-				sigCompilation.internalName, null, "java/lang/Object", new String[] { "com/sun/jna/Callback" });
-		sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, 
-				sigClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
+		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
+		String internalName = ctx.argTypes.get(0).getInternalName() + "$" + sigClass;
+				
+		if (!isInterfaceTarget) {
+			InnerClassCompilation sigCompilation = compilation.newInner(sigClass);
+			compilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, sigClass, 
+					ACC_PUBLIC + ACC_ABSTRACT + ACC_STATIC + ACC_INTERFACE);
+			sigCompilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, 
+					sigCompilation.internalName, null, "java/lang/Object", new String[] { "com/sun/jna/Callback" });
+			sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, 
+					sigClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
 		
-		writeJnaCallbackTypeMapper(sigCompilation);
+			writeJnaCallbackTypeMapper(sigCompilation);
 		
-		/* public static final String METHOD_NAME = */
-		FieldVisitor fv = sigCompilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
-				"METHOD_NAME", "Ljava/lang/String;", null, sigHandlerName);
-		fv.visitEnd();
-		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));		
-		
-		MethodVisitor mv = sigCompilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, sigHandlerName, descriptor, null, null);
-		mv.visitEnd();
+			/* public static final String METHOD_NAME = */
+			FieldVisitor fv = sigCompilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
+					"METHOD_NAME", "Ljava/lang/String;", null, sigHandlerName);
+			fv.visitEnd();
+
+			MethodVisitor mv = sigCompilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, sigHandlerName, descriptor, null, null);
+			mv.visitEnd();			
+			
+			sigCompilation.writer.visitEnd();			
+		}
 		
 		/* public final long connect(SIGCLASS proxy) */
-		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_FINAL, "connect", "(L"+ sigCompilation.internalName + ";)J", null, null);
-		mv.visitCode();
-		Label l0 = new Label();
-		mv.visitLabel(l0);
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitLdcInsn(rawSigName);
-		mv.visitVarInsn(ALOAD, 1);
-		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connect", "(Ljava/lang/String;Lcom/sun/jna/Callback;)J");
-		mv.visitInsn(LRETURN);
-		Label l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitLocalVariable("c", "L" + sigCompilation.internalName + ";", null, l0, l1, 1);
-		mv.visitMaxs(3, 2);
+		int access = ACC_PUBLIC;
+		if (isInterfaceSource)
+			access += ACC_ABSTRACT;
+		else
+			access += ACC_FINAL;
+		MethodVisitor mv = compilation.writer.visitMethod(access, "connect", "(L"+ internalName + ";)J", null, null);
+		if (!isInterfaceSource) {
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitLdcInsn(rawSigName);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connect", "(Ljava/lang/String;Lcom/sun/jna/Callback;)J");
+			mv.visitInsn(LRETURN);
+			Label l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitLocalVariable("c", "L" + internalName + ";", null, l0, l1, 1);
+			mv.visitMaxs(3, 2);
+		}
 		mv.visitEnd();
-		
-		sigCompilation.writer.visitEnd();
 	}
 	
 	private void writeHandleInitializer(ClassCompilation compilation, String parentInternalName) {
@@ -922,7 +934,7 @@ public class CodeFactory {
 				continue;
 			// Insert the object as first parameter
 			ctx.argTypes.add(0, typeFromInfo(info));				
-			compileSignal(info, compilation, ctx, sig);
+			compileSignal(compilation, ctx, sig, false, false);
 		}
 		
 		writeGetGType(info, compilation);
@@ -987,6 +999,14 @@ public class CodeFactory {
 				ctx.targetInterface = iface;
 				writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 			}
+			for (SignalInfo sig : iface.getSignals()) {
+				CallableCompilationContext ctx = tryCompileCallable(sig);
+				if (ctx == null)
+					continue;
+				// Insert the object as first parameter
+				ctx.argTypes.add(0, typeFromInfo(iface));				
+				compileSignal(compilation, ctx, sig, true, true);
+			}			
 		}
 		compilation.close();	
 	}
@@ -998,6 +1018,16 @@ public class CodeFactory {
 		
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
 				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
+		
+		for (SignalInfo sig : info.getSignals()) {
+			CallableCompilationContext ctx = tryCompileCallable(sig);
+			if (ctx == null)
+				continue;
+			// Insert the object as first parameter
+			ctx.argTypes.add(0, typeFromInfo(info));				
+			compileSignal(compilation, ctx, sig, true, false);
+		}		
+		
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : info.getMethods()) {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
