@@ -45,31 +45,148 @@
 
 package org.gnome.gir.gobject;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
+import org.gnome.gir.repository.BaseInfo;
+import org.gnome.gir.repository.Repository;
 
 import com.sun.jna.FromNativeContext;
-import com.sun.jna.Function;
 import com.sun.jna.NativeLong;
+import com.sun.jna.Pointer;
 
 
 public class GType extends NativeLong {
 	private static final long serialVersionUID = 1L;
 
-    private static final Map<Class<?>,Function> ifaceGetTypeMap 
-    	= new ConcurrentHashMap<Class<?>, Function>();
+    private static final Map<GType,Class<?>> classTypeMap 
+    	= new HashMap<GType, Class<?>>();
     
-    public static final void registerIface(Class<?> klass, Function getType) {
-    	ifaceGetTypeMap.put(klass, getType);
+	public static final String dynamicNamespace = "org/gnome/gir/dynamic/";
+
+	public static final Map<String,String> overrides = new HashMap<String,String>() {
+		private static final long serialVersionUID = 1L;
+
+		{
+			put("GLib.Value", "org/gnome/gir/gobject/GValue");
+			put("GLib.List", "org/gnome/gir/gobject/GList");
+			put("GLib.SList", "org/gnome/gir/gobject/GSList");
+
+			put("GLib.Closure", "org/gnome/gir/gobject/GClosure");
+			put("GLib.Quark", "org/gnome/gir/gobject/GQuark");
+			put("GLib.TimeVal", "org/gnome/gir/gobject/GTimeVal");
+			put("GLib.Scanner", "org/gnome/gir/gobject/GScanner");
+			put("GLib.OptionContext", "org/gnome/gir/gobject/GOptionContext");
+			put("GLib.OptionGroup", "org/gnome/gir/gobject/GOptionGroup");
+			put("GLib.OptionEntry", "org/gnome/gir/gobject/GOptionEntry");
+			put("GLib.String", "org/gnome/gir/gobject/GString");	
+			put("GLib.Callback", "com/sun/jna/Callback");
+			put("GLib.Mutex", "org/gnome/gir/gobject/GLibAPI$GMutex");
+			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");			
+			
+			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
+					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
+					"ThreadPool", "Source", "CompareDataFunc", "Array" };
+			for (String unmapped : glibPointerUnmapped)
+				put("GLib." + unmapped, "com/sun/jna/Pointer");
+			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
+			for (String unmapped : glibIntegerUnmapped)
+				put("GLib." + unmapped, "java/lang/Integer");			
+			
+			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
+			put("GObject.Object", "org/gnome/gir/gobject/GObject");
+			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
+			put("GObject.Type", "org/gnome/gir/gobject/GType");
+			put("GObject.Value", "org/gnome/gir/gobject/GValue");			
+			put("GObject.TypePlugin", "org/gnome/gir/gobject/GTypePlugin");
+			put("GObject.TypeModule", "org/gnome/gir/gobject/GTypeModule");	
+			put("GObject.TypeClass", "org/gnome/gir/gobject/GObjectAPI$GTypeClass");			
+			put("GObject.TypeQuery", "org/gnome/gir/gobject/GObjectAPI$GTypeQuery");
+			put("GObject.TypeInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeInfo");
+			put("GObject.InterfaceInfo", "org/gnome/gir/gobject/GObjectAPI$GInterfaceInfo");
+			put("GObject.TypeValueTable", "org/gnome/gir/gobject/GObjectAPI$GTypeValueTable");			
+			put("GObject.TypeFundamentalInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeFundamentalInfo");			
+			put("GObject.Class", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
+			put("GObject.InitiallyUnownedClass", "org/gnome/gir/gobject/GObjectAPI$GInitiallyUnownedClass");			
+			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");
+			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
+			put("GObject.TypeInterface", "org/gnome/gir/gobject/GObjectAPI$GTypeInterface");			
+			put("GObject.String", "org/gnome/gir/gobject/GString");
+			put("GObject.Closure", "org/gnome/gir/gobject/GClosure");			
+			put("GObject.SignalInvocationHint", "org/gnome/gir/gobject/GSignalAPI$GSignalInvocationHint");			
+			put("GObject.EnumValue", "org/gnome/gir/gobject/GObjectAPI$GEnumValue");
+			put("GObject.EnumClass", "org/gnome/gir/gobject/GObjectAPI$GEnumClass");			
+			put("GObject.FlagsValue", "org/gnome/gir/gobject/GObjectAPI$GFlagsValue");
+			put("GObject.FlagsClass", "org/gnome/gir/gobject/GObjectAPI$GFlagsClass");
+			
+			String[] gobjectUnmapped = new String[] { "Callback", "BaseInitFunc", "InstanceInitFunc", 
+					"SignalAccumulator", "ClosureMarshal", "ClassInitFunc", "SignalEmissionHook",
+					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc" };
+			for (String unmapped : gobjectUnmapped)
+				put("GObject." + unmapped, "com/sun/jna/Pointer");
+			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType", 
+					"TypeFlags", "ParamFlags"  };
+			for (String unmapped : gobjectIntegerUnmapped)
+				put("GObject." + unmapped, "java/lang/Integer");				
+			
+			for (String name : new String[] { "Context" }) {
+				put("Cairo." + name, "com/sun/jna/Pointer");
+			}
+		}
+	};
+
+	public static String getInternalNameMapped(String namespace, String name) {
+		String key = namespace + "." + name;
+		String val = GType.overrides.get(key);
+		if (val != null)
+			return val;
+		if (namespace.equals("GLib") || namespace.equals("GObject"))
+			throw new RuntimeException(String.format("Unmapped internal ns=%s name=%s", namespace, name));
+		return getInternalName(namespace, name);
+	}
+	
+	public static String getInternalName(String namespace, String name) {
+		String caps = name.substring(0, 1).toUpperCase() + name.substring(1);
+		return dynamicNamespace + namespace + "/" + caps;
+	}
+	
+	public static String getPublicNameMapped(String namespace, String name) {
+		return getInternalNameMapped(namespace, name).replace('/', '.');
+	}	
+    
+    public static final void registerProxyClass(GType gtype, Class<?> klass) {
+    	classTypeMap.put(gtype, klass);
     };
     
-    public static GType getIfaceGType(Class<?> klass) {
-    	Function f = ifaceGetTypeMap.get(klass);
-    	if (f == null)
-    		return INVALID;
-    	NativeLong result = (NativeLong) f.invoke(NativeLong.class, null);
-    	return new GType(result.longValue());
+    /* If we haven't yet seen a GType, we do a full search of the repository.  This
+     * is VERY slow right now, so it's cached.
+     */
+    private static synchronized final Class<?> lookupProxyClass(NativeLong g_type) {
+    	Class<?> klass = classTypeMap.get(g_type);
+    	if (klass != null)
+    		return klass;
+    	BaseInfo info = Repository.getDefault().findByGType(g_type);
+    	if (info == null)
+    		return null;
+    	String klassName = getPublicNameMapped(info.getNamespace(), info.getName());
+    	try {
+			klass = Class.forName(klassName);
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
+		classTypeMap.put(new GType(g_type.longValue()), klass);
+		return klass;
     }
+    
+    public final Class<?> lookupProxyClass() {
+    	return lookupProxyClass((NativeLong) this);
+    }
+    
+    public static final Class<?> lookupProxyClass(Pointer ptr) {
+    	Pointer g_class = ptr.getPointer(0);
+    	NativeLong g_type = g_class.getNativeLong(0);
+    	return lookupProxyClass(g_type);
+    };    
     
     public static final void init() {
     	GObjectAPI.gobj.g_type_init();

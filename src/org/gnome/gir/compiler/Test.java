@@ -7,7 +7,6 @@ import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GType;
-import org.gnome.gir.gobject.GTypeInstance;
 import org.gnome.gir.gobject.GTypeMapper;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
@@ -96,12 +95,6 @@ public class Test extends GObject implements TestIface {
 				put(Library.OPTION_TYPE_MAPPER, new GTypeMapper());
 			}
 		};
-		static {
-			GType.registerIface(TestIface.class, library.getFunction("test_iface_get_type"));			
-		}
-		static {
-			GType.registerIface(TestIface.class, library.getFunction("test_iface_get_type"));			
-		}		
 	};
 
 	public static final void init() {
@@ -112,7 +105,7 @@ public class Test extends GObject implements TestIface {
 	
 	public static final Boolean eventsPending() {
 		Function f = Internals.library.getFunction("gtk_events_pending");
-		Object[] args = new Object[] {}; 		
+		Object[] args = new Object[] {};
 		return (Boolean) f.invoke(Boolean.class, args, Internals.invocationOptions);
 	}
 	
@@ -130,7 +123,7 @@ public class Test extends GObject implements TestIface {
 	
 	public void ifaceFoo(String blah) {
 		Function f = Internals.library.getFunction("gtk_propagate_event");
-		Object[] args = new Object[] { GTypeInstance.peekInterface(this.handle(), GType.getIfaceGType(TestIface.class)), blah };
+		Object[] args = new Object[] { this, blah };
 		f.invoke(Void.class, args, Internals.invocationOptions);
 	}
 	

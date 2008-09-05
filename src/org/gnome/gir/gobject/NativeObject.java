@@ -202,6 +202,12 @@ public abstract class NativeObject extends Handle {
         if (GObject.GObjectProxy.class.isAssignableFrom(cls)) {
         	cls = (Class<T>) getStubClassFor(cls);
         }
+        /* For GObject, read the g_class field to find
+         * the most exact class match
+         */        	
+        else if (GObject.class.isAssignableFrom(cls)) {
+        	cls = classFor(ptr, cls);
+        }        
         /* Ok, let's try to find an Initializer constructor
          */
         try {
@@ -223,6 +229,12 @@ public abstract class NativeObject extends Handle {
         }
 
     }
+    
+    @SuppressWarnings("unchecked")
+	protected static <T extends NativeObject> Class<T> classFor(Pointer ptr, Class<T> defaultClass) {
+    	Class<?> cls = GType.lookupProxyClass(ptr);
+    	return (cls != null && defaultClass.isAssignableFrom(cls)) ? (Class<T>) cls : defaultClass; 
+    }    
 
     @Override
     public boolean equals(Object o) {

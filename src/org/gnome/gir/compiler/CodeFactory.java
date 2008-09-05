@@ -62,6 +62,7 @@ import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GSList;
+import org.gnome.gir.gobject.GType;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
@@ -100,78 +101,7 @@ import com.sun.jna.ptr.ShortByReference;
 public class CodeFactory {
 	
 	private static final Logger logger = Logger.getLogger("org.gnome.gir.Compiler");
-	
-	private static final Map<String,String> overrides = new HashMap<String,String>() {
-		private static final long serialVersionUID = 1L;
 
-		{
-			put("GLib.Value", "org/gnome/gir/gobject/GValue");
-			put("GLib.List", "org/gnome/gir/gobject/GList");
-			put("GLib.SList", "org/gnome/gir/gobject/GSList");
-
-			put("GLib.Closure", "org/gnome/gir/gobject/GClosure");
-			put("GLib.Quark", "org/gnome/gir/gobject/GQuark");
-			put("GLib.TimeVal", "org/gnome/gir/gobject/GTimeVal");
-			put("GLib.Scanner", "org/gnome/gir/gobject/GScanner");
-			put("GLib.OptionContext", "org/gnome/gir/gobject/GOptionContext");
-			put("GLib.OptionGroup", "org/gnome/gir/gobject/GOptionGroup");
-			put("GLib.OptionEntry", "org/gnome/gir/gobject/GOptionEntry");
-			put("GLib.String", "org/gnome/gir/gobject/GString");	
-			put("GLib.Callback", "com/sun/jna/Callback");
-			put("GLib.Mutex", "org/gnome/gir/gobject/GLibAPI$GMutex");
-			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");			
-			
-			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
-					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
-					"ThreadPool", "Source", "CompareDataFunc", "Array" };
-			for (String unmapped : glibPointerUnmapped)
-				put("GLib." + unmapped, "com/sun/jna/Pointer");
-			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
-			for (String unmapped : glibIntegerUnmapped)
-				put("GLib." + unmapped, "java/lang/Integer");			
-			
-			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
-			put("GObject.Object", "org/gnome/gir/gobject/GObject");
-			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
-			put("GObject.Type", "org/gnome/gir/gobject/GType");
-			put("GObject.Value", "org/gnome/gir/gobject/GValue");			
-			put("GObject.TypePlugin", "org/gnome/gir/gobject/GTypePlugin");
-			put("GObject.TypeModule", "org/gnome/gir/gobject/GTypeModule");	
-			put("GObject.TypeClass", "org/gnome/gir/gobject/GObjectAPI$GTypeClass");			
-			put("GObject.TypeQuery", "org/gnome/gir/gobject/GObjectAPI$GTypeQuery");
-			put("GObject.TypeInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeInfo");
-			put("GObject.InterfaceInfo", "org/gnome/gir/gobject/GObjectAPI$GInterfaceInfo");
-			put("GObject.TypeValueTable", "org/gnome/gir/gobject/GObjectAPI$GTypeValueTable");			
-			put("GObject.TypeFundamentalInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeFundamentalInfo");			
-			put("GObject.Class", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
-			put("GObject.InitiallyUnownedClass", "org/gnome/gir/gobject/GObjectAPI$GInitiallyUnownedClass");			
-			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");
-			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
-			put("GObject.TypeInterface", "org/gnome/gir/gobject/GObjectAPI$GTypeInterface");			
-			put("GObject.String", "org/gnome/gir/gobject/GString");
-			put("GObject.Closure", "org/gnome/gir/gobject/GClosure");			
-			put("GObject.SignalInvocationHint", "org/gnome/gir/gobject/GSignalAPI$GSignalInvocationHint");			
-			put("GObject.EnumValue", "org/gnome/gir/gobject/GObjectAPI$GEnumValue");
-			put("GObject.EnumClass", "org/gnome/gir/gobject/GObjectAPI$GEnumClass");			
-			put("GObject.FlagsValue", "org/gnome/gir/gobject/GObjectAPI$GFlagsValue");
-			put("GObject.FlagsClass", "org/gnome/gir/gobject/GObjectAPI$GFlagsClass");
-			
-			String[] gobjectUnmapped = new String[] { "Callback", "BaseInitFunc", "InstanceInitFunc", 
-					"SignalAccumulator", "ClosureMarshal", "ClassInitFunc", "SignalEmissionHook",
-					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc" };
-			for (String unmapped : gobjectUnmapped)
-				put("GObject." + unmapped, "com/sun/jna/Pointer");
-			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType", 
-					"TypeFlags", "ParamFlags"  };
-			for (String unmapped : gobjectIntegerUnmapped)
-				put("GObject." + unmapped, "java/lang/Integer");				
-			
-			for (String name : new String[] { "Context" }) {
-				put("Cairo." + name, "com/sun/jna/Pointer");
-			}
-		}
-	};
-	
 	public static Type toJava(TypeTag tag) {
 		if (tag == TypeTag.LONG || tag == TypeTag.ULONG ||
 				tag == TypeTag.SSIZE || tag == TypeTag.SIZE)
@@ -197,7 +127,7 @@ public class CodeFactory {
 		/* Unfortunately, flags are best mapped as plain Integer  for now */
 		if (info instanceof FlagsInfo)
 			return Type.getObjectType("java/lang/Integer");
-		String internalName = getInternalNameMapped(info.getNamespace(), info.getName());
+		String internalName = GType.getInternalNameMapped(info.getNamespace(), info.getName());
 		if (internalName != null)
 			return Type.getObjectType(internalName);
 		return null;
@@ -232,7 +162,7 @@ public class CodeFactory {
 			if (iface instanceof StructInfo) {
 				StructInfo struct = (StructInfo) iface;
 				String internalName = getInternalNameMapped(struct);
-				if (type.isPointer() && internalName.startsWith(dynamicNamespace))
+				if (type.isPointer() && internalName.startsWith(GType.dynamicNamespace))
 					internalName += "$ByReference";
 				return Type.getObjectType(internalName);
 			} else if (iface instanceof InterfaceInfo || iface instanceof ObjectInfo ||
@@ -302,9 +232,6 @@ public class CodeFactory {
 		return null;
 	}
 
-	private static final String dynamicNamespace = "org/gnome/gir/dynamic/";
-	private static final String publicDynamicNamespace = "org.gnome.gir.dynamic.";
-	
 	private Type getCallableReturn(CallableInfo callable) {
 		TypeInfo info = callable.getReturnType();
 		if (info.getTag().equals(TypeTag.INTERFACE)) {
@@ -345,26 +272,6 @@ public class CodeFactory {
 		return types;
 	}
 	
-	private static String getInternalNameMapped(String namespace, String name) {
-		String key = namespace + "." + name;
-		String val = overrides.get(key);
-		if (val != null)
-			return val;
-		if (namespace.equals("GLib") || namespace.equals("GObject"))
-			throw new RuntimeException(String.format("Unmapped internal ns=%s name=%s", namespace, name));
-		return getInternalName(namespace, name);
-	}
-	
-	private static String getInternalName(String namespace, String name) {
-		String caps = name.substring(0, 1).toUpperCase() + name.substring(1);
-		return dynamicNamespace + namespace + "/" + caps;
-	}
-	
-	private static String getPublicName(String namespace, String name) {
-		String caps = name.substring(0, 1).toUpperCase() + name.substring(1);
-		return publicDynamicNamespace + namespace + "." + caps;
-	}
-	
 	private static abstract class ClassCompilation {
 		String namespace;
 		String baseName;
@@ -373,7 +280,7 @@ public class CodeFactory {
 		public ClassCompilation(String namespace, String baseName) {
 			this.namespace = namespace;
 			this.baseName = baseName;
-			this.internalName = getInternalName(namespace, baseName);
+			this.internalName = GType.getInternalName(namespace, baseName);
 			this.writer = new ClassWriter(0);
 		}
 
@@ -386,7 +293,7 @@ public class CodeFactory {
 		}
 		
 		public String getPublicName() {
-			return CodeFactory.getPublicName(namespace, baseName);
+			return GType.getPublicNameMapped(namespace, baseName);
 		}
 		
 		public abstract void close();
@@ -414,7 +321,7 @@ public class CodeFactory {
 			super(namespace, name);
 			this.innerClasses = new HashSet<InnerClassCompilation>();
 			this.baseName = name.substring(0, 1).toUpperCase() + name.substring(1);
-			this.publicName = CodeFactory.getPublicName(namespace, name);
+			this.publicName = GType.getPublicNameMapped(namespace, name);
 		}
 		
 		public ClassCompilation newInner() {
@@ -447,7 +354,7 @@ public class CodeFactory {
 	}
 
 	public StubClassCompilation getCompilation(String namespace, String name) {
-		String peerInternalName = getInternalName(namespace, name);
+		String peerInternalName = GType.getInternalName(namespace, name);
 		StubClassCompilation ret = writers.get(peerInternalName);
 		if (ret == null) {
 			ret = new StubClassCompilation(namespace, name);
@@ -461,7 +368,7 @@ public class CodeFactory {
 	}
 	
 	public String getGlobalsName(String namespace) {
-		return getInternalName(namespace, namespace+"Globals");
+		return GType.getInternalName(namespace, namespace+"Globals");
 	}
 	
 	public GlobalsCompilation getGlobals(String namespace) {
@@ -493,18 +400,13 @@ public class CodeFactory {
 		= new WeakHashMap<Repository, List<ClassCompilation>>();
 	
 	private static String getInternalName(BaseInfo info) {
-		return getInternalName(info.getNamespace(), info.getName());
+		return GType.getInternalName(info.getNamespace(), info.getName());
 	}
 	
 	private static String getInternalNameMapped(BaseInfo info) {
-		return getInternalNameMapped(info.getNamespace(), info.getName());
+		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
-	
-	@SuppressWarnings("unused")
-	private static String getPublicName(BaseInfo info) {
-		return getPublicName(info.getNamespace(), info.getName());
-	}
-	
+
 	private String enumNameToUpper(String nick) {
 		return nick.replace("-", "_").toUpperCase();
 	}
@@ -1583,7 +1485,7 @@ public class CodeFactory {
 		}
 		
 		String globalName = namespace + "Globals";
-		String peerInternalName = getInternalName(namespace, globalName);
+		String peerInternalName = GType.getInternalName(namespace, globalName);
 		GlobalsCompilation global = new GlobalsCompilation(namespace, globalName);
 		writers.put(peerInternalName, global);		
 		globals.put(namespace, global);
@@ -1592,13 +1494,6 @@ public class CodeFactory {
 
 		compileNamespaceComponents(namespace);
 		
-		for (Map.Entry<String, String> iface : global.interfaceTypes.entrySet()) {
-			global.clinit.visitLdcInsn(Type.getType("L" + iface.getKey() + ";"));
-			global.clinit.visitFieldInsn(GETSTATIC, peerInternalName + "$Internals", "library", "Lcom/sun/jna/NativeLibrary;");
-			global.clinit.visitLdcInsn(iface.getValue());
-			global.clinit.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/NativeLibrary", "getFunction", "(Ljava/lang/String;)Lcom/sun/jna/Function;");
-			global.clinit.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GType", "registerIface", "(Ljava/lang/Class;Lcom/sun/jna/Function;)V");			
-		}
 		global.clinit.visitInsn(RETURN);
 		global.clinit.visitMaxs(3, 0);
 		global.clinit.visitEnd();

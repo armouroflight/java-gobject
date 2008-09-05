@@ -52,6 +52,7 @@ interface GIntrospectionAPI extends Library {
 	boolean g_irepository_is_registered (Repository repository, String namespace);
 	boolean g_irepository_require(Repository repo, String namespace, int flags, PointerByReference error);
 	BaseInfo g_irepository_find_by_name(Repository repo, String namespace, String name);
+	BaseInfo g_irepository_find_by_gtype(Repository repository, NativeLong g_type);	
 	@RepositoryId(namespace="girepository", name="get_namespaces") ZeroTerminatedArray<String> g_irepository_get_namespaces(Repository repo);
 	BaseInfo g_irepository_get_info(Repository repo, String namespace, int idx);
 	String g_irepository_get_shared_library(Repository repository, String namespace);

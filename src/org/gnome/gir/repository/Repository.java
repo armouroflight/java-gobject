@@ -7,6 +7,7 @@ import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObjectGlobals;
 import org.gnome.gir.gobject.ZeroTerminatedArray;
 
+import com.sun.jna.NativeLong;
 import com.sun.jna.PointerType;
 import com.sun.jna.ptr.PointerByReference;
 
@@ -14,6 +15,10 @@ public class Repository extends PointerType {
 
 	public BaseInfo findByName(String namespace, String name) {
 		return GIntrospectionAPI.gi.g_irepository_find_by_name(this, namespace, name);
+	}
+	
+	public BaseInfo findByGType(NativeLong g_type) {
+		return GIntrospectionAPI.gi.g_irepository_find_by_gtype(this, g_type);
 	}
 		
 	public void require(String namespace) throws GErrorException {
