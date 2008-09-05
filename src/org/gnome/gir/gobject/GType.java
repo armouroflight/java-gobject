@@ -45,39 +45,15 @@
 
 package org.gnome.gir.gobject;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import com.sun.jna.FromNativeContext;
 import com.sun.jna.NativeLong;
-import com.sun.jna.Pointer;
 
 /**
  *
  */
 public class GType extends NativeLong {
 	private static final long serialVersionUID = 1L;
-	
-    private static final Map<Pointer, Class<? extends NativeObject>> instanceMap
-    	= new ConcurrentHashMap<Pointer, Class<? extends NativeObject>>();	
-    private static final Map<GType, Class<? extends NativeObject>> typeMap 
-    	= new HashMap<GType, Class<? extends NativeObject>>();
-    
-    public static final Class<? extends NativeObject> classFor(Pointer ptr) {
-        Pointer g_class = ptr.getPointer(0);
-        Class<? extends NativeObject> cls;
-        cls = instanceMap.get(g_class);
-        if (cls != null) {
-            return cls;
-        }
-        return cls;
-    };
-    
-    public static final void registerMapped(GType type, Class<? extends NativeObject> klass) {
-    	typeMap.put(type, klass);
-    };
-    
+
     public static final void init() {
     	GObjectAPI.gobj.g_type_init();
     }

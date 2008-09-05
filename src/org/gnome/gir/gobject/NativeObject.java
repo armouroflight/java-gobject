@@ -201,13 +201,8 @@ public abstract class NativeObject extends Handle {
          */
         if (GObject.GObjectProxy.class.isAssignableFrom(cls)) {
         	cls = (Class<T>) getStubClassFor(cls);
-        /* For GObject, read the g_class field to find
-         * the most exact class match
-         */        	
-        } else if (GObject.class.isAssignableFrom(cls)) {
-            cls = classFor(ptr, cls);
         }
-        /* Ok, something else, let's try to find an Initializer constructor
+        /* Ok, let's try to find an Initializer constructor
          */
         try {
             Constructor<T> constructor = cls.getDeclaredConstructor(Initializer.class);
@@ -228,13 +223,7 @@ public abstract class NativeObject extends Handle {
         }
 
     }
-    
-    @SuppressWarnings("unchecked")
-    protected static <T extends NativeObject> Class<T> classFor(Pointer ptr, Class<T> defaultClass) {
-        Class<? extends NativeObject> cls = GType.classFor(ptr);
-        return (cls != null && defaultClass.isAssignableFrom(cls)) ? (Class<T>) cls : defaultClass; 
-    }
-    
+
     @Override
     public boolean equals(Object o) {
         return o instanceof NativeObject && ((NativeObject) o).handle.equals(handle);
