@@ -123,7 +123,7 @@ public class CodeFactory {
 			
 			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
 					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
-					"ThreadPool", "Source", "CompareDataFunc",  };
+					"ThreadPool", "Source", "CompareDataFunc", "Array" };
 			for (String unmapped : glibPointerUnmapped)
 				put("GLib." + unmapped, "com/sun/jna/Pointer");
 			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
