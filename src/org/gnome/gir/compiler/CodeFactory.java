@@ -714,7 +714,7 @@ public class CodeFactory {
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V", 
-				"(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
+				"(Lorg/gnome/gir/gobject/GType;Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
