@@ -29,6 +29,8 @@ public class BaseInfo extends RefCountedObject {
 			return new FunctionInfo(init);
 		if (itype == InfoType.STRUCT.ordinal())
 			return new StructInfo(init);
+		if (itype == InfoType.UNION.ordinal())
+			return new UnionInfo(init);		
 		if (itype == InfoType.BOXED.ordinal())
 			return new BoxedInfo(init);
 		if (itype == InfoType.INTERFACE.ordinal())

@@ -1,6 +1,7 @@
 package org.gnome.gir.compiler;
 
 import static org.objectweb.asm.Opcodes.AASTORE;
+import static org.objectweb.asm.Opcodes.AALOAD;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_ENUM;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
@@ -82,6 +83,7 @@ import org.gnome.gir.repository.SignalInfo;
 import org.gnome.gir.repository.StructInfo;
 import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
+import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
@@ -156,12 +158,18 @@ public class CodeFactory {
 		TypeInfo type = arg.getType();
 		if (type.getTag().equals(TypeTag.INTERFACE)) {
 			BaseInfo iface = arg.getType().getInterface();
-			/* Special case structure members; we need to use the
+			/* Special case structure/union members; we need to use the
 			 * $ByReference tag if the member is actually a pointer.
 			 */
-			if (iface instanceof StructInfo) {
-				StructInfo struct = (StructInfo) iface;
-				String internalName = getInternalNameMapped(struct);
+			if (iface instanceof StructInfo || iface instanceof UnionInfo) {
+				boolean hasFields;
+				if (iface instanceof StructInfo)
+					hasFields = ((StructInfo) iface).getFields().length > 0;
+				else
+					hasFields = ((UnionInfo) iface).getFields().length > 0;
+				if (!hasFields)
+					return Type.getType(Pointer.class);
+				String internalName = getInternalNameMapped(iface);
 				if (type.isPointer() && internalName.startsWith(GType.dynamicNamespace))
 					internalName += "$ByReference";
 				return Type.getObjectType(internalName);
@@ -512,6 +520,57 @@ public class CodeFactory {
 		mv.visitTypeInsn(CHECKCAST, compilation.internalName);
 		mv.visitInsn(ARETURN);
 		mv.visitMaxs(2, 1);
+		mv.visitEnd();
+		
+		/* For NativeMapped */
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "fromNative", "(Ljava/lang/Object;Lcom/sun/jna/FromNativeContext;)Ljava/lang/Object;", null, null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 1);
+		mv.visitTypeInsn(CHECKCAST, "java/lang/Integer");
+		mv.visitVarInsn(ASTORE, 3);
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "values", 
+				"()[L" + compilation.internalName +  ";");
+		mv.visitVarInsn(ALOAD, 3);
+		mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Integer", "intValue", "()I");
+		mv.visitInsn(AALOAD);
+		mv.visitInsn(ARETURN);
+		Label l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("nativeValue", "Ljava/lang/Object;", null, l0, l2, 1);
+		mv.visitLocalVariable("context", "Lcom/sun/jna/FromNativeContext;", null, l0, l2, 2);
+		mv.visitLocalVariable("val", "Ljava/lang/Integer;", null, l1, l2, 3);
+		mv.visitMaxs(2, 4);
+		mv.visitEnd();		
+		
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "nativeType", "()Ljava/lang/Class;", "()Ljava/lang/Class<*>;", null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitLdcInsn(Type.getType("Ljava/lang/Integer;"));
+		mv.visitInsn(ARETURN);
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitLocalVariable("this", "Lorg/gnome/gir/compiler/TestEnum;", null, l0, l1, 0);
+		mv.visitMaxs(1, 1);
+		mv.visitEnd();
+		
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "toNative", "()Ljava/lang/Object;", null, null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "ordinal", "()I");
+		mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
+		mv.visitInsn(ARETURN);
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+		mv.visitMaxs(1, 1);
 		mv.visitEnd();		
 		
 		compilation.close();
@@ -1192,15 +1251,28 @@ public class CodeFactory {
 			return;	
 		writeCallable(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, compilation, fi, ctx);
 	}
-	
-	private void compile(StructInfo info) {
-		MethodVisitor mv;
-		StubClassCompilation compilation = getCompilation(info);
+
+	private void writeStructUnion(RegisteredTypeInfo info, StubClassCompilation compilation, String type,
+			FunctionInfo[] methods,
+			FieldInfo[] fields) {
 		
 		String internalName = getInternalName(info);
-		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, "com/sun/jna/Structure", null);	
+		String typeInit = info.getTypeInit();
+		boolean isRegistered = typeInit != null;
+		boolean hasFields = fields.length > 0;
+		if (hasFields) {
+			compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
+					(isRegistered ? "org/gnome/gir/gobject/Boxed" : "com/sun/jna/") + type, null);
+		} else {
+			compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
+					"com/sun/jna/Pointer", null);
+			return;
+		}
 		
-		InnerClassCompilation byRef = compilation.newInner("ByReference");				
+		if (isRegistered)
+			writeGetGType(info, compilation);
+		
+		InnerClassCompilation byRef = compilation.newInner("ByReference");
 		compilation.writer.visitInnerClass(compilation.internalName + "$ByReference",
 				compilation.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
 		byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
@@ -1210,41 +1282,55 @@ public class CodeFactory {
 		compilation.writer.visitInnerClass(compilation.internalName + "$ByValue",
 				compilation.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
 		byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
-				byValue.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByValue"});		
+				byValue.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByValue"});
 		
 		/* constructor */
-		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
-		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/Structure", "<init>", "()V");
+		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance", "()Lorg/gnome/gir/gobject/GTypeMapper;");		
+		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");				
 		mv.visitInsn(RETURN);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
-		mv.visitEnd();		
+		mv.visitMaxs(2, 1);
+		mv.visitEnd();
 		
 		Set<String> sigs = new HashSet<String>();		
-		for (FunctionInfo fi : info.getMethods()) {
+		for (FunctionInfo fi : methods) {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
 			if (ctx == null)
 				continue;			
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);	
 		}
-		
-		for (FieldInfo fi : info.getFields()) {
+		for (FieldInfo fi : fields) {
 			String name = ucaseToCamel(fi.getName());
-			Type type = toJava(fi);
-			if (type.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
-				type = Type.getType(Pointer.class);
-			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, type.getDescriptor(), null, null);
+			Type fieldType = toJava(fi);
+			if (fieldType.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
+				fieldType = Type.getType(Pointer.class);
+			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, fieldType.getDescriptor(), null, null);
 			fv.visitEnd();				
-		}
+		}		
+	}
+		
+	private void compile(StructInfo info) {
+		StubClassCompilation compilation = getCompilation(info);
+
+		writeStructUnion(info, compilation, "Structure", info.getMethods(), info.getFields());
 		
 		compilation.close();
-	}
+	}	
+	
+	private void compile(UnionInfo info) {
+		StubClassCompilation compilation = getCompilation(info);
+		
+		writeStructUnion(info, compilation, "Union", info.getMethods(), info.getFields());
+		
+		compilation.close();
+	}	
 	
 	private void compile(BoxedInfo info) {
 		ClassCompilation compilation = getCompilation(info);
@@ -1256,7 +1342,6 @@ public class CodeFactory {
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
-		mv.visitLineNumber(6, l0);
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitMethodInsn(INVOKESPECIAL, "org/gnome/gir/gobject/GBoxed", "<init>", "()V");
 		mv.visitInsn(RETURN);
@@ -1344,6 +1429,8 @@ public class CodeFactory {
 				compileGlobal(getGlobals(namespace), (FunctionInfo) baseInfo, globalSigs);
 			} else if (baseInfo instanceof StructInfo) {
 				compile((StructInfo) baseInfo);
+			} else if (baseInfo instanceof UnionInfo) {
+				compile((UnionInfo) baseInfo);				
 			} else if (baseInfo instanceof BoxedInfo) {
 				compile((BoxedInfo) baseInfo);
 			} else if (baseInfo instanceof InterfaceInfo) {

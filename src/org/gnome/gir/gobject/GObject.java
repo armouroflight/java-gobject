@@ -149,10 +149,6 @@ public abstract class GObject extends RefCountedObject {
     	this(getInitializer(gtype, args));
     }
     
-    GType getType(Class<?> klass) {
-    	return GType.OBJECT;
-    }
-    
     /**
      * Sets the value of a <tt>GObject</tt> property.
      *

@@ -45,6 +45,7 @@
 
 package org.gnome.gir.gobject;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -186,7 +187,21 @@ public class GType extends NativeLong {
     	Pointer g_class = ptr.getPointer(0);
     	NativeLong g_type = g_class.getNativeLong(0);
     	return lookupProxyClass(g_type);
-    };    
+    };
+    
+    /**
+     * Find the associated GType of a class.
+     * @param klass
+     * @return
+     */
+    public static final <T extends RegisteredType> GType of(Class<T> klass) {
+    	try {
+    		Method m = klass.getMethod("getGType", new Class<?>[] {});
+    		return (GType) m.invoke(null, new Object[] {});
+    	} catch (Exception e) {
+    		throw new RuntimeException(e);
+    	}
+    }
     
     public static final void init() {
     	GObjectAPI.gobj.g_type_init();

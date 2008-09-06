@@ -48,6 +48,7 @@ package org.gnome.gir.gobject;
 import java.util.HashMap;
 
 import com.sun.jna.Library;
+import com.sun.jna.Pointer;
 
 /**
  *
@@ -61,4 +62,6 @@ public interface GBoxedAPI extends Library {
 	});
     
     GType g_closure_get_type();
+    Pointer g_boxed_copy(GType gtype, Pointer obj);
+    void g_boxed_free(GType gtype, Pointer obj);    
 }

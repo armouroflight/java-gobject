@@ -49,10 +49,10 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URI;
 
-import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.gobject.annotation.ConstField;
 import org.gnome.gir.gobject.annotation.IncRef;
 import org.gnome.gir.gobject.annotation.Invalidate;
+import org.gnome.gir.gobject.annotation.Return;
 
 import com.sun.jna.CallbackParameterContext;
 import com.sun.jna.FromNativeContext;
@@ -158,6 +158,7 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return Pointer.class;
         }
     };
+    
     private static TypeConverter enumConverter = new TypeConverter() {
 
         @SuppressWarnings(value = "unchecked")
@@ -177,7 +178,7 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return EnumMapper.getInstance().intValue((Enum) arg);
         }
     };
-
+    
     private TypeConverter booleanConverter = new TypeConverter() {
         public Object toNative(Object arg, ToNativeContext context) {
             return Integer.valueOf(Boolean.TRUE.equals(arg) ? 1 : 0);
