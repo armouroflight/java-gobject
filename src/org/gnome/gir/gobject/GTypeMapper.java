@@ -178,36 +178,6 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
         }
     };
 
-    private TypeConverter stringConverter = new TypeConverter() {
-
-        public Object fromNative(Object result, FromNativeContext context) {
-            if (result == null) {
-                return null;
-            }
-            if (context instanceof MethodResultContext) {
-                MethodResultContext functionContext = (MethodResultContext) context;
-                Method method = functionContext.getMethod();
-                Pointer ptr = (Pointer) result;
-                String s = ptr.getString(0);
-                if (method.isAnnotationPresent(Return.class)) {
-                    GlibAPI.glib.g_free(ptr);
-                }
-                return s;
-            } else {
-                return ((Pointer) result).getString(0);
-            }           
-        }
-
-        public Class<?> nativeType() {
-            return Pointer.class;
-        }
-
-        public Object toNative(Object arg, ToNativeContext context) {
-            // Let the default String -> native conversion handle it
-            return arg;            
-        }
-    };
-
     private TypeConverter booleanConverter = new TypeConverter() {
         public Object toNative(Object arg, ToNativeContext context) {
             return Integer.valueOf(Boolean.TRUE.equals(arg) ? 1 : 0);
@@ -281,8 +251,6 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return nativeObjectConverter;
         } else if (Boolean.class == type || boolean.class == type) {
             return booleanConverter;
-        } else if (String.class == type) {
-            return stringConverter;
         } else if (IntPtr.class == type) {
             return intptrConverter;
         } else if (GQuark.class == type) {
@@ -302,9 +270,7 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
         } else if (Enum.class.isAssignableFrom(type)) {
             return enumConverter;
         } else if (Boolean.class == type || boolean.class == type) {
-            return booleanConverter;
-        } else if (String.class == type) {
-            return stringConverter;        
+            return booleanConverter;   
         } else if (IntPtr.class == type) {
             return intptrConverter;
         } else if (GQuark.class == type) {
