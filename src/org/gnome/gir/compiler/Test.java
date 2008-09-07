@@ -36,7 +36,7 @@ public class Test extends GObject implements TestIface {
 		Function target = Internals.library.getFunction("glib_baz");
 		Object[] args = new Object[] { x, z };
 		Pointer result = (Pointer) target.invoke(Pointer.class, args, Internals.invocationOptions); 
-		if (result == null) {
+		if (error.getPointer() == null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}		
 		return (Test) objectFor(result, Test.class);

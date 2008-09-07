@@ -1,7 +1,7 @@
 package org.gnome.gir.compiler;
 
-import static org.objectweb.asm.Opcodes.AASTORE;
 import static org.objectweb.asm.Opcodes.AALOAD;
+import static org.objectweb.asm.Opcodes.AASTORE;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
 import static org.objectweb.asm.Opcodes.ACC_ENUM;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
@@ -24,7 +24,6 @@ import static org.objectweb.asm.Opcodes.CHECKCAST;
 import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
 import static org.objectweb.asm.Opcodes.ICONST_0;
-import static org.objectweb.asm.Opcodes.IFNE;
 import static org.objectweb.asm.Opcodes.IFNONNULL;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
@@ -1077,10 +1076,6 @@ public class CodeFactory {
 		ArgInfo[] argInfos = fi.getArgs();
 		boolean throwsGError = argInfos.length > 0 && 
 			argInfos[argInfos.length-1].getType().getTag().equals(TypeTag.ERROR);
-		if (throwsGError && returnType.equals(Type.VOID_TYPE)) {
-			logger.warning("Skipping function which returns Void and uses GError: " + fi.getSymbol());			
-			return null;
-		}
 		List<Type> args = getCallableArgs(fi, (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0,
 					throwsGError);
 		if (args == null) {
@@ -1184,16 +1179,16 @@ public class CodeFactory {
 			}
 		} else {
 			jtarget = new Label();
-			mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());
-			mv.visitInsn(DUP);			
-			mv.visitVarInsn(ASTORE, resultOffset);
-			mv.visitInsn(DUP);			
-			if (ctx.returnType.equals(Type.getType(Boolean.class))) {
-				mv.visitMethodInsn(INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z");				
-				mv.visitJumpInsn(IFNE, jtarget);
-			} else {				
-				mv.visitJumpInsn(IFNONNULL, jtarget);
+			if (ctx.returnType.equals(Type.VOID_TYPE)) {
+				mv.visitInsn(POP);
+			} else {
+				mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());
+				mv.visitInsn(DUP);			
+				mv.visitVarInsn(ASTORE, resultOffset);	
 			}
+			mv.visitVarInsn(ALOAD, errorOffset);
+			mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/ptr/PointerByReference", "getPointer", "()Lcom/sun/jna/Pointer;");	
+			mv.visitJumpInsn(IFNONNULL, jtarget);
 			mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GErrorException");
 			mv.visitInsn(DUP);
 			mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GErrorStruct");
@@ -1204,8 +1199,12 @@ public class CodeFactory {
 			mv.visitMethodInsn(INVOKESPECIAL, "org/gnome/gir/gobject/GErrorException", "<init>", "(Lorg/gnome/gir/gobject/GErrorStruct;)V");
 			mv.visitInsn(ATHROW);
 			mv.visitLabel(jtarget);
-			mv.visitVarInsn(ALOAD, resultOffset);
-			mv.visitInsn(ARETURN);
+			if (ctx.returnType.equals(Type.VOID_TYPE)) {
+				mv.visitInsn(RETURN);
+			} else {
+				mv.visitVarInsn(ALOAD, resultOffset);
+				mv.visitInsn(ARETURN);
+			}
 		}
 		Label l4 = new Label();
 		mv.visitLabel(l4);
@@ -1251,6 +1250,22 @@ public class CodeFactory {
 			return;	
 		writeCallable(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, compilation, fi, ctx);
 	}
+	
+	private void writeStructUnionInnerCtor(InnerClassCompilation inner, String parentInternalName) {
+		MethodVisitor mv = inner.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+		mv.visitCode();
+		Label l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance", "()Lorg/gnome/gir/gobject/GTypeMapper;");		
+		mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");				
+		mv.visitInsn(RETURN);
+		Label l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitLocalVariable("this", "L" + inner.internalName + ";", null, l0, l1, 0);
+		mv.visitMaxs(2, 1);
+		mv.visitEnd();		
+	}
 
 	private void writeStructUnion(RegisteredTypeInfo info, StubClassCompilation compilation, String type,
 			FunctionInfo[] methods,
@@ -1277,14 +1292,16 @@ public class CodeFactory {
 				compilation.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
 		byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
 				byRef.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByReference"});
+		writeStructUnionInnerCtor(byRef, internalName);
 		
 		InnerClassCompilation byValue = compilation.newInner("ByValue");				
 		compilation.writer.visitInnerClass(compilation.internalName + "$ByValue",
 				compilation.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
 		byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
 				byValue.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByValue"});
+		writeStructUnionInnerCtor(byValue, internalName);		
 		
-		/* constructor */
+		/* constructor; public no-args and protected TypeMapper */
 		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
@@ -1298,6 +1315,21 @@ public class CodeFactory {
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 		mv.visitMaxs(2, 1);
 		mv.visitEnd();
+		
+		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitVarInsn(ALOAD, 1);
+		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");				
+		mv.visitInsn(RETURN);
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+		mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
+		mv.visitMaxs(2, 2);
+		mv.visitEnd();		
 		
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : methods) {
