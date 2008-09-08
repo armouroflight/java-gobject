@@ -28,6 +28,14 @@ public class Repository extends PointerType {
 		}
 	}
 	
+	public void requireNoFail(String namespace) {
+		try {
+			require(namespace);
+		} catch (GErrorException e) {
+			throw new RuntimeException(e);
+		}
+	}
+	
 	public BaseInfo[] getInfos(String namespace) {
 		int nInfos = GIntrospectionAPI.gi.g_irepository_get_n_infos(this, namespace);
 		BaseInfo[] ret = new BaseInfo[nInfos];

@@ -103,6 +103,10 @@ public class Test extends GObject implements TestIface {
 				put(Library.OPTION_TYPE_MAPPER, new GTypeMapper());
 			}
 		};
+		
+		static {
+			Repository.getDefault().requireNoFail(namespace);
+		}
 	};
 
 	public static final void init() {

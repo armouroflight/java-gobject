@@ -1695,7 +1695,12 @@ public class CodeFactory {
 		mv.visitInsn(DUP);
 		mv.visitMethodInsn(INVOKESPECIAL, internalsInner.internalName, "<init>", "()V");
 		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "invocationOptions", "Ljava/util/Map;");
-		globals.clinit = mv;		
+
+		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault", "()Lorg/gnome/gir/repository/Repository;");
+		mv.visitLdcInsn(globals.namespace);
+		mv.visitMethodInsn(INVOKEVIRTUAL, "org/gnome/gir/repository/Repository", "requireNoFail", "(Ljava/lang/String;)V");		
+		
+		globals.clinit = mv;
 	}
 	
 	private void compileNamespaceSingle(String namespace) {

@@ -165,7 +165,7 @@ public class GType extends NativeLong {
     /* If we haven't yet seen a GType, we do a full search of the repository.  This
      * is VERY slow right now, so it's cached.
      */
-    private static synchronized final Class<?> lookupProxyClass(NativeLong g_type) {
+    public static synchronized final Class<?> lookupProxyClass(NativeLong g_type) {
     	Class<?> klass = classTypeMap.get(g_type);
     	if (klass != null)
     		return klass;
@@ -186,10 +186,15 @@ public class GType extends NativeLong {
     	return lookupProxyClass((NativeLong) this);
     }
     
-    public static final Class<?> lookupProxyClass(Pointer ptr) {
+    public static final GType objectPeekType(Pointer ptr) {
     	Pointer g_class = ptr.getPointer(0);
     	NativeLong g_type = g_class.getNativeLong(0);
-    	return lookupProxyClass(g_type);
+    	return valueOf(g_type.longValue());
+    }
+    
+    public static final Class<?> lookupProxyClass(Pointer ptr) {
+    	GType gtype = objectPeekType(ptr);
+    	return lookupProxyClass(gtype);
     };
     
     /**
@@ -272,6 +277,10 @@ public class GType extends NativeLong {
     @Override
     public Object fromNative(Object nativeValue, FromNativeContext context) {
         return valueOf(((Number) nativeValue).longValue());
+    }
+    
+    public GType getParent() {
+    	return GObjectAPI.gobj.g_type_parent(this);
     }
     
     public String toString() {

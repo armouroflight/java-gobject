@@ -238,8 +238,19 @@ public abstract class NativeObject extends Handle {
     }
     
     @SuppressWarnings("unchecked")
+	protected static Class<?> lookupProxyChain(GType gtype) {
+    	Class<?> ret = null;
+    	while (ret == null && !gtype.equals(GType.OBJECT)) {
+    		ret = GType.lookupProxyClass(gtype);
+    		gtype = gtype.getParent();
+    	}
+    	return ret;
+    }
+    
+    @SuppressWarnings("unchecked")
 	protected static <T extends NativeObject> Class<T> classFor(Pointer ptr, Class<T> defaultClass) {
-    	Class<?> cls = GType.lookupProxyClass(ptr);
+    	GType gtype = GType.objectPeekType(ptr);
+    	Class<?> cls = lookupProxyChain(gtype);
     	return (cls != null && defaultClass.isAssignableFrom(cls)) ? (Class<T>) cls : defaultClass; 
     }    
 
