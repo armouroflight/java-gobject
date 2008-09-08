@@ -1280,56 +1280,71 @@ public class CodeFactory {
 					(isRegistered ? "org/gnome/gir/gobject/Boxed" : "com/sun/jna/") + type, null);
 		} else {
 			compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
-					"com/sun/jna/Pointer", null);
-			return;
+					"com/sun/jna/PointerType", null);
+			/* Write out a no-args ctor, though people shouldn't use this */
+			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/PointerType", "<init>", "()V");
+			mv.visitInsn(RETURN);
+			Label l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitMaxs(1, 1);
+			mv.visitEnd();			
 		}
 		
-		if (isRegistered)
+		if (hasFields && isRegistered)
 			writeGetGType(info, compilation);
 		
-		InnerClassCompilation byRef = compilation.newInner("ByReference");
-		compilation.writer.visitInnerClass(compilation.internalName + "$ByReference",
-				compilation.internalName, "ByReference", ACC_PUBLIC + ACC_STATIC);
-		byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
-				byRef.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByReference"});
-		writeStructUnionInnerCtor(byRef, internalName);
-		
-		InnerClassCompilation byValue = compilation.newInner("ByValue");				
-		compilation.writer.visitInnerClass(compilation.internalName + "$ByValue",
-				compilation.internalName, "ByValue", ACC_PUBLIC + ACC_STATIC);
-		byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, 
-				byValue.internalName, null, compilation.internalName, new String[] { "com/sun/jna/Structure$ByValue"});
-		writeStructUnionInnerCtor(byValue, internalName);		
-		
-		/* constructor; public no-args and protected TypeMapper */
-		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-		mv.visitCode();
-		Label l0 = new Label();
-		mv.visitLabel(l0);
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance", "()Lorg/gnome/gir/gobject/GTypeMapper;");		
-		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");				
-		mv.visitInsn(RETURN);
-		Label l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(2, 1);
-		mv.visitEnd();
-		
-		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
-		mv.visitCode();
-		l0 = new Label();
-		mv.visitLabel(l0);
-		mv.visitVarInsn(ALOAD, 0);
-		mv.visitVarInsn(ALOAD, 1);
-		mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");				
-		mv.visitInsn(RETURN);
-		l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
-		mv.visitMaxs(2, 2);
-		mv.visitEnd();		
+		if (hasFields) {
+			InnerClassCompilation byRef = compilation.newInner("ByReference");
+			compilation.writer.visitInnerClass(compilation.internalName + "$ByReference", compilation.internalName,
+					"ByReference", ACC_PUBLIC + ACC_STATIC);
+			byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, byRef.internalName, null, compilation.internalName,
+					new String[] { "com/sun/jna/Structure$ByReference" });
+			writeStructUnionInnerCtor(byRef, internalName);
+
+			InnerClassCompilation byValue = compilation.newInner("ByValue");
+			compilation.writer.visitInnerClass(compilation.internalName + "$ByValue", compilation.internalName,
+					"ByValue", ACC_PUBLIC + ACC_STATIC);
+			byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, byValue.internalName, null, compilation.internalName,
+					new String[] { "com/sun/jna/Structure$ByValue" });
+			writeStructUnionInnerCtor(byValue, internalName);
+
+			/* constructor; public no-args and protected TypeMapper */
+			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance",
+					"()Lorg/gnome/gir/gobject/GTypeMapper;");
+			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+			mv.visitInsn(RETURN);
+			Label l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitMaxs(2, 1);
+			mv.visitEnd();
+
+			mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
+			mv.visitCode();
+			l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+			mv.visitInsn(RETURN);
+			l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
+			mv.visitMaxs(2, 2);
+			mv.visitEnd();	
+		}
 		
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : methods) {

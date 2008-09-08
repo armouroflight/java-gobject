@@ -48,6 +48,7 @@ public final class GObjectGlobals {
 		}
 		
 		GlibAPI.glib.g_log_set_default_handler(handler, null);
+		GThreadAPI.gthread.g_thread_init(null);
 		GObjectAPI.gobj.g_type_init();
 		initialized = true;
 	}

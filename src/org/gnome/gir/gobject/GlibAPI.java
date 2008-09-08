@@ -106,6 +106,7 @@ public interface GlibAPI extends Library {
     interface GThreadFunc extends Callback {
         Pointer callback(Pointer data);
     }
+    void g_thread_init(Pointer funcs);
     Pointer g_thread_create(GThreadFunc func, Pointer data, boolean joinable, PointerByReference error);
     Pointer g_thread_self();
     Pointer g_thread_join(Pointer thread);

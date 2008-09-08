@@ -29,4 +29,9 @@ public abstract class BoxedStructure extends Structure implements RegisteredType
 			free();
 		super.finalize();
 	}
+	
+	@Override
+	public String toString() {
+		return GObjectAPI.gobj.g_type_name(GType.of(this.getClass())) + "(" + super.toString() + ")";
+	}
 }

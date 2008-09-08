@@ -73,6 +73,7 @@ public class GType extends NativeLong {
 			put("GLib.List", "org/gnome/gir/gobject/GList");
 			put("GLib.SList", "org/gnome/gir/gobject/GSList");
 
+			put("GLib.MainContext", "org/gnome/gir/gobject/GMainContext");
 			put("GLib.Closure", "org/gnome/gir/gobject/GClosure");
 			put("GLib.Quark", "org/gnome/gir/gobject/GQuark");
 			put("GLib.TimeVal", "org/gnome/gir/gobject/GTimeVal");
@@ -83,11 +84,12 @@ public class GType extends NativeLong {
 			put("GLib.String", "org/gnome/gir/gobject/GString");	
 			put("GLib.Callback", "com/sun/jna/Callback");
 			put("GLib.Mutex", "org/gnome/gir/gobject/GLibAPI$GMutex");
-			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");			
+			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");
+			put("GLib.IOFunc", "org/gnome/gir/gobject/GIOFunc");
 			
 			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
 					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
-					"ThreadPool", "Source", "CompareDataFunc", "Array" };
+					"ThreadPool", "Source", "CompareDataFunc", "Array", "Data", "DataSet" };
 			for (String unmapped : glibPointerUnmapped)
 				put("GLib." + unmapped, "com/sun/jna/Pointer");
 			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", };
@@ -113,6 +115,7 @@ public class GType extends NativeLong {
 			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
 			put("GObject.TypeInterface", "org/gnome/gir/gobject/GObjectAPI$GTypeInterface");			
 			put("GObject.String", "org/gnome/gir/gobject/GString");
+			put("GObject.HashTable", "org/gnome/gir/gobject/GHashTable");			
 			put("GObject.Closure", "org/gnome/gir/gobject/GClosure");			
 			put("GObject.SignalInvocationHint", "org/gnome/gir/gobject/GSignalAPI$GSignalInvocationHint");			
 			put("GObject.EnumValue", "org/gnome/gir/gobject/GObjectAPI$GEnumValue");
@@ -122,7 +125,7 @@ public class GType extends NativeLong {
 			
 			String[] gobjectUnmapped = new String[] { "Callback", "BaseInitFunc", "InstanceInitFunc", 
 					"SignalAccumulator", "ClosureMarshal", "ClassInitFunc", "SignalEmissionHook",
-					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc" };
+					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc", "ValueArray" };
 			for (String unmapped : gobjectUnmapped)
 				put("GObject." + unmapped, "com/sun/jna/Pointer");
 			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType", 

@@ -29,4 +29,9 @@ public abstract class BoxedUnion extends Union implements RegisteredType {
 			free();
 		super.finalize();
 	}
+	
+	@Override
+	public String toString() {
+		return GObjectAPI.gobj.g_type_name(GType.of(this.getClass())) + "(" + super.toString() + ")";
+	}	
 }
