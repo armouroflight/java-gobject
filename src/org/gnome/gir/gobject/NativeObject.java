@@ -199,14 +199,7 @@ public abstract class NativeObject extends Handle {
         /* Special-case GObject.GObjectProxy here - these are interface values
          * for which we don't know of a current concrete class.
          */
-        boolean isInterface = false;
-        for (Class<?> iface : cls.getInterfaces()) {
-        	if (iface.equals(GObject.GObjectProxy.class)) {
-        		isInterface = true;
-        		break;
-        	}
-        }
-        if (isInterface) {
+        if (cls.isInterface() && GObject.GObjectProxy.class.isAssignableFrom(cls)) {
     		cls = (Class<T>) getStubClassFor(cls);        	
         }
         /* For GObject, read the g_class field to find
