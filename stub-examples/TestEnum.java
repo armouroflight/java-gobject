@@ -1,4 +1,4 @@
-package org.gnome.gir.compiler;
+
 
 import com.sun.jna.FromNativeContext;
 import com.sun.jna.NativeMapped;

@@ -1,4 +1,4 @@
-package org.gnome.gir.compiler;
+
 
 import org.gnome.gir.gobject.GTypeMapper;
 
