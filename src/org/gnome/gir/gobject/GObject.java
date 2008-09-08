@@ -76,6 +76,13 @@ public abstract class GObject extends RefCountedObject {
     private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
     
     /**
+     * A tagging interface to mark classes which are GObject property bags.
+     * @author walters
+     *
+     */
+    public static interface GProperties {};
+    
+    /**
      * A tagging interface used in the code generator - if a method returns an interface,
      * we have it extend this interface so we know it's a GObject. 
      * @author walters

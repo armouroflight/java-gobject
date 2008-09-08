@@ -44,6 +44,14 @@ public class ObjectInfo extends RegisteredTypeInfo {
 		return ret;
 	}
 	
+	public PropertyInfo[] getProperties() {
+		int n = GIntrospectionAPI.gi.g_object_info_get_n_properties(this);
+		PropertyInfo[] ret= new PropertyInfo[n];
+		for (int i = 0; i < n; i++)
+			ret[i] = GIntrospectionAPI.gi.g_object_info_get_property(this, i);
+		return ret;
+	}	
+	
 	public InterfaceInfo[] getInterfaces() {
 		int n = GIntrospectionAPI.gi.g_object_info_get_n_interfaces(this);
 		InterfaceInfo[] ret= new InterfaceInfo[n];

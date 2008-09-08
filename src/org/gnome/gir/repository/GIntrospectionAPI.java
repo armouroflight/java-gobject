@@ -27,7 +27,6 @@ package org.gnome.gir.repository;
 
 import java.util.HashMap;
 
-import org.gnome.gir.gobject.GParamFlags;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
 import org.gnome.gir.gobject.ZeroTerminatedArray;
@@ -191,7 +190,7 @@ interface GIntrospectionAPI extends Library {
 	ConstantInfo       g_interface_info_get_constant        (InterfaceInfo info,
 								     int        n);
 	
-	GParamFlags          g_property_info_get_flags                (PropertyInfo         info);
+	int          g_property_info_get_flags                (PropertyInfo         info);
 	TypeInfo            g_property_info_get_type                 (PropertyInfo         info);
 	
 	int                  g_signal_info_get_flags                  (SignalInfo           info);

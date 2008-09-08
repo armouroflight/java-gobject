@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,6 +62,7 @@ import java.util.zip.ZipOutputStream;
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
+import org.gnome.gir.gobject.GParamFlags;
 import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.repository.ArgInfo;
@@ -76,6 +78,7 @@ import org.gnome.gir.repository.FunctionInfo;
 import org.gnome.gir.repository.FunctionInfoFlags;
 import org.gnome.gir.repository.InterfaceInfo;
 import org.gnome.gir.repository.ObjectInfo;
+import org.gnome.gir.repository.PropertyInfo;
 import org.gnome.gir.repository.RegisteredTypeInfo;
 import org.gnome.gir.repository.Repository;
 import org.gnome.gir.repository.SignalInfo;
@@ -588,6 +591,8 @@ public class CodeFactory {
 	}	
 	
 	private String ucaseToCamel(String ucase) {
+		// So this function works on signal/property names too
+		ucase = ucase.replace('-', '_');
 		String[] components = ucase.split("_");
 		for (int i = 1; i < components.length; i++) {
 			if (components[i].length() > 0)
@@ -869,6 +874,71 @@ public class CodeFactory {
 		mv.visitMaxs(2, 2);
 		mv.visitEnd();	
 	}
+	
+	private void writeProperties(ClassCompilation compilation, PropertyInfo[] props, Set<String> sigs) {
+		for (PropertyInfo prop : props) {
+			Type type = toJava(prop.getType());
+			if (type == null)
+				continue;
+			int propFlags = prop.getFlags();
+			if ((propFlags & GParamFlags.READABLE) != 0) {
+				String getterName = "get" + ucaseToPascal(prop.getName());
+				String descriptor = Type.getMethodDescriptor(type, new Type[] {});
+				String signature = getUniqueSignature(getterName, type, Arrays.asList(new Type[] {}));
+				if (sigs.contains(signature)) {
+					logger.warning("Getter " + getterName + " duplicates signature: " 
+								+ signature);
+					continue;
+				}
+				sigs.add(signature);				
+				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, getterName, 
+					descriptor, null, null);
+				mv.visitCode();
+				Label l0 = new Label();
+				mv.visitLabel(l0);
+				mv.visitVarInsn(ALOAD, 0);
+				mv.visitLdcInsn(prop.getName());
+				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", 
+						"(Ljava/lang/String;)" + type.getDescriptor());
+				mv.visitTypeInsn(CHECKCAST, type.getInternalName());
+				mv.visitInsn(ARETURN);
+				Label l1 = new Label();
+				mv.visitLabel(l1);
+				mv.visitLocalVariable("this", "L" + compilation.internalName +";", null, l0, l1, 0);
+				mv.visitMaxs(2, 1);				
+				mv.visitEnd();
+			}
+			if ((propFlags & GParamFlags.WRITABLE) != 0 &&
+					(propFlags & GParamFlags.CONSTRUCT_ONLY) == 0) {
+				String setterName = "set" + ucaseToPascal(prop.getName());
+				String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { type });
+				String signature = getUniqueSignature(setterName, Type.VOID_TYPE, Arrays.asList(new Type[] { type }));
+				if (sigs.contains(signature)) {
+					logger.warning("Setter " + setterName + " duplicates signature: " 
+								+ signature);
+					continue;
+				}
+				sigs.add(signature);
+				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, setterName, 
+					descriptor, null, null);
+				mv.visitCode();
+				Label l0 = new Label();
+				mv.visitLabel(l0);
+				mv.visitVarInsn(ALOAD, 0);
+				mv.visitLdcInsn(prop.getName());
+				mv.visitVarInsn(ALOAD, 1);
+				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "set", 
+						"(Ljava/lang/String;Ljava/lang/Object;)" + type.getDescriptor());
+				mv.visitInsn(RETURN);
+				Label l1 = new Label();
+				mv.visitLabel(l1);
+				mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+				mv.visitLocalVariable("arg", type.getDescriptor(), null, l0, l1, 1);				
+				mv.visitMaxs(3, 2);				
+				mv.visitEnd();
+			};
+		}		
+	}
 		
 	private void compile(ObjectInfo info) {
 		StubClassCompilation compilation = getCompilation(info);
@@ -982,8 +1052,12 @@ public class CodeFactory {
 				// Insert the object as first parameter
 				ctx.argTypes.add(0, typeFromInfo(iface));				
 				compileSignal(compilation, ctx, sig, false, true);
-			}			
+			}
+			writeProperties(compilation, iface.getProperties(), sigs);
 		}
+		
+		writeProperties(compilation, info.getProperties(), sigs);
+		
 		compilation.close();	
 	}
 	
@@ -1065,7 +1139,18 @@ public class CodeFactory {
 			return null;
 		}	
 		return new CallableCompilationContext(returnType, argInfos, args, false);
-	}	
+	}
+	
+	private String getUniqueSignature(String name, Type returnType, List<Type> args) {
+		StringBuilder builder = new StringBuilder(name);
+		builder.append("(");
+		for (Type arg: args)
+			builder.append(arg.getDescriptor());
+		builder.append(")");
+		builder.append(returnType.getDescriptor());
+		String signature = builder.toString();
+		return signature;
+	}
 	
 	private CallableCompilationContext tryCompileCallable(FunctionInfo fi, Set<String> seenSignatures) {
 		Type returnType = getCallableReturn(fi);
@@ -1082,13 +1167,8 @@ public class CodeFactory {
 			logger.warning("Skipping function with unhandled arg signature: " + fi.getSymbol());
 			return null;
 		}
-		StringBuilder builder = new StringBuilder(fi.getName());
-		builder.append("(");
-		for (Type arg: args)
-			builder.append(arg.getDescriptor());
-		builder.append(")");
-		builder.append(returnType.getDescriptor());
-		String signature = builder.toString();
+		String name = ucaseToCamel(fi.getName());
+		String signature = getUniqueSignature(name, returnType, args);
 		if (seenSignatures.contains(signature)) {
 			logger.warning("Function " + fi.getSymbol() + " duplicates signature: " 
 						+ signature);

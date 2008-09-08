@@ -37,6 +37,8 @@ public class BaseInfo extends RefCountedObject {
 			return new InterfaceInfo(init);
 		if (itype == InfoType.CALLBACK.ordinal())
 			return new CallbackInfo(init);
+		if (itype == InfoType.PROPERTY.ordinal())
+			return new PropertyInfo(init);		
 		return new BaseInfo(new Initializer(ptr));
 	}
 

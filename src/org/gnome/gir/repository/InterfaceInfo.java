@@ -36,7 +36,7 @@ public class InterfaceInfo extends RegisteredTypeInfo {
 		for (int i = 0; i < n; i++)
 			ret[i] = GIntrospectionAPI.gi.g_interface_info_get_signal(this, i);
 		return ret;
-	}		
+	}
 	
 	public VFuncInfo[] getVFuncs() {
 		int n = GIntrospectionAPI.gi.g_interface_info_get_n_vfuncs(this);

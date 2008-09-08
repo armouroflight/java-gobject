@@ -1,10 +1,17 @@
 package org.gnome.gir.repository;
 
-import com.sun.jna.Pointer;
-import com.sun.jna.PointerType;
 
-public class PropertyInfo extends PointerType {
-	protected PropertyInfo(Pointer pointer) {
-		super(pointer);
+public class PropertyInfo extends BaseInfo {
+
+	protected PropertyInfo(Initializer init) {
+		super(init);
+	}
+
+	public int getFlags() {
+		return GIntrospectionAPI.gi.g_property_info_get_flags(this);
+	}
+	
+	public TypeInfo getType() {
+		return GIntrospectionAPI.gi.g_property_info_get_type(this);
 	}
 }

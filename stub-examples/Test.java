@@ -20,7 +20,15 @@ import com.sun.jna.Structure;
 import com.sun.jna.ptr.PointerByReference;
 
 public class Test extends GObject implements TestIface {
+
+	public String getFoo() {
+		return (String) get("foo");
+	}
 	
+	public void setFoo(String arg) {
+		set("foo", arg);
+	}
+
 	public void foo(String x, Double y, Integer z) throws GErrorException {
 		PointerByReference error = new PointerByReference(null);
 		Function target = Internals.library.getFunction("gtk_foo_bar");
