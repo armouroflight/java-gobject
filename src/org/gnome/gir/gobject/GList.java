@@ -1,7 +1,29 @@
 package org.gnome.gir.gobject;
 
-import com.sun.jna.PointerType;
+import java.util.ArrayList;
+import java.util.List;
 
-public class GList extends PointerType {
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+
+public abstract class GList extends Structure {
+	public static class ByReference extends GList implements Structure.ByReference {};
 	
+	public Pointer data;
+	public GList.ByReference next;
+	public GList.ByReference prev;	
+	
+	public List<Pointer> copy() {
+		List<Pointer> ret = new ArrayList<Pointer>();
+		GList list = this;
+		while (list.next != null) {
+			ret.add(list.data);
+			list = list.next;
+		}
+		return ret;
+	}
+	
+	public void free() {
+		GlibAPI.glib.g_list_free(this);
+	}
 }

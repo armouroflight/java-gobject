@@ -159,28 +159,7 @@ public interface GlibAPI extends Library {
     int g_log_set_handler(String log_domain, int levels, GLogFunc handler, Pointer user_data);
     void g_log_default_handler (String log_domain, int log_level, String message, Pointer unused_data);    
     Pointer g_log_set_default_handler(GLogFunc log_func, Pointer user_data);    
-    
-    public final static class GList extends com.sun.jna.Structure {
-        public volatile Pointer data;
-        public volatile Pointer _next;
-        public volatile Pointer _prev;
-        public GList() {            
-        }
-        private GList(Pointer pointer) {
-            useMemory(pointer);
-            read();
-        }
-        private static GList valueOf(Pointer ptr) {
-            return ptr != null ? new GList(ptr) : null;
-        }
-        public GList next() {
-            return valueOf(_next);
-        }
-        public GList prev() {
-            return valueOf(_prev);
-        }
-    }
-    
+
     public static final class GMutex extends Structure {
     	
     }
@@ -212,5 +191,8 @@ public interface GlibAPI extends Library {
       public GStaticMutex mutex;
       public int depth;
       public GSystemThread owner;
-    };
+    }
+    
+	void g_list_free(GList list);
+	void g_slist_free(GSList list);	
 }
