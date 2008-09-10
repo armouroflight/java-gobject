@@ -36,11 +36,14 @@ import static org.objectweb.asm.Opcodes.POP;
 import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V1_6;
-import gnu.getopt.Getopt;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -87,11 +90,13 @@ import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -1383,14 +1388,14 @@ public class CodeFactory {
 			InnerClassCompilation byRef = compilation.newInner("ByReference");
 			compilation.writer.visitInnerClass(compilation.internalName + "$ByReference", compilation.internalName,
 					"ByReference", ACC_PUBLIC + ACC_STATIC);
-			byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, byRef.internalName, null, compilation.internalName,
+			byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, byRef.internalName, null, compilation.internalName,
 					new String[] { "com/sun/jna/Structure$ByReference" });
 			writeStructUnionInnerCtor(byRef, internalName);
 
 			InnerClassCompilation byValue = compilation.newInner("ByValue");
 			compilation.writer.visitInnerClass(compilation.internalName + "$ByValue", compilation.internalName,
 					"ByValue", ACC_PUBLIC + ACC_STATIC);
-			byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_STATIC, byValue.internalName, null, compilation.internalName,
+			byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, byValue.internalName, null, compilation.internalName,
 					new String[] { "com/sun/jna/Structure$ByValue" });
 			writeStructUnionInnerCtor(byValue, internalName);
 
@@ -1806,7 +1811,7 @@ public class CodeFactory {
 		};
 	}
 
-	public static File generateJar(String namespace, String version, boolean validate) throws GErrorException, IOException {
+	public static File generateJar(String namespace, String version) throws GErrorException, IOException {
 		Repository repo = Repository.getDefault();
 		File destFile = null;		
 		
@@ -1844,35 +1849,48 @@ public class CodeFactory {
 		return destFile;
 	}
 	
-	public static void verifyJarFiles(Set<File> jarPaths) throws IOException {
+	public static void verifyJarFiles(Set<File> jarPaths) throws Exception {
 		List<URL> urls = new ArrayList<URL>();
-		Set<String> allClassnames = new HashSet<String>();		
+		Map<String, InputStream> allClassnames = new HashMap<String, InputStream>();		
 		logger.info("Verifying " + jarPaths.size() + " jar paths");
+		List<ZipFile> zips = new ArrayList<ZipFile>();
 		for (File jarPath : jarPaths) {
 			urls.add(jarPath.toURI().toURL());
 			ZipFile zf = new ZipFile(jarPath);
 			for (Enumeration<? extends ZipEntry> e = zf.entries(); e.hasMoreElements();) {
-				String name = e.nextElement().getName();
-				if (name.endsWith(".class"))
-					allClassnames.add(name.replace('/', '.').substring(0, name.length()-6));
+				ZipEntry entry = e.nextElement();
+				String name = entry.getName();				
+				if (name.endsWith(".class")) {
+					String className = name.replace('/', '.').substring(0, name.length()-6);
+					allClassnames.put(className, zf.getInputStream(entry));
+				}
+			}
+			zips.add(zf);
+		}
+		Method verify;
+		try {
+			verify = CheckClassAdapter.class.getMethod("verify", new Class[] { ClassReader.class, ClassLoader.class, 
+					boolean.class, PrintWriter.class });
+		} catch (NoSuchMethodException e) {
+			logger.warning("Failed to find ASM with extended verify; skipping verification");
+			return;
+		}
+		ClassLoader loader = new URLClassLoader(urls.toArray(new URL[] {}));
+		for (Map.Entry<String,InputStream> entry : allClassnames.entrySet()) {
+			ClassReader reader = new ClassReader(entry.getValue());
+			try {
+				verify.invoke(null, new Object[] { reader, loader, false, new PrintWriter(System.err) } );
+			} catch (InvocationTargetException e) {
+				System.err.println("Failed to verify " + entry.getKey());
+				e.printStackTrace();
+				throw e;
 			}
 		}
-		for (String className : allClassnames) {
-			try {
-				new URLClassLoader(urls.toArray(new URL[] {})) {
-					public void loadVerify(String name) throws ClassNotFoundException {
-						loadClass(name, true);
-					}
-				}.loadVerify(className);
-			} catch (ClassNotFoundException e) {
-				logger.severe("Failed to verify class " + className);
-				e.printStackTrace();
-				break;
-			}
-		}		
+		for (ZipFile zip: zips)
+			zip.close();
 	}
 	
-	public static void compileAll(boolean validate) throws IOException, GErrorException, ClassNotFoundException {
+	public static Set<File> compileAll() throws Exception {
 		/* Freedesktop/Unix specific */
 		String datadirsPath = System.getenv("XDG_DATA_DIRS");
 		String dataDirs[];
@@ -1899,32 +1917,15 @@ public class CodeFactory {
 				}
 				/* Skip GObject+below for now, we manually bind */
 				if (!(namespace.equals("GLib") || namespace.equals("GObject"))) {
-					jarPaths.add(generateJar(namespace, version, validate));
+					jarPaths.add(generateJar(namespace, version));
 				}
 			}
 		}
-		verifyJarFiles(jarPaths);
+		return jarPaths;
 	}
 	
 	public static void main(String[] args) throws Exception {
 		GObjectAPI.gobj.g_type_init();
-		
-		boolean validate = false;
-		
-		Getopt g = new Getopt("jgir-compiler", args, "V");
-		int c;
-		while ((c = g.getopt()) != -1) {
-			switch (c) {
-			case 'V':
-				validate = true;
-				break;
-			case '?':
-				break; // getopt() already printed an error
-			default:
-				System.err.print("getopt() returned " + c + "\n");
-			}
-		}
-
-		compileAll(validate);
+		verifyJarFiles(compileAll());
 	}
 }
