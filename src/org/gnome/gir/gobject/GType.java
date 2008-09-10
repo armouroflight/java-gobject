@@ -83,8 +83,8 @@ public class GType extends NativeLong {
 			put("GLib.OptionEntry", "org/gnome/gir/gobject/GOptionEntry");
 			put("GLib.String", "org/gnome/gir/gobject/GString");	
 			put("GLib.Callback", "com/sun/jna/Callback");
-			put("GLib.Mutex", "org/gnome/gir/gobject/GLibAPI$GMutex");
-			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GLibAPI$GStaticRecMutex");
+			put("GLib.Mutex", "org/gnome/gir/gobject/GlibAPI$GMutex");
+			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GlibAPI$GStaticRecMutex");
 			put("GLib.IOFunc", "org/gnome/gir/gobject/GIOFunc");
 			
 			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
