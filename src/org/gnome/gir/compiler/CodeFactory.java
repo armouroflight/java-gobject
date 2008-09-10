@@ -58,6 +58,8 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -91,6 +93,7 @@ import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
@@ -291,16 +294,18 @@ public class CodeFactory {
 		String namespace;
 		String baseName;
 		String internalName;
-		ClassWriter writer;
+		ClassVisitor writer;
+		private ClassWriter realWriter;
 		public ClassCompilation(String namespace, String baseName) {
 			this.namespace = namespace;
 			this.baseName = baseName;
 			this.internalName = GType.getInternalName(namespace, baseName);
-			this.writer = new ClassWriter(0);
+			this.realWriter = new ClassWriter(0);
+			this.writer = new CheckClassAdapter(this.realWriter);
 		}
 
 		public byte[] getBytes() {
-			return writer.toByteArray();
+			return realWriter.toByteArray();
 		}
 		
 		public String getNamespace() {
@@ -422,8 +427,21 @@ public class CodeFactory {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
 
-	private String enumNameToUpper(String nick) {
-		return nick.replace("-", "_").toUpperCase();
+	private static final Pattern allNumeric = Pattern.compile("[0-9]+"); 	
+	private static final Pattern replaceFirstNumeric = Pattern.compile("([0-9]+)([A-Za-z]+)"); 
+	private String fixIdentifier(String base, String ident) {
+		Matcher match = replaceFirstNumeric.matcher(ident);
+		if (!match.lookingAt()) {
+			if (allNumeric.matcher(ident).matches()) {
+				return base + ident;
+			}
+			return ident;
+		}
+		return match.replaceFirst("$2$1");
+	}
+	
+	private String enumNameToUpper(String base, String nick) {
+		return fixIdentifier(base, nick.replace("-", "_")).toUpperCase();
 	}
 	
 	private void compile(EnumInfo info) {
@@ -432,7 +450,7 @@ public class CodeFactory {
 				"Ljava/lang/Enum<L" + compilation.internalName + ";>;", "java/lang/Enum", null);
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(valueInfo.getName());			
+			String name = enumNameToUpper(info.getName(), valueInfo.getName());			
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC + ACC_ENUM, 
 						name, "L" + compilation.internalName + ";", null, null);
 			fv.visitEnd();				
@@ -467,7 +485,7 @@ public class CodeFactory {
 		mv.visitLabel(l0);
 		int i = 0;
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(valueInfo.getName());
+			String name = enumNameToUpper(info.getName(), valueInfo.getName());
 			mv.visitTypeInsn(NEW, compilation.internalName);
 			mv.visitInsn(DUP);
 			mv.visitLdcInsn(name);
@@ -481,7 +499,7 @@ public class CodeFactory {
 		mv.visitTypeInsn(ANEWARRAY, compilation.internalName);
 		i = 0;
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(valueInfo.getName());			
+			String name = enumNameToUpper(info.getName(), valueInfo.getName());			
 			mv.visitInsn(DUP);			
 			mv.visitIntInsn(BIPUSH, i);
 			i++;
@@ -589,7 +607,7 @@ public class CodeFactory {
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
-						enumNameToUpper(valueInfo.getName()), "J", null, valueInfo.getValue());
+						enumNameToUpper(info.getName(), valueInfo.getName()), "J", null, valueInfo.getValue());
 			fv.visitEnd();				
 		}
 		compilation.close();
@@ -1867,23 +1885,29 @@ public class CodeFactory {
 			}
 			zips.add(zf);
 		}
+		ClassLoader loader = new URLClassLoader(urls.toArray(new URL[] {}), CodeFactory.class.getClassLoader());		
 		Method verify;
 		try {
 			verify = CheckClassAdapter.class.getMethod("verify", new Class[] { ClassReader.class, ClassLoader.class, 
 					boolean.class, PrintWriter.class });
 		} catch (NoSuchMethodException e) {
 			logger.warning("Failed to find ASM with extended verify; skipping verification");
-			return;
+			verify = null;
 		}
-		ClassLoader loader = new URLClassLoader(urls.toArray(new URL[] {}));
+
 		for (Map.Entry<String,InputStream> entry : allClassnames.entrySet()) {
-			ClassReader reader = new ClassReader(entry.getValue());
-			try {
-				verify.invoke(null, new Object[] { reader, loader, false, new PrintWriter(System.err) } );
-			} catch (InvocationTargetException e) {
-				System.err.println("Failed to verify " + entry.getKey());
-				e.printStackTrace();
-				throw e;
+			if (verify != null) {
+				try {
+					ClassReader reader = new ClassReader(entry.getValue());					
+					verify.invoke(null, new Object[] { reader, loader, false, new PrintWriter(System.err) } );
+				} catch (InvocationTargetException e) {
+					System.err.println("Failed to verify " + entry.getKey());
+					e.printStackTrace();
+					throw e;
+				}
+			} else {
+				/* Fall back to the JVM's ClassLoader basic verification */
+				loader.loadClass(entry.getKey());
 			}
 		}
 		for (ZipFile zip: zips)
