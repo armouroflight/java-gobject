@@ -300,7 +300,7 @@ public class CodeFactory {
 			this.namespace = namespace;
 			this.baseName = baseName;
 			this.internalName = GType.getInternalName(namespace, baseName);
-			this.realWriter = new ClassWriter(0);
+			this.realWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 			this.writer = new CheckClassAdapter(this.realWriter);
 		}
 
@@ -476,7 +476,7 @@ public class CodeFactory {
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", arrayDescriptor, null, l0, l1, 0);
-		mv.visitMaxs(3, 3);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 		
 		mv = compilation.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
@@ -509,7 +509,7 @@ public class CodeFactory {
 		}
 		mv.visitFieldInsn(PUTSTATIC, compilation.internalName, "ENUM$VALUES", arrayDescriptor);
 		mv.visitInsn(RETURN);
-		mv.visitMaxs(4, 0);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();	
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "values", "()" + arrayDescriptor, null, null);
@@ -532,7 +532,7 @@ public class CodeFactory {
 		mv.visitMethodInsn(INVOKESTATIC, "java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V");
 		mv.visitVarInsn(ALOAD, 2);
 		mv.visitInsn(ARETURN);
-		mv.visitMaxs(5, 3);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC, "valueOf", "(Ljava/lang/String;)L" + compilation.internalName + ";", null, null);
@@ -544,7 +544,7 @@ public class CodeFactory {
 		mv.visitMethodInsn(INVOKESTATIC, "java/lang/Enum", "valueOf", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;");
 		mv.visitTypeInsn(CHECKCAST, compilation.internalName);
 		mv.visitInsn(ARETURN);
-		mv.visitMaxs(2, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		/* For NativeMapped */
@@ -569,7 +569,7 @@ public class CodeFactory {
 		mv.visitLocalVariable("nativeValue", "Ljava/lang/Object;", null, l0, l2, 1);
 		mv.visitLocalVariable("context", "Lcom/sun/jna/FromNativeContext;", null, l0, l2, 2);
 		mv.visitLocalVariable("val", "Ljava/lang/Integer;", null, l1, l2, 3);
-		mv.visitMaxs(2, 4);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC, "nativeType", "()Ljava/lang/Class;", "()Ljava/lang/Class<*>;", null);
@@ -581,7 +581,7 @@ public class CodeFactory {
 		l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "Lorg/gnome/gir/compiler/TestEnum;", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC, "toNative", "()Ljava/lang/Object;", null, null);
@@ -595,7 +595,7 @@ public class CodeFactory {
 		l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 		
 		compilation.close();
@@ -650,7 +650,7 @@ public class CodeFactory {
 		Label l2 = new Label();
 		mv.visitLabel(l2);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
-		mv.visitMaxs(3, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "([Ljava/lang/Object;)V", null, null);
@@ -668,7 +668,7 @@ public class CodeFactory {
 		mv.visitLabel(l2);
 		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l0, l2, 1);
-		mv.visitMaxs(3, 2);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "(Ljava/util/Map;)V", 
@@ -687,7 +687,7 @@ public class CodeFactory {
 		mv.visitLabel(l2);
 		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 1);
-		mv.visitMaxs(3, 2);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 		
 		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;[Ljava/lang/Object;)V", null, null);
@@ -706,7 +706,7 @@ public class CodeFactory {
 		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("gtype", "Lorg/gnome/gir/gobject/GType;", null, l0, l2, 1);		
 		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l0, l2, 2);
-		mv.visitMaxs(3, 3);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lorg/gnome/gir/gobject/GType;Ljava/util/Map;)V", 
@@ -726,7 +726,7 @@ public class CodeFactory {
 		mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("gtype", "Lorg/gnome/gir/gobject/GType;", null, l0, l2, 1);		
 		mv.visitLocalVariable("args", "Ljava/util/Map;", "(Ljava/util/Map<Ljava/lang/String;Ljava/lang/Object;>;)V", l0, l2, 2);
-		mv.visitMaxs(3, 3);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
 	
@@ -772,7 +772,7 @@ public class CodeFactory {
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitLocalVariable(argInfos[i].getName(), args.get(i).toString(), null, l0, l4, i);
 		}
-		mv.visitMaxs(8, nArgs);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}	
 	
@@ -821,7 +821,7 @@ public class CodeFactory {
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitLocalVariable(argInfos[i].getName(), args.get(i).toString(), null, l0, l3, i+1);
 		}
-		mv.visitMaxs(9, 1+nArgs);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
 	
@@ -874,7 +874,7 @@ public class CodeFactory {
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l1, 0);
 			mv.visitLocalVariable("c", "L" + internalName + ";", null, l0, l1, 1);
-			mv.visitMaxs(3, 2);
+			mv.visitMaxs(0, 0);
 		}
 		mv.visitEnd();
 	}
@@ -894,7 +894,7 @@ public class CodeFactory {
 		mv.visitLabel(l2);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
 		mv.visitLocalVariable("init", "Lorg/gnome/gir/gobject/Handle$Initializer;", null, l0, l2, 1);
-		mv.visitMaxs(2, 2);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();	
 	}
 	
@@ -928,7 +928,7 @@ public class CodeFactory {
 				Label l1 = new Label();
 				mv.visitLabel(l1);
 				mv.visitLocalVariable("this", "L" + compilation.internalName +";", null, l0, l1, 0);
-				mv.visitMaxs(2, 1);				
+				mv.visitMaxs(0, 0);				
 				mv.visitEnd();
 			}
 			if ((propFlags & GParamFlags.WRITABLE) != 0 &&
@@ -957,7 +957,7 @@ public class CodeFactory {
 				mv.visitLabel(l1);
 				mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 				mv.visitLocalVariable("arg", type.getDescriptor(), null, l0, l1, 1);				
-				mv.visitMaxs(3, 2);				
+				mv.visitMaxs(0, 0);				
 				mv.visitEnd();
 			};
 		}		
@@ -1322,7 +1322,7 @@ public class CodeFactory {
 		if (!ctx.returnType.equals(Type.VOID_TYPE)) {		
 			mv.visitLocalVariable("result", "L" + ctx.returnType.getInternalName() + ";", null, l2, l4, resultOffset);
 		}
-		mv.visitMaxs(8, errorOffset+1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 	}
 
@@ -1342,7 +1342,7 @@ public class CodeFactory {
 		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", "(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		mv.visitTypeInsn(CHECKCAST, "org/gnome/gir/gobject/GType");
 		mv.visitInsn(ARETURN);
-		mv.visitMaxs(4, 0);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
 	
@@ -1366,7 +1366,7 @@ public class CodeFactory {
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + inner.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(2, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
 
@@ -1395,7 +1395,7 @@ public class CodeFactory {
 			Label l1 = new Label();
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-			mv.visitMaxs(1, 1);
+			mv.visitMaxs(0, 0);
 			mv.visitEnd();			
 		}
 		
@@ -1430,7 +1430,7 @@ public class CodeFactory {
 			Label l1 = new Label();
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-			mv.visitMaxs(2, 1);
+			mv.visitMaxs(0, 0);
 			mv.visitEnd();
 
 			mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
@@ -1445,7 +1445,7 @@ public class CodeFactory {
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 			mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
-			mv.visitMaxs(2, 2);
+			mv.visitMaxs(0, 0);
 			mv.visitEnd();	
 		}
 		
@@ -1498,7 +1498,7 @@ public class CodeFactory {
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();			
 		
 		compilation.close();	
@@ -1517,7 +1517,7 @@ public class CodeFactory {
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitInsn(RETURN);
-		mv.visitMaxs(1, 0);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
 	
@@ -1624,7 +1624,7 @@ public class CodeFactory {
 		l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + globals.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		/*
@@ -1679,7 +1679,7 @@ public class CodeFactory {
 		l3 = new Label();
 		mv.visitLabel(l3);
 		mv.visitLocalVariable("this", "L" + internalsInner.internalName + ";", null, l0, l3, 0);
-		mv.visitMaxs(4, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = internals.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
@@ -1692,7 +1692,7 @@ public class CodeFactory {
 		l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + internals.internalName + ";", null, l0, l1, 0);
-		mv.visitMaxs(1, 1);
+		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 		
 		mv = internals.writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
