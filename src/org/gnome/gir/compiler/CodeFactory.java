@@ -29,6 +29,7 @@ import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
+import static org.objectweb.asm.Opcodes.IRETURN;
 import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.LRETURN;
 import static org.objectweb.asm.Opcodes.NEW;
@@ -48,9 +49,11 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -101,9 +104,11 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.util.CheckClassAdapter;
 
+import com.sun.jna.Function;
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
 import com.sun.jna.ptr.ByteByReference;
+import com.sun.jna.ptr.DoubleByReference;
 import com.sun.jna.ptr.FloatByReference;
 import com.sun.jna.ptr.IntByReference;
 import com.sun.jna.ptr.LongByReference;
@@ -203,20 +208,20 @@ public class CodeFactory {
 	
 	public static Type toJavaRef(TypeTag tag) {
 		Type t = toJava(tag);
-		if (t.equals(Type.getType(Integer.class)))
+		if (t.equals(Type.INT_TYPE))
 			return Type.getType(IntByReference.class);
-		if (t.equals(Type.getType(Long.class)))
+		if (t.equals(Type.LONG_TYPE))
 			return Type.getType(LongByReference.class);
-		if (t.equals(Type.getType(Boolean.class)))
+		if (t.equals(Type.BOOLEAN_TYPE))
 			return Type.getType(IntByReference.class);
-		if (t.equals(Type.getType(Byte.class)))
+		if (t.equals(Type.BYTE_TYPE))
 			return Type.getType(ByteByReference.class);
-		if (t.equals(Type.getType(Short.class)))
+		if (t.equals(Type.SHORT_TYPE))
 			return Type.getType(ShortByReference.class);
-		if (t.equals(Type.getType(Float.class)))
+		if (t.equals(Type.FLOAT_TYPE))
 			return Type.getType(FloatByReference.class);
-		if (t.equals(Type.getType(Double.class)))
-			return Type.getType(Double.class);
+		if (t.equals(Type.DOUBLE_TYPE))
+			return Type.getType(DoubleByReference.class);
 		if (t.equals(Type.getType(String.class)) || t.equals(Type.getType(File.class)))
 			return Type.getType(PointerByReference.class);
 		if (t.equals(Type.VOID_TYPE))
@@ -228,21 +233,21 @@ public class CodeFactory {
 		if (tag == TypeTag.VOID)
 			return Type.VOID_TYPE;
 		if (tag == TypeTag.BOOLEAN)
-			return Type.getType(Boolean.class);
+			return Type.BOOLEAN_TYPE;
 		if (tag == TypeTag.INT8 || tag == TypeTag.UINT8)
-			return Type.getType(Byte.class);
+			return Type.BYTE_TYPE;
 		if (tag == TypeTag.INT16 || tag == TypeTag.UINT16)
-			return Type.getType(Short.class);
+			return Type.SHORT_TYPE;
 		if (tag == TypeTag.INT32 || tag == TypeTag.UINT32 ||
 				tag == TypeTag.INT || tag == TypeTag.UINT)
-			return Type.getType(Integer.class);
+			return Type.INT_TYPE;
 		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64
 				|| tag == TypeTag.SIZE || tag == TypeTag.SSIZE)
-			return Type.getType(Long.class);
+			return Type.LONG_TYPE;
 		if (tag == TypeTag.FLOAT)
-			return Type.getType(Float.class);
+			return Type.FLOAT_TYPE;
 		if (tag == TypeTag.DOUBLE)
-			return Type.getType(Double.class);
+			return Type.DOUBLE_TYPE;
 		if (tag == TypeTag.UTF8)
 			return Type.getType(String.class);
 		if (tag == TypeTag.FILENAME)
@@ -259,6 +264,26 @@ public class CodeFactory {
 				return typeFromInfo(info);
 		}
 		return toJava(info.getTag());
+	}
+	
+	private Class<?> getPrimitiveBox(Type type) {
+		if (type.equals(Type.BOOLEAN_TYPE))
+			return Boolean.class;
+		if (type.equals(Type.BYTE_TYPE))
+			return Byte.class;
+		if (type.equals(Type.CHAR_TYPE))
+			return Character.class;
+		if (type.equals(Type.SHORT_TYPE))
+			return Short.class;
+		if (type.equals(Type.INT_TYPE))
+			return Integer.class;
+		if (type.equals(Type.LONG_TYPE))
+			return Long.class;
+		if (type.equals(Type.FLOAT_TYPE))
+			return Float.class;
+		if (type.equals(Type.DOUBLE_TYPE))
+			return Double.class;
+		return null;
 	}
 	
 	private List<Type> getCallableArgs(CallableInfo callable, boolean isMethod,
@@ -754,10 +779,13 @@ public class CodeFactory {
 		mv.visitLdcInsn(Type.getType("Lcom/sun/jna/Pointer;"));
 		mv.visitIntInsn(BIPUSH, args.size());
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+		int argOffset = 0;
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
-			mv.visitVarInsn(ALOAD, i);
+			Type argType = args.get(i);
+			writeLoadArgument(mv, argOffset, argType);
+			argOffset += argType.getSize();			
 			mv.visitInsn(AASTORE);			
 		}
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
@@ -776,7 +804,7 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}	
 	
-	private void compileConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
+	private void writeConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
@@ -797,13 +825,15 @@ public class CodeFactory {
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "library", "Lcom/sun/jna/NativeLibrary;");
 		mv.visitLdcInsn(fi.getSymbol());
 		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/NativeLibrary", "getFunction", "(Ljava/lang/String;)Lcom/sun/jna/Function;");
-		mv.visitLdcInsn(Type.getType("Lcom/sun/jna/Pointer;"));
+		mv.visitLdcInsn(Type.getType(Pointer.class));
 		mv.visitIntInsn(BIPUSH, args.size());
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+		LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), args, argInfos, true);
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
-			mv.visitVarInsn(ALOAD, i+1);
+			LocalVariable var = locals.get(i+1);
+			writeLoadArgument(mv, var.offset, var.type);
 			mv.visitInsn(AASTORE);			
 		}
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
@@ -817,10 +847,7 @@ public class CodeFactory {
 		mv.visitInsn(RETURN);
 		Label l4 = new Label();
 		mv.visitLabel(l4);
-		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l4, 0);
-		for (int i = 0; i < nArgs; i++) {
-			mv.visitLocalVariable(argInfos[i].getName(), args.get(i).toString(), null, l0, l3, i+1);
-		}
+		locals.writeLocals(mv, l0, l4);
 		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 	}
@@ -844,11 +871,6 @@ public class CodeFactory {
 					sigClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
 		
 			writeJnaCallbackTypeMapper(sigCompilation);
-		
-			/* public static final String METHOD_NAME = */
-			FieldVisitor fv = sigCompilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
-					"METHOD_NAME", "Ljava/lang/String;", null, sigHandlerName);
-			fv.visitEnd();
 
 			MethodVisitor mv = sigCompilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, sigHandlerName, descriptor, null, null);
 			mv.visitEnd();			
@@ -904,6 +926,12 @@ public class CodeFactory {
 			if (type == null)
 				continue;
 			int propFlags = prop.getFlags();
+			Class<?> propBox = getPrimitiveBox(type);
+			Type propTypeBox;
+			if (propBox != null)
+				propTypeBox = Type.getType(propBox);
+			else
+				propTypeBox = type;
 			if ((propFlags & GParamFlags.READABLE) != 0) {
 				String getterName = "get" + ucaseToPascal(prop.getName());
 				String descriptor = Type.getMethodDescriptor(type, new Type[] {});
@@ -922,9 +950,12 @@ public class CodeFactory {
 				mv.visitVarInsn(ALOAD, 0);
 				mv.visitLdcInsn(prop.getName());
 				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", 
-						"(Ljava/lang/String;)" + type.getDescriptor());
-				mv.visitTypeInsn(CHECKCAST, type.getInternalName());
-				mv.visitInsn(ARETURN);
+						"(Ljava/lang/String;)" + propTypeBox.getDescriptor());
+				mv.visitTypeInsn(CHECKCAST, propTypeBox.getInternalName());
+				if (propBox != null)
+					mv.visitMethodInsn(INVOKEVIRTUAL, propTypeBox.getInternalName(), 
+							type.getClassName() + "Value", "()" + type.getDescriptor());				
+				mv.visitInsn(type.getOpcode(IRETURN));
 				Label l1 = new Label();
 				mv.visitLabel(l1);
 				mv.visitLocalVariable("this", "L" + compilation.internalName +";", null, l0, l1, 0);
@@ -948,8 +979,11 @@ public class CodeFactory {
 				Label l0 = new Label();
 				mv.visitLabel(l0);
 				mv.visitVarInsn(ALOAD, 0);
-				mv.visitLdcInsn(prop.getName());
-				mv.visitVarInsn(ALOAD, 1);
+				mv.visitLdcInsn(prop.getName());				
+				mv.visitVarInsn(type.getOpcode(ILOAD), 1);
+				if (propBox != null)
+					mv.visitMethodInsn(INVOKESTATIC, propTypeBox.getInternalName(), 
+							"valueOf", "(" + type.getDescriptor() + ")" + propTypeBox.getDescriptor());					
 				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "set", 
 						"(Ljava/lang/String;Ljava/lang/Object;)" + type.getDescriptor());
 				mv.visitInsn(RETURN);
@@ -1029,7 +1063,7 @@ public class CodeFactory {
 		for (Set<FunctionInfo> ctorGroup : ctors.values()) {
 			FunctionInfo first = ctorGroup.iterator().next();			
 			if (ctorGroup.size() == 1) {
-				compileConstructor(info, compilation, first);
+				writeConstructor(info, compilation, first);
 			} else {
 				logger.info("Constructor name " + first.getSymbol() + " clashes");
 				FunctionInfo defaultCtor = null;
@@ -1038,7 +1072,7 @@ public class CodeFactory {
 						defaultCtor = ctor;
 				}
 				if (defaultCtor != null) {
-					compileConstructor(info, compilation, defaultCtor);
+					writeConstructor(info, compilation, defaultCtor);
 				}
 				for (FunctionInfo ctor : ctorGroup) {
 					if (ctor != defaultCtor) {
@@ -1201,6 +1235,85 @@ public class CodeFactory {
 		return new CallableCompilationContext(returnType, argInfos, args, throwsGError);
 	}
 	
+	private Type writeLoadArgument(MethodVisitor mv, int loadOffset, Type argType) {
+		Class<?> box = getPrimitiveBox(argType);
+		mv.visitVarInsn(argType.getOpcode(ILOAD), loadOffset);		
+		if (box != null) {
+			Type boxedType = Type.getType(box);	
+			mv.visitMethodInsn(INVOKESTATIC, boxedType.getInternalName(), 
+					"valueOf", "(" + argType.getDescriptor() + ")" + boxedType.getDescriptor());
+			return boxedType;
+		}
+		return argType;
+	}
+	
+	private static final class LocalVariable {
+		String name;
+		int offset;
+		Type type;
+		public LocalVariable(String name, int offset, Type type) {
+			super();
+			this.name = name;
+			this.offset = offset;
+			this.type = type;
+		}
+	}
+	
+	private static final class LocalVariableTable {
+		private Map<String,LocalVariable> locals;
+		private int lastOffset;
+		
+		public LocalVariableTable(Type thisArg, List<Type> args, ArgInfo[] argInfos, boolean isCtor) {
+			lastOffset = 0;
+			locals = new LinkedHashMap<String,LocalVariable>();
+			if (thisArg != null) {
+				locals.put("this", new LocalVariable("this", 0, thisArg));
+				lastOffset += thisArg.getSize();
+			}
+			final int thisOffset = (thisArg != null && !isCtor) ? 1 : 0;
+			int i = 0;
+			for (Type arg: args) {
+				String name = argInfos[i+thisOffset].getName();
+				locals.put(name, new LocalVariable(name, lastOffset, arg));
+				lastOffset += arg.getSize();
+				i++;
+			}
+		}
+		
+		public int allocTmp(String name, Type type) {
+			name = "tmp_" + name;
+			LocalVariable ret = new LocalVariable(name, lastOffset, type);
+			lastOffset += type.getSize();
+			locals.put(name, ret);
+			return ret.offset;
+		}
+		
+		public Collection<LocalVariable> getAll() {
+			return locals.values();
+		}
+		
+		public LocalVariable get(int index) {
+			int i = 0;
+			for (LocalVariable variable : locals.values()) {
+				if (i == index)
+					return variable;
+				i++;
+			}
+			throw new IllegalArgumentException();
+		}
+		
+		public int getOffset(String name) {
+			LocalVariable var = locals.get(name);
+			return var.offset;
+		}
+		
+		private void writeLocals(MethodVisitor mv, Label start, Label end) {
+			for (LocalVariable var : getAll()) {
+				mv.visitLocalVariable(var.name, var.type.getDescriptor(), null, start, end, var.offset);
+			}			
+		}
+	}
+	
 	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
 			CallableCompilationContext ctx) {
 		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
@@ -1217,18 +1330,29 @@ public class CodeFactory {
 		boolean includeThis = (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0;			
 		String symbol = fi.getSymbol();
 		
+		Class<?> returnBox = getPrimitiveBox(ctx.returnType);
+		Type returnTypeBox;
+		if (returnBox != null)
+			returnTypeBox = Type.getType(returnBox);
+		else
+			returnTypeBox = ctx.returnType;
+		
 		mv.visitCode();
 		int nArgs = ctx.argTypes.size();
+		LocalVariableTable locals = new LocalVariableTable(includeThis ? Type.getObjectType(compilation.internalName) : null,
+				ctx.argTypes, ctx.args, false);
+		int functionOffset = locals.allocTmp("function", Type.getType(Function.class));
+		int argsOffset = locals.allocTmp("args", Type.getType(Object[].class));
+		int resultOffset = 0;
+		if (!ctx.returnType.equals(Type.VOID_TYPE))
+			resultOffset = locals.allocTmp("result", returnTypeBox);
+		int errorOffset = 0;
+		if (ctx.throwsGError)
+			errorOffset = locals.allocTmp("error", Type.getType(PointerByReference.class));
 		int nInvokeArgs = nArgs;
 		if (includeThis)
 			nInvokeArgs += 1;
-		int functionOffset = nInvokeArgs+1;
-		int arrayOffset = functionOffset+1;
-		int resultOffset = arrayOffset+1;		
-		int errorOffset = resultOffset;
-		if (ctx.throwsGError)
-			errorOffset += 1;
-		Label jtarget;		
+		Label jtarget;
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		if (ctx.throwsGError) {
@@ -1246,10 +1370,15 @@ public class CodeFactory {
 		mv.visitLabel(l1);
 		mv.visitIntInsn(BIPUSH, nInvokeArgs + (ctx.throwsGError ? 1 : 0));
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
-		for (int i = 0; i < nInvokeArgs; i++) {		
+		for (int i = 0; i < nInvokeArgs; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
-			mv.visitVarInsn(ALOAD, i);
+			if (!includeThis || i > 0) {
+				LocalVariable var = locals.get(i);			
+				writeLoadArgument(mv, var.offset, var.type);			
+			} else {
+				mv.visitVarInsn(ALOAD, 0);
+			}
 			mv.visitInsn(AASTORE);
 		}
 		if (ctx.throwsGError) {
@@ -1258,18 +1387,19 @@ public class CodeFactory {
 			mv.visitVarInsn(ALOAD, errorOffset);
 			mv.visitInsn(AASTORE);
 		}
-		mv.visitVarInsn(ASTORE, arrayOffset);
+		mv.visitVarInsn(ASTORE, argsOffset);
 		Label l2 = new Label();
 		mv.visitLabel(l2);
 		mv.visitVarInsn(ALOAD, functionOffset);
 		if (ctx.returnType.equals(Type.VOID_TYPE)) {
 			mv.visitLdcInsn(Type.getType(Void.class));
 		} else {
-			mv.visitLdcInsn(ctx.returnType);
+			mv.visitLdcInsn(returnTypeBox);
 		}
-		mv.visitVarInsn(ALOAD, arrayOffset);
+		mv.visitVarInsn(ALOAD, argsOffset);
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
-		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", "(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
+		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", 
+				"(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		Label l3 = new Label();
 		mv.visitLabel(l3);		
 		if (!ctx.throwsGError) {
@@ -1277,20 +1407,24 @@ public class CodeFactory {
 				mv.visitInsn(POP);
 				mv.visitInsn(RETURN);
 			} else {
-				mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());			
-				mv.visitInsn(ARETURN);
+				mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
+				if (returnBox != null)
+					mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
+							ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());
+				mv.visitInsn(ctx.returnType.getOpcode(IRETURN));
 			}
 		} else {
 			jtarget = new Label();
 			if (ctx.returnType.equals(Type.VOID_TYPE)) {
 				mv.visitInsn(POP);
 			} else {
-				mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());
-				mv.visitInsn(DUP);			
-				mv.visitVarInsn(ASTORE, resultOffset);	
+				mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
+				mv.visitInsn(DUP);
+				mv.visitVarInsn(ASTORE, resultOffset);
 			}
 			mv.visitVarInsn(ALOAD, errorOffset);
-			mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/ptr/PointerByReference", "getPointer", "()Lcom/sun/jna/Pointer;");	
+			mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/ptr/PointerByReference", 
+					"getPointer", "()Lcom/sun/jna/Pointer;");	
 			mv.visitJumpInsn(IFNONNULL, jtarget);
 			mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GErrorException");
 			mv.visitInsn(DUP);
@@ -1306,22 +1440,15 @@ public class CodeFactory {
 				mv.visitInsn(RETURN);
 			} else {
 				mv.visitVarInsn(ALOAD, resultOffset);
-				mv.visitInsn(ARETURN);
+				if (returnBox != null)
+					mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
+							ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());				
+				mv.visitInsn(ctx.returnType.getOpcode(IRETURN));
 			}
 		}
 		Label l4 = new Label();
 		mv.visitLabel(l4);
-		if (includeThis) 
-			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l4, 0);
-		int off = includeThis ? 1 : 0;
-		for (int i = 0; i < nArgs; i++) {
-			mv.visitLocalVariable(ctx.args[i+off].getName(), ctx.argTypes.get(i).toString(), null, l0, l4, i+off);		
-		}
-		mv.visitLocalVariable("f", "Lcom/sun/jna/Function;", null, l1, l4, functionOffset);
-		mv.visitLocalVariable("args", "[Ljava/lang/Object;", null, l2, l4, arrayOffset);
-		if (!ctx.returnType.equals(Type.VOID_TYPE)) {		
-			mv.visitLocalVariable("result", "L" + ctx.returnType.getInternalName() + ";", null, l2, l4, resultOffset);
-		}
+		locals.writeLocals(mv, l0, l4);
 		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 	}

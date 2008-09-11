@@ -28,8 +28,15 @@ public class Test extends GObject implements TestIface {
 	public void setFoo(String arg) {
 		set("foo", arg);
 	}
+	
+	public float moo(long q, String z) {
+		Function target = Internals.library.getFunction("gtk_foo_bar");	
+		Object[] args = new Object[] { q, z };
+		Float result = (Float) target.invoke(Float.class, args, Internals.invocationOptions);
+		return result;
+	}
 
-	public void foo(String x, Double y, Integer z) throws GErrorException {
+	public void foo(String x, double y, Integer z) throws GErrorException {
 		PointerByReference error = new PointerByReference(null);
 		Function target = Internals.library.getFunction("gtk_foo_bar");
 		Object[] args = new Object[] { x, y, z };
