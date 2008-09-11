@@ -34,6 +34,7 @@ import static org.objectweb.asm.Opcodes.ISTORE;
 import static org.objectweb.asm.Opcodes.LRETURN;
 import static org.objectweb.asm.Opcodes.NEW;
 import static org.objectweb.asm.Opcodes.POP;
+import static org.objectweb.asm.Opcodes.PUTFIELD;
 import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V1_6;
@@ -1270,22 +1271,31 @@ public class CodeFactory {
 				locals.put("this", new LocalVariable("this", 0, thisArg));
 				lastOffset += thisArg.getSize();
 			}
+			if (args == null)
+				return;			
 			final int thisOffset = (thisArg != null && !isCtor) ? 1 : 0;
 			int i = 0;
 			for (Type arg: args) {
-				String name = argInfos[i+thisOffset].getName();
+				String name;
+				if (argInfos != null)
+					name = argInfos[i+thisOffset].getName();
+				else
+					name = "arg" + i;
 				locals.put(name, new LocalVariable(name, lastOffset, arg));
 				lastOffset += arg.getSize();
 				i++;
 			}
 		}
 		
-		public int allocTmp(String name, Type type) {
-			name = "tmp_" + name;
+		public LocalVariable add(String name, Type type) {
 			LocalVariable ret = new LocalVariable(name, lastOffset, type);
 			lastOffset += type.getSize();
 			locals.put(name, ret);
-			return ret.offset;
+			return ret;
+		}
+		
+		public int allocTmp(String name, Type type) {
+			return add("tmp_" + name, type).offset;
 		}
 		
 		public Collection<LocalVariable> getAll() {
@@ -1481,7 +1491,8 @@ public class CodeFactory {
 		writeCallable(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, compilation, fi, ctx);
 	}
 	
-	private void writeStructUnionInnerCtor(InnerClassCompilation inner, String parentInternalName) {
+	private void writeStructUnionInnerCtor(InnerClassCompilation inner, String parentInternalName, FieldInfo[] fields) {
+		/* First a no-args constructor */
 		MethodVisitor mv = inner.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
@@ -1535,16 +1546,18 @@ public class CodeFactory {
 					"ByReference", ACC_PUBLIC + ACC_STATIC);
 			byRef.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, byRef.internalName, null, compilation.internalName,
 					new String[] { "com/sun/jna/Structure$ByReference" });
-			writeStructUnionInnerCtor(byRef, internalName);
+			writeStructUnionInnerCtor(byRef, internalName, fields);
 
 			InnerClassCompilation byValue = compilation.newInner("ByValue");
 			compilation.writer.visitInnerClass(compilation.internalName + "$ByValue", compilation.internalName,
 					"ByValue", ACC_PUBLIC + ACC_STATIC);
 			byValue.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, byValue.internalName, null, compilation.internalName,
 					new String[] { "com/sun/jna/Structure$ByValue" });
-			writeStructUnionInnerCtor(byValue, internalName);
+			writeStructUnionInnerCtor(byValue, internalName, fields);
 
-			/* constructor; public no-args and protected TypeMapper */
+			String parentInternalName = "com/sun/jna/" + type;
+			
+			/* constructor; public no-args */
 			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 			mv.visitCode();
 			Label l0 = new Label();
@@ -1552,7 +1565,7 @@ public class CodeFactory {
 			mv.visitVarInsn(ALOAD, 0);
 			mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance",
 					"()Lorg/gnome/gir/gobject/GTypeMapper;");
-			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
 			mv.visitInsn(RETURN);
 			Label l1 = new Label();
 			mv.visitLabel(l1);
@@ -1560,20 +1573,66 @@ public class CodeFactory {
 			mv.visitMaxs(0, 0);
 			mv.visitEnd();
 
+			/* constructor; protected, taking TypeMapper */			
 			mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
 			mv.visitCode();
 			l0 = new Label();
 			mv.visitLabel(l0);
 			mv.visitVarInsn(ALOAD, 0);
 			mv.visitVarInsn(ALOAD, 1);
-			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/" + type, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
 			mv.visitInsn(RETURN);
 			l1 = new Label();
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
 			mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
 			mv.visitMaxs(0, 0);
-			mv.visitEnd();	
+			mv.visitEnd();
+			
+			/* constructor that takes all of the fields */
+			LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), null, null, true);			
+			List<Type> args = new ArrayList<Type>();
+			args.add(Type.getObjectType(compilation.internalName));
+			boolean allArgsPrimitive = true;
+			for (FieldInfo field : fields) {
+				Type argType = toJava(field);
+				if (getPrimitiveBox(argType) == null) {
+					allArgsPrimitive = false;
+					break;
+				}
+				args.add(argType);
+				locals.add(field.getName(), argType);
+			}
+			
+			if (allArgsPrimitive) {
+				String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.subList(1, args.size()).toArray(
+						new Type[0]));
+				mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", descriptor, null, null);
+				mv.visitCode();
+				l0 = new Label();
+				mv.visitLabel(l0);
+				mv.visitVarInsn(ALOAD, 0);
+				mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance",
+						"()Lorg/gnome/gir/gobject/GTypeMapper;");
+				mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+				Label l2 = new Label();
+				mv.visitLabel(l2);
+				for (int i = 1; i < args.size(); i++) {
+					mv.visitVarInsn(ALOAD, 0);
+					LocalVariable local = locals.get(i);
+					mv.visitVarInsn(local.type.getOpcode(ILOAD), local.offset);
+					mv.visitFieldInsn(PUTFIELD, compilation.internalName, fields[i - 1].getName(), local.type
+							.getDescriptor());
+				}
+				Label l3 = new Label();
+				mv.visitLabel(l3);
+				mv.visitInsn(RETURN);
+				Label l4 = new Label();
+				mv.visitLabel(l4);
+				locals.writeLocals(mv, l0, l4);
+				mv.visitMaxs(0, 0);
+				mv.visitEnd();
+			}
 		}
 		
 		Set<String> sigs = new HashSet<String>();		
