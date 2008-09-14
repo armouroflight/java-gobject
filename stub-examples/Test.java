@@ -21,6 +21,7 @@ import com.sun.jna.ptr.PointerByReference;
 
 public class Test extends GObject implements TestIface {
 
+	@Deprecated
 	public String getFoo() {
 		return (String) get("foo");
 	}

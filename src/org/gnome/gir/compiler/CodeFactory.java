@@ -3,6 +3,7 @@ package org.gnome.gir.compiler;
 import static org.objectweb.asm.Opcodes.AALOAD;
 import static org.objectweb.asm.Opcodes.AASTORE;
 import static org.objectweb.asm.Opcodes.ACC_ABSTRACT;
+import static org.objectweb.asm.Opcodes.ACC_DEPRECATED;
 import static org.objectweb.asm.Opcodes.ACC_ENUM;
 import static org.objectweb.asm.Opcodes.ACC_FINAL;
 import static org.objectweb.asm.Opcodes.ACC_INTERFACE;
@@ -96,6 +97,7 @@ import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -1333,8 +1335,16 @@ public class CodeFactory {
 		if (ctx.throwsGError) {
 			exceptions = new String[] { "org/gnome/gir/gobject/GErrorException" };
 		}
+		
+		if (fi.isDeprecated()) {
+			accessFlags += ACC_DEPRECATED;
+		}		
 		MethodVisitor mv = compilation.writer.visitMethod(accessFlags, 
 				name, descriptor, null, exceptions);
+		if (fi.isDeprecated()) {
+			AnnotationVisitor av = mv.visitAnnotation(Type.getType(Deprecated.class).getDescriptor(), true);
+			av.visitEnd();
+		}		
 		
 		String globalInternalsName = getInternals(fi);
 		boolean includeThis = (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0;			

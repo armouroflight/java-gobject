@@ -68,4 +68,8 @@ public class BaseInfo extends RefCountedObject {
 	public String toString() {
 		return "<" + getClass().getSimpleName() + " ns=" + getNamespace() + " name=" + getName() + ">";
 	}
+	
+	public boolean isDeprecated() {
+		return GIntrospectionAPI.gi.g_base_info_is_deprecated(this);
+	}
 }

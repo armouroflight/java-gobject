@@ -60,6 +60,7 @@ interface GIntrospectionAPI extends Library {
 	void g_base_info_ref(BaseInfo info);
 	void g_base_info_unref(BaseInfo info);		
 	int g_base_info_get_type(Pointer info);
+	boolean g_base_info_is_deprecated(BaseInfo info);	
 	String g_base_info_get_name(Pointer info);	
 	String g_base_info_get_namespace(Pointer info);	
 	String g_base_info_get_annotation(BaseInfo info, String anno);
