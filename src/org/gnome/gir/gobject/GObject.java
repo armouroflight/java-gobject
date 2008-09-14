@@ -458,6 +458,8 @@ public abstract class GObject extends RefCountedObject {
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) NativeObject.instanceFor(obj);
 			// Clear out the signal handler references
+			if (o == null)
+				return;
 			synchronized (o) {
 				o.signalHandlers = null;
 			}
