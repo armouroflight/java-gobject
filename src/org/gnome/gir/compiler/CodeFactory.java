@@ -118,9 +118,17 @@ import com.sun.jna.ptr.LongByReference;
 import com.sun.jna.ptr.PointerByReference;
 import com.sun.jna.ptr.ShortByReference;
 
+@SuppressWarnings("serial")
 public class CodeFactory {
 	
 	private static final Logger logger = Logger.getLogger("org.gnome.gir.Compiler");
+	
+	private static final Set<String> GOBJECT_METHOD_BLACKLIST = new HashSet<String>() {
+		{
+			add("ref");
+			add("unref");
+		}
+	};
 
 	public static Type toJava(TypeTag tag) {
 		if (tag == TypeTag.LONG || tag == TypeTag.ULONG ||
@@ -1091,9 +1099,11 @@ public class CodeFactory {
 			boolean isConstructor = (fi.getFlags() & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
 			if (isConstructor)
 				continue;
+			if (GOBJECT_METHOD_BLACKLIST.contains(fi.getName()))
+				continue;
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
 			if (ctx == null)
-				continue;			
+				continue;
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
