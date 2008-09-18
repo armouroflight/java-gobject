@@ -100,6 +100,9 @@ public abstract class GObject extends RefCountedObject {
         if (init.ownsHandle) {
             strongReferences.put(this, Boolean.TRUE);
             
+            /* Floating refs are just a convenience for C; we always want only strong
+             * nonfloating refs for objects which have a JVM peer.
+             */
             boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
             if (wasFloating)
             	GObjectAPI.gobj.g_object_ref_sink(this);
@@ -109,8 +112,14 @@ public abstract class GObject extends RefCountedObject {
              */
             GObjectAPI.gobj.g_object_add_toggle_ref(init.ptr, toggle, objectID);
             
+            /* The weak notify is just a convenient hook into object destruction so we
+             * can clear out our signal handlers hash.
+             */
             GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
             
+            /* Since we normally have a strong reference given to us (except in special cases),
+             * here we unref and this should normally just leave the toggle reference.
+             */ 
             if (!init.needRef) {
                 unref();
             }            
