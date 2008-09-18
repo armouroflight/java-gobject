@@ -58,6 +58,7 @@ import org.gnome.gir.gobject.GObjectAPI.GWeakNotify;
 import com.sun.jna.Callback;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import com.sun.jna.TypeMapper;
 
 /**
  * This is an abstract class providing some GObject-like facilities in a common 
@@ -98,15 +99,21 @@ public abstract class GObject extends RefCountedObject {
         super(init.needRef ? initializer(init.ptr, false, init.ownsHandle) : init);
         if (init.ownsHandle) {
             strongReferences.put(this, Boolean.TRUE);
+            
+            boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
+            if (wasFloating)
+            	GObjectAPI.gobj.g_object_ref_sink(this);
+            
             /* The toggle reference is our primary means of memory management between
              * this Proxy object and the GObject.
              */
             GObjectAPI.gobj.g_object_add_toggle_ref(init.ptr, toggle, objectID);
-            if (!init.needRef) {
-                unref();
-            }
             
             GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
+            
+            if (!init.needRef) {
+                unref();
+            }            
         }
     }
     
@@ -235,7 +242,8 @@ public abstract class GObject extends RefCountedObject {
         return id;
     }
     
-    private interface NotifyCallback extends Callback {
+    public interface NotifyCallback extends Callback {
+    	public final TypeMapper TYPE_MAPPER = GTypeMapper.getInstance();
     	public void onNotify(GObject object, GParamSpec param, Pointer data);
     }
     
@@ -247,6 +255,7 @@ public abstract class GObject extends RefCountedObject {
 				if (methods.length != 1)
 					throw new RuntimeException(String.format("Callback %s must declare exactly one method", callback.getClass()));
 				Method meth = methods[0];
+				meth.setAccessible(true);
 				Class<?>[] params = meth.getParameterTypes();
 				if (params.length != 2)
 					throw new RuntimeException(String.format("Callback %s entry must have exactly two parameters", callback.getClass()));
