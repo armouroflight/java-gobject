@@ -72,7 +72,6 @@ import java.util.zip.ZipOutputStream;
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
-import org.gnome.gir.gobject.GParamFlags;
 import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.repository.ArgInfo;
@@ -83,6 +82,7 @@ import org.gnome.gir.repository.CallbackInfo;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.EnumInfo;
 import org.gnome.gir.repository.FieldInfo;
+import org.gnome.gir.repository.FieldInfoFlags;
 import org.gnome.gir.repository.FlagsInfo;
 import org.gnome.gir.repository.FunctionInfo;
 import org.gnome.gir.repository.FunctionInfoFlags;
@@ -943,7 +943,7 @@ public class CodeFactory {
 				propTypeBox = Type.getType(propBox);
 			else
 				propTypeBox = type;
-			if ((propFlags & GParamFlags.READABLE) != 0) {
+			if ((propFlags & FieldInfoFlags.READABLE) != 0) {
 				String getterName = "get" + ucaseToPascal(prop.getName());
 				String descriptor = Type.getMethodDescriptor(type, new Type[] {});
 				String signature = getUniqueSignature(getterName, type, Arrays.asList(new Type[] {}));
@@ -973,8 +973,7 @@ public class CodeFactory {
 				mv.visitMaxs(0, 0);				
 				mv.visitEnd();
 			}
-			if ((propFlags & GParamFlags.WRITABLE) != 0 &&
-					(propFlags & GParamFlags.CONSTRUCT_ONLY) == 0) {
+			if ((propFlags & FieldInfoFlags.WRITABLE) != 0) {
 				String setterName = "set" + ucaseToPascal(prop.getName());
 				String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { type });
 				String signature = getUniqueSignature(setterName, Type.VOID_TYPE, Arrays.asList(new Type[] { type }));

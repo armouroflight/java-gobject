@@ -1,14 +1,7 @@
 package org.gnome.gir.repository;
 
-import org.gnome.gir.gobject.NativeEnum;
 
-public enum FieldInfoFlags implements NativeEnum{
-	IS_READABLE,
-	IS_WRITABLE;
-
-	@Override
-	public int getNative() {
-		return 1 << ordinal();
-	}
-	
+public interface FieldInfoFlags {
+	public static final int READABLE = 1 << 0;
+	public static final int WRITABLE = 1 << 1;
 }
