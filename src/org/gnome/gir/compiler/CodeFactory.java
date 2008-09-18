@@ -931,11 +931,15 @@ public class CodeFactory {
 		mv.visitEnd();	
 	}
 	
-	private void writeProperties(ClassCompilation compilation, PropertyInfo[] props, Set<String> sigs) {
+	private void writeProperties(StubClassCompilation compilation, Type objectType,
+			PropertyInfo[] props, Set<String> sigs, 
+			boolean isInterfaceSource, boolean isInterfaceTarget) {
 		for (PropertyInfo prop : props) {
 			Type type = toJava(prop.getType());
-			if (type == null)
+			if (type == null) {
+				logger.warning(String.format("Skipping unhandled property type %s of %s", prop.getName(), compilation.internalName));
 				continue;
+			}
 			int propFlags = prop.getFlags();
 			Class<?> propBox = getPrimitiveBox(type);
 			Type propTypeBox;
@@ -944,7 +948,12 @@ public class CodeFactory {
 			else
 				propTypeBox = type;
 			if ((propFlags & FieldInfoFlags.READABLE) != 0) {
-				String getterName = "get" + ucaseToPascal(prop.getName());
+				String propPascal = ucaseToPascal(prop.getName());
+				
+				writePropertyNotify(compilation, objectType, prop, type, propBox,
+						isInterfaceSource, isInterfaceTarget);				
+				
+				String getterName = "get" + propPascal;
 				String descriptor = Type.getMethodDescriptor(type, new Type[] {});
 				String signature = getUniqueSignature(getterName, type, Arrays.asList(new Type[] {}));
 				if (sigs.contains(signature)) {
@@ -952,26 +961,31 @@ public class CodeFactory {
 								+ signature);
 					continue;
 				}
-				sigs.add(signature);				
-				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, getterName, 
+				sigs.add(signature);
+				int access = ACC_PUBLIC;
+				if (isInterfaceSource)
+					access += ACC_ABSTRACT;				
+				MethodVisitor mv = compilation.writer.visitMethod(access, getterName, 
 					descriptor, null, null);
-				mv.visitCode();
-				Label l0 = new Label();
-				mv.visitLabel(l0);
-				mv.visitVarInsn(ALOAD, 0);
-				mv.visitLdcInsn(prop.getName());
-				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", 
-						"(Ljava/lang/String;)" + propTypeBox.getDescriptor());
-				mv.visitTypeInsn(CHECKCAST, propTypeBox.getInternalName());
-				if (propBox != null)
-					mv.visitMethodInsn(INVOKEVIRTUAL, propTypeBox.getInternalName(), 
-							type.getClassName() + "Value", "()" + type.getDescriptor());				
-				mv.visitInsn(type.getOpcode(IRETURN));
-				Label l1 = new Label();
-				mv.visitLabel(l1);
-				mv.visitLocalVariable("this", "L" + compilation.internalName +";", null, l0, l1, 0);
-				mv.visitMaxs(0, 0);				
-				mv.visitEnd();
+				if (!isInterfaceSource) {
+					mv.visitCode();
+					Label l0 = new Label();
+					mv.visitLabel(l0);
+					mv.visitVarInsn(ALOAD, 0);
+					mv.visitLdcInsn(prop.getName());
+					mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", "(Ljava/lang/String;)"
+							+ propTypeBox.getDescriptor());
+					mv.visitTypeInsn(CHECKCAST, propTypeBox.getInternalName());
+					if (propBox != null)
+						mv.visitMethodInsn(INVOKEVIRTUAL, propTypeBox.getInternalName(), type.getClassName() + "Value",
+								"()" + type.getDescriptor());
+					mv.visitInsn(type.getOpcode(IRETURN));
+					Label l1 = new Label();
+					mv.visitLabel(l1);
+					mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+					mv.visitMaxs(0, 0);
+				}
+				mv.visitEnd();		
 			}
 			if ((propFlags & FieldInfoFlags.WRITABLE) != 0) {
 				String setterName = "set" + ucaseToPascal(prop.getName());
@@ -983,30 +997,84 @@ public class CodeFactory {
 					continue;
 				}
 				sigs.add(signature);
-				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, setterName, 
+				int access = ACC_PUBLIC;
+				if (isInterfaceSource)
+					access += ACC_ABSTRACT;					
+				MethodVisitor mv = compilation.writer.visitMethod(access, setterName, 
 					descriptor, null, null);
+				if (!isInterfaceSource) {
 				mv.visitCode();
-				Label l0 = new Label();
-				mv.visitLabel(l0);
-				mv.visitVarInsn(ALOAD, 0);
-				mv.visitLdcInsn(prop.getName());				
-				mv.visitVarInsn(type.getOpcode(ILOAD), 1);
-				if (propBox != null)
-					mv.visitMethodInsn(INVOKESTATIC, propTypeBox.getInternalName(), 
-							"valueOf", "(" + type.getDescriptor() + ")" + propTypeBox.getDescriptor());					
-				mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "set", 
-						"(Ljava/lang/String;Ljava/lang/Object;)" + type.getDescriptor());
-				mv.visitInsn(RETURN);
-				Label l1 = new Label();
-				mv.visitLabel(l1);
-				mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-				mv.visitLocalVariable("arg", type.getDescriptor(), null, l0, l1, 1);				
-				mv.visitMaxs(0, 0);				
+					Label l0 = new Label();
+					mv.visitLabel(l0);
+					mv.visitVarInsn(ALOAD, 0);
+					mv.visitLdcInsn(prop.getName());
+					mv.visitVarInsn(type.getOpcode(ILOAD), 1);
+					if (propBox != null)
+						mv.visitMethodInsn(INVOKESTATIC, propTypeBox.getInternalName(), "valueOf", "("
+								+ type.getDescriptor() + ")" + propTypeBox.getDescriptor());
+					mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "set",
+							"(Ljava/lang/String;Ljava/lang/Object;)" + type.getDescriptor());
+					mv.visitInsn(RETURN);
+					Label l1 = new Label();
+					mv.visitLabel(l1);
+					mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+					mv.visitLocalVariable("arg", type.getDescriptor(), null, l0, l1, 1);
+					mv.visitMaxs(0, 0);
+				}
 				mv.visitEnd();
 			};
 		}		
 	}
 		
+	private void writePropertyNotify(StubClassCompilation compilation, Type objectType, 
+			PropertyInfo prop, Type propType, Class<?> propBox,
+			boolean isInterfaceSource, boolean isInterfaceTarget) {
+		String propPascal = ucaseToPascal(prop.getName());		
+		String notifyClass = propPascal + "Notify";
+		String sigHandlerName = "on" + notifyClass;
+		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { objectType, propType } );
+		String internalName = objectType.getInternalName() + "$" + notifyClass;
+				
+		if (!isInterfaceTarget) {
+			InnerClassCompilation sigCompilation = compilation.newInner(notifyClass);
+			compilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, notifyClass, 
+					ACC_PUBLIC + ACC_ABSTRACT + ACC_STATIC + ACC_INTERFACE);
+			sigCompilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, 
+					sigCompilation.internalName, null, "java/lang/Object", new String[] { "com/sun/jna/Callback" });
+			sigCompilation.writer.visitInnerClass(sigCompilation.internalName, compilation.internalName, 
+					notifyClass, ACC_PUBLIC + ACC_STATIC + ACC_ABSTRACT + ACC_INTERFACE);
+		
+			writeJnaCallbackTypeMapper(sigCompilation);
+
+			MethodVisitor mv = sigCompilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, sigHandlerName, descriptor, null, null);
+			mv.visitEnd();			
+			
+			sigCompilation.writer.visitEnd();			
+		}
+		
+		/* public final long connectNotify(SIGCLASS proxy) */
+		int access = ACC_PUBLIC;
+		if (isInterfaceSource)
+			access += ACC_ABSTRACT;
+		MethodVisitor mv = compilation.writer.visitMethod(access, "connectNotify", "(L"+ internalName + ";)J", null, null);
+		if (!isInterfaceSource) {
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitLdcInsn(prop.getName());
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "connectNotify", "(Ljava/lang/String;Lcom/sun/jna/Callback;)J");
+			mv.visitInsn(LRETURN);
+			Label l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L"+ compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitLocalVariable("c", "L" + internalName + ";", null, l0, l1, 1);
+			mv.visitMaxs(0, 0);
+		}
+		mv.visitEnd();
+	}
+
 	private void compile(ObjectInfo info) {
 		StubClassCompilation compilation = getCompilation(info);
 		
@@ -1114,18 +1182,21 @@ public class CodeFactory {
 				ctx.targetInterface = iface;
 				writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 			}
+			Type ifaceType = typeFromInfo(iface);
 			for (SignalInfo sig : iface.getSignals()) {
 				CallableCompilationContext ctx = tryCompileCallable(sig);
 				if (ctx == null)
 					continue;
 				// Insert the object as first parameter
-				ctx.argTypes.add(0, typeFromInfo(iface));				
+				ctx.argTypes.add(0, ifaceType);				
 				compileSignal(compilation, ctx, sig, false, true);
 			}
-			writeProperties(compilation, iface.getProperties(), sigs);
+			writeProperties(compilation, ifaceType, iface.getProperties(), sigs,
+					false, true);
 		}
 		
-		writeProperties(compilation, info.getProperties(), sigs);
+		writeProperties(compilation, Type.getObjectType(compilation.internalName),
+				info.getProperties(), sigs, false, false);
 		
 		compilation.close();	
 	}
@@ -1140,16 +1211,21 @@ public class CodeFactory {
 				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
 		globals.interfaceTypes.put(internalName, info.getTypeInit());
 		
+		Type ifaceType = typeFromInfo(info);
 		for (SignalInfo sig : info.getSignals()) {
 			CallableCompilationContext ctx = tryCompileCallable(sig);
 			if (ctx == null)
 				continue;
 			// Insert the object as first parameter
-			ctx.argTypes.add(0, typeFromInfo(info));				
+			ctx.argTypes.add(0, ifaceType);				
 			compileSignal(compilation, ctx, sig, true, false);
 		}		
 		
-		Set<String> sigs = new HashSet<String>();		
+		Set<String> sigs = new HashSet<String>();
+		
+		writeProperties(compilation, ifaceType, 
+				info.getProperties(), sigs, true, false);
+		
 		for (FunctionInfo fi : info.getMethods()) {
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
 			if (ctx == null)
