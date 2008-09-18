@@ -80,6 +80,14 @@ public class Test extends GObject implements TestIface {
 		return connect("clicked", c);
 	}
 	
+	public interface FooNotify extends Callback {
+		public void onFooNotify(boolean foo);
+	}
+	
+	public long connectNotify(FooNotify notify) {
+		return connect("notify::foo", notify);
+	}
+	
 	public Test() {
 		super(getGType(), (Object[])null);
 	}
