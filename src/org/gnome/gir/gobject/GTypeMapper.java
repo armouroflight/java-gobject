@@ -48,6 +48,7 @@ package org.gnome.gir.gobject;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.Date;
 
 import org.gnome.gir.gobject.annotation.ConstField;
 import org.gnome.gir.gobject.annotation.IncRef;
@@ -242,6 +243,22 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return String.class;
         }
     };
+    
+    private TypeConverter dateConverter = new TypeConverter() {
+        
+        public Object toNative(Object arg, ToNativeContext context) {
+            return ((Date)arg).getTime();            
+        }
+
+        public Object fromNative(Object arg0, FromNativeContext arg1) {
+            return new Date(((Long) arg0));            
+        }
+
+        public Class<?> nativeType() {
+            return Pointer.SIZE == 8 ? Long.class : Integer.class;
+        }
+    };    
+    
     @SuppressWarnings("unchecked")
 	public FromNativeConverter getFromNativeConverter(Class type) {
         if (Enum.class.isAssignableFrom(type)) {
@@ -256,6 +273,8 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return intptrConverter;
         } else if (GQuark.class == type) {
             return gquarkConverter;
+        } else if (Date.class.isAssignableFrom(type)) {
+        	return dateConverter;
         }
         return super.getFromNativeConverter(type);
     }
@@ -276,6 +295,8 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             return intptrConverter;
         } else if (GQuark.class == type) {
             return gquarkConverter;
+        } else if (Date.class.isAssignableFrom(type)) {
+        	return dateConverter;
         }
         return super.getToNativeConverter(type);
     }

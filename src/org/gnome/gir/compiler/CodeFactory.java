@@ -52,6 +52,7 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -259,6 +260,8 @@ public class CodeFactory {
 			return Type.FLOAT_TYPE;
 		if (tag == TypeTag.DOUBLE)
 			return Type.DOUBLE_TYPE;
+		if (tag == TypeTag.TIMET)
+			return Type.getType(Date.class);
 		if (tag == TypeTag.UTF8)
 			return Type.getType(String.class);
 		if (tag == TypeTag.FILENAME)
