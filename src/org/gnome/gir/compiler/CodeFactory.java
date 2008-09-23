@@ -2176,11 +2176,13 @@ public class CodeFactory {
 			verify = null;
 		}
 
+		int nClasses = 0;
 		for (Map.Entry<String,InputStream> entry : allClassnames.entrySet()) {
 			if (verify != null) {
 				try {
 					ClassReader reader = new ClassReader(entry.getValue());					
 					verify.invoke(null, new Object[] { reader, loader, false, new PrintWriter(System.err) } );
+					nClasses++;
 				} catch (InvocationTargetException e) {
 					System.err.println("Failed to verify " + entry.getKey());
 					e.printStackTrace();
@@ -2193,6 +2195,7 @@ public class CodeFactory {
 		}
 		for (ZipFile zip: zips)
 			zip.close();
+		logger.info(String.format("Verified %d classes", nClasses));
 	}
 	
 	public static Set<File> compileAll() throws Exception {
