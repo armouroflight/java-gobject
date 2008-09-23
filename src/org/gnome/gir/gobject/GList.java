@@ -6,7 +6,7 @@ import java.util.List;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 
-public abstract class GList extends Structure {
+public class GList extends Structure {
 	public static class ByReference extends GList implements Structure.ByReference {};
 	
 	public Pointer data;
