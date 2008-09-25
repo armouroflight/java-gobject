@@ -279,7 +279,7 @@ public abstract class GObject extends RefCountedObject {
     	return connect("notify::" + propName, trampoline);
     }
     
-    public synchronized void disconnect(String signal, long id) {
+    public synchronized void disconnect(long id) {
     	Callback cb = signalHandlers.get(id);
     	if (cb == null)
     		throw new IllegalArgumentException("Invalid signal handler id:" + id);
