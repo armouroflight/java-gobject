@@ -48,8 +48,12 @@ package org.gnome.gir.gobject;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.sun.jna.Pointer;
 
@@ -58,6 +62,29 @@ import com.sun.jna.Pointer;
  */
 public class MainLoop extends RefCountedObject {
     private static final List<Runnable> bgTasks = new LinkedList<Runnable>();
+    
+    private static MainLoop defaultLoop;
+    private ThreadFactory asyncFactory = new ThreadFactory() {
+    	private AtomicLong threadNum = new AtomicLong();
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread t = new Thread(r);
+			long num = threadNum.getAndIncrement();
+			t.setName(String.format("Async task %d for mainloop %s", num, MainLoop.this));
+			return t;
+		}
+    };
+    
+    /**
+     * Returns the default {@code MainLoop}
+     * 
+     * @return default {@code MainLoop}
+     */
+    public synchronized static MainLoop getDefault() {
+    	if (defaultLoop == null)
+    		defaultLoop = new MainLoop();
+    	return defaultLoop;
+    }
     
     /** 
      * Creates a new instance of {@code MainLoop}
@@ -164,6 +191,7 @@ public class MainLoop extends RefCountedObject {
             return false;
         }
     };
+    
     /**
      * Invokes a task on the main loop thread.
      * <p> This method returns immediately, without waiting for the task to 
@@ -184,6 +212,54 @@ public class MainLoop extends RefCountedObject {
                 source.disown(); // gets destroyed in the callback
             }
         }
+    }
+    
+    /**
+     * Stub interface for {@code queue}.
+     * @author walters
+     *
+     * @param <T> Type of object passed to queue
+     */
+    public interface Handler<T> {
+    	public void handle(Future<T> proxy);
+    }    
+
+    public <T> void threadInvoke(Callable<T> callable, Handler<T> handler) {
+    	threadInvoke(asyncFactory, callable, handler);
+    }
+    
+    public <T> void threadInvoke(ThreadFactory factory, final Callable<T> callable, final Handler<T> handler) {
+    	Thread taskRunner = factory.newThread(new Runnable() {
+			@Override
+			public void run() {
+				T result = null;
+				Exception e = null;
+				try {
+					result = callable.call();
+				} catch (Exception ex) {
+					e = ex;
+				}
+				
+				final T resultCapture = result;
+				final Exception exceptionCapture = e;
+				final FutureTask<T> proxy = new FutureTask<T>(new Callable<T>() {
+					@Override
+					public T call() throws Exception {
+						if (exceptionCapture != null)
+							throw exceptionCapture;
+						return resultCapture;
+					}
+				});
+				proxy.run();
+				invokeLater(new Runnable() {
+					@Override
+					public void run() {					
+						handler.handle(proxy);
+					}
+				});
+			}
+    	});
+    	taskRunner.start();
     }
     
     //--------------------------------------------------------------------------
