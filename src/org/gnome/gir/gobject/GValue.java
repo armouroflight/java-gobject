@@ -54,6 +54,15 @@ public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;
 
+	public GValue() {
+		this(GType.INVALID);
+	}
+	
+	public GValue(GType type) {
+		super();
+        GValueAPI.gvalue.g_value_init(this, type);
+	}
+	
 	/* public for GTypeValueTable methods */
 	public static class GValueData extends com.sun.jna.Union {
 		public volatile int v_int;
