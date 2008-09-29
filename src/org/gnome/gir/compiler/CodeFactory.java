@@ -39,6 +39,7 @@ import static org.objectweb.asm.Opcodes.PUTFIELD;
 import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V1_6;
+import static org.objectweb.asm.Type.getType;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -162,6 +163,14 @@ public class CodeFactory {
 		return null;
 	}	
 	
+	public Type toJavaArray(TypeInfo containedType) {
+		Type result = toJava(containedType);
+		if (result == null)
+			return null;
+		String descriptor = result.getDescriptor();
+		return Type.getType("[" + descriptor);
+	}
+	
 	public Type toJava(TypeInfo type) {	
 		//Transfer transfer = arg.getOwnershipTransfer();
 		TypeTag tag = type.getTag();
@@ -171,7 +180,9 @@ public class CodeFactory {
 			// be a G-I bug
 			return Type.getType(Pointer.class);		
 		} else if (tag.equals(TypeTag.INTERFACE)) {
-			return typeFromInfo(type.getInterface());		
+			return typeFromInfo(type.getInterface());
+		} else if (tag.equals(TypeTag.ARRAY)) {
+			return toJavaArray(type.getParamType(0));
 		} else if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
 			return toTypeBase(tag);
 		} else if (type.isPointer()) {
@@ -207,7 +218,11 @@ public class CodeFactory {
 				return Type.getType(Pointer.class);
 			}
 		}
-		return toJava(arg.getType());
+		Type result = toJava(type);
+		if (result == null) {
+			logger.warning(String.format("Unhandled field type %s (type %s)", result, type));
+		}
+		return result;
 	}	
 	
 	public Type toJava(ArgInfo arg) {
@@ -298,35 +313,6 @@ public class CodeFactory {
 		if (type.equals(Type.DOUBLE_TYPE))
 			return Double.class;
 		return null;
-	}
-	
-	private List<Type> getCallableArgs(CallableInfo callable, boolean isMethod,
-				boolean allowError) {
-		ArgInfo[] args = callable.getArgs();
-		List<Type> types = new ArrayList<Type>();
-		boolean skipFirst = isMethod;
-		for (int i = 0; i < args.length; i++) {
-			ArgInfo arg = args[i];
-			Type t;
-			TypeInfo info = arg.getType();
-			TypeTag tag = info.getTag();			
-			if (tag.equals(TypeTag.ERROR)) {
-				if (allowError)
-					continue;
-				return null;
-			}
-			t = toJava(arg);
-			if (t == null) {
-				logger.warning("Unhandled argument: " + arg);
-				return null;
-			}
-			if (skipFirst)
-				skipFirst = false;
-			else
-				types.add(t);
-		}
-		
-		return types;
 	}
 	
 	private static abstract class ClassCompilation {
@@ -652,7 +638,7 @@ public class CodeFactory {
 		compilation.close();
 	}	
 	
-	private String ucaseToCamel(String ucase) {
+	private static String ucaseToCamel(String ucase) {
 		// So this function works on signal/property names too
 		ucase = ucase.replace('-', '_');
 		String[] components = ucase.split("_");
@@ -666,7 +652,7 @@ public class CodeFactory {
 		return builder.toString();
 	}
 	
-	private String ucaseToPascal(String ucase) {
+	private static String ucaseToPascal(String ucase) {
 		String camel = ucaseToCamel(ucase);
 		return Character.toUpperCase(camel.charAt(0)) + camel.substring(1);
 	}	
@@ -769,16 +755,19 @@ public class CodeFactory {
 		mv.visitEnd();		
 	}
 	
-	private void compileStaticConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
+	private void writeStaticConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false);		 
-		String descriptor = Type.getMethodDescriptor(typeFromInfo(info), args.toArray(new Type[0]));
+		CallableCompilationContext ctx = tryCompileCallable(fi, false, true, null);
+		if (ctx == null)
+			return;
+		List<Type> args = ctx.argTypes;	 
+		String descriptor = ctx.getDescriptor();
 		
 		int nArgs = args.size();
 		
-		String name = ucaseToCamel(fi.getName());
+		String name = ctx.name;
 		if (name.equals("new"))
 			name = "newDefault";
 		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, null, null);
@@ -821,11 +810,16 @@ public class CodeFactory {
 	private void writeConstructor(ObjectInfo info, ClassCompilation compilation, FunctionInfo fi) {	
 		String globalInternalsName = getInternals(info);
 
-		ArgInfo[] argInfos = fi.getArgs();
-		List<Type> args = getCallableArgs(fi, false, false);		
+		CallableCompilationContext ctx = tryCompileCallable(fi);
+		if (ctx.throwsGError) {
+			logger.warning(String.format("Skipping constructor %s which uses GError", 
+					fi.getIdentifier()));
+			return;
+		}
+		List<Type> args = ctx.argTypes;
 		BaseInfo parent = info.getParent(); 
 		String parentInternalType = getInternalNameMapped(parent);
-		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));
+		String descriptor = ctx.getDescriptor();
 		
 		int nArgs = args.size();
 		
@@ -842,7 +836,7 @@ public class CodeFactory {
 		mv.visitLdcInsn(Type.getType(Pointer.class));
 		mv.visitIntInsn(BIPUSH, args.size());
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
-		LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), args, argInfos, true);
+		LocalVariableTable locals = ctx.allocLocals();
 		for (int i = 0; i < nArgs; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
@@ -1081,9 +1075,6 @@ public class CodeFactory {
 	private void compile(ObjectInfo info) {
 		StubClassCompilation compilation = getCompilation(info);
 		
-		if (info.getNamespace().equals("GObject") && info.getName().equals("Object"))
-			return;
-		
 		String internalName = getInternalName(info);
 		BaseInfo parent = info.getParent();
 		String parentInternalName;
@@ -1121,19 +1112,15 @@ public class CodeFactory {
 		
 		// First gather the set of all constructors; we need to avoid name clashes
 		for (FunctionInfo fi : info.getMethods()) {
-			boolean isConstructor = (fi.getFlags() & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
-			if (!isConstructor)
+			CallableCompilationContext ctx = tryCompileCallable(fi);
+			if (ctx == null || !ctx.isConstructor)
 				continue;
-			List<Type> args = getCallableArgs(fi, false, false);
-			if (args == null) {
-				logger.warning("Skipping constructor with unhandled arg signature: " + fi.getSymbol());
-				continue;
-			}
-			if (args.size() == 0) {
+
+			if (ctx.argTypes.size() == 0) {
 				logger.fine("Skipping 0-args constructor: " + fi.getName());
 				continue;
 			}
-			String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, args.toArray(new Type[0]));			
+			String descriptor = ctx.getDescriptor();
 			if (!ctors.containsKey(descriptor)) {
 				ctors.put(descriptor, new HashSet<FunctionInfo>());
 			}
@@ -1157,7 +1144,7 @@ public class CodeFactory {
 				}
 				for (FunctionInfo ctor : ctorGroup) {
 					if (ctor != defaultCtor) {
-						compileStaticConstructor(info, compilation, ctor);
+						writeStaticConstructor(info, compilation, ctor);
 					}
 				}
 			}
@@ -1166,13 +1153,10 @@ public class CodeFactory {
 		// Now do methods
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : info.getMethods()) {	
-			boolean isConstructor = (fi.getFlags() & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
-			if (isConstructor)
-				continue;
 			if (GOBJECT_METHOD_BLACKLIST.contains(fi.getName()))
 				continue;
 			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
-			if (ctx == null)
+			if (ctx == null || ctx.isConstructor)
 				continue;
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
@@ -1187,7 +1171,7 @@ public class CodeFactory {
 			}
 			Type ifaceType = typeFromInfo(iface);
 			for (SignalInfo sig : iface.getSignals()) {
-				CallableCompilationContext ctx = tryCompileCallable(sig);
+				CallableCompilationContext ctx = tryCompileCallable(sig, null);
 				if (ctx == null)
 					continue;
 				// Insert the object as first parameter
@@ -1259,71 +1243,146 @@ public class CodeFactory {
 	}
 	
 	private static final class CallableCompilationContext {
+		CallableInfo info;
+		boolean isMethod;
+		boolean isConstructor;
+		String name;
 		Type returnType;
 		ArgInfo[] args;
+		Type thisType;
 		List<Type> argTypes;
+		List<String> argNames = new ArrayList<String>();
 		boolean throwsGError;
 		boolean isInterfaceMethod = false;
 		InterfaceInfo targetInterface = null;
-		public CallableCompilationContext(Type returnType, ArgInfo[] args,
-				List<Type> argTypes, boolean throwsGError) {
-			this.returnType = returnType;
-			this.args = args;
-			this.argTypes = argTypes;
-			this.throwsGError = throwsGError;
+		Map<Integer, Integer> lengthIndices;
+		
+		public CallableCompilationContext() {
+			// TODO Auto-generated constructor stub
+		}
+
+		public String getDescriptor() {
+			return Type.getMethodDescriptor(this.returnType, argTypes.toArray(new Type[] {}));
+		}
+		
+		public String getSignature() {
+			return getUniqueSignature(name, returnType, argTypes);
+		}
+		
+		public int argOffsetToApi(int offset) {
+			return offset - lengthIndices.size();
+		}
+
+		public LocalVariableTable allocLocals() {
+			return new LocalVariableTable(this);
 		}
 	}
 	
 	private CallableCompilationContext tryCompileCallable(CallableInfo si) {
-		Type returnType = getCallableReturn(si);
-		if (returnType == null) {
-			logger.warning("Skipping callable with unhandled return signature: " + si.getName());
-			return null;
-		}
-		ArgInfo[] argInfos = si.getArgs();		
-		List<Type> args = getCallableArgs(si, false, false);
-		if (args == null) {
-			logger.warning("Skipping callable with unhandled arg signature: " + si.getName());
-			return null;
-		}	
-		return new CallableCompilationContext(returnType, argInfos, args, false);
+		return tryCompileCallable(si, true, null);
 	}
 	
-	private String getUniqueSignature(String name, Type returnType, List<Type> args) {
+	private CallableCompilationContext tryCompileCallable(CallableInfo si, Set<String> seenSignatures) {
+		return tryCompileCallable(si, true, seenSignatures);
+	}
+	
+	private CallableCompilationContext tryCompileCallable(CallableInfo si, boolean allowError,
+			Set<String> seenSignatures) {
+		return tryCompileCallable(si, allowError, false, seenSignatures);
+	}
+	
+	private CallableCompilationContext tryCompileCallable(CallableInfo si, boolean allowError,
+			boolean isStaticCtor,
+			Set<String> seenSignatures) {
+		CallableCompilationContext ctx = new CallableCompilationContext();
+		if (si instanceof FunctionInfo) {
+			FunctionInfo fi = (FunctionInfo) si;
+			int flags = fi.getFlags();
+			ctx.isConstructor = !isStaticCtor && (flags & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
+			ctx.isMethod = !ctx.isConstructor && (flags & FunctionInfoFlags.IS_METHOD) != 0;
+		}
+		ctx.info = si;
+		ctx.args = si.getArgs();
+		if (ctx.isConstructor) {
+			ctx.returnType = Type.VOID_TYPE;
+			ctx.thisType = getCallableReturn(si); 
+		} else {
+			ctx.returnType = getCallableReturn(si);
+		}
+		if (ctx.returnType == null) {
+			logger.warning("Skipping callable with unhandled return signature: "+ si.getIdentifier());
+			return null;
+		}
+		ArgInfo[] args = ctx.args;
+		
+		ctx.throwsGError = args.length > 0 && 
+			args[args.length-1].getType().getTag().equals(TypeTag.ERROR);
+		
+		List<Type> types = new ArrayList<Type>();		
+		boolean skipFirst = ctx.isMethod;
+		ctx.lengthIndices = new HashMap<Integer,Integer>();
+		for (int i = 0; i < args.length; i++) {
+			ArgInfo arg = args[i];
+			Type t;
+			TypeInfo info = arg.getType();
+			TypeTag tag = info.getTag();			
+			if (tag.equals(TypeTag.ERROR)) {
+				if (allowError)
+					continue;
+				logger.warning("Skipping callable with invalid error argument: " + si.getIdentifier());
+				return null;
+			}
+			t = toJava(arg);
+			if (t == null) {
+				logger.warning(String.format("Unhandled argument %s in callable %s", arg, si.getIdentifier()));
+				return null;
+			}
+			if (tag.equals(TypeTag.ARRAY)) {
+				int lenIdx = arg.getType().getArrayLength();
+				if (lenIdx >= 0)
+					ctx.lengthIndices.put(lenIdx, i);
+			}			
+			if (skipFirst) {
+				skipFirst = false;
+				if (ctx.isMethod)
+					ctx.thisType = t;
+			} else {
+				types.add(t);
+				ctx.argNames.add(arg.getName());
+			}
+		}
+		
+		/* Now go through and remove array length indices */
+		List<Type> filteredTypes = new ArrayList<Type>();
+		for (int i = 0; i < types.size(); i++) {
+			Integer index = ctx.lengthIndices.get(i + (ctx.isMethod ? 1 : 0));
+			if (index == null) {		
+				filteredTypes.add(types.get(i));
+			}
+		}
+		
+		ctx.argTypes = filteredTypes;
+		
+		ctx.name = ucaseToCamel(si.getName());
+		
+		if (seenSignatures != null) {
+			String signature = getUniqueSignature(ctx.name, ctx.returnType, ctx.argTypes);
+			if (seenSignatures.contains(signature)) {
+				logger.warning(String.format("Callable %s duplicates signature: %s", 
+						si.getIdentifier(), signature));
+				return null;
+			}
+			seenSignatures.add(signature);
+		}
+
+		return ctx;
+	}
+	
+	private static String getUniqueSignature(String name, Type returnType, List<Type> args) {
 		StringBuilder builder = new StringBuilder(name);
-		builder.append("(");
-		for (Type arg: args)
-			builder.append(arg.getDescriptor());
-		builder.append(")");
-		builder.append(returnType.getDescriptor());
-		String signature = builder.toString();
-		return signature;
-	}
-	
-	private CallableCompilationContext tryCompileCallable(FunctionInfo fi, Set<String> seenSignatures) {
-		Type returnType = getCallableReturn(fi);
-		if (returnType == null) {
-			logger.warning("Skipping function with unhandled return signature: " + fi.getSymbol());
-			return null;
-		}
-		ArgInfo[] argInfos = fi.getArgs();
-		boolean throwsGError = argInfos.length > 0 && 
-			argInfos[argInfos.length-1].getType().getTag().equals(TypeTag.ERROR);
-		List<Type> args = getCallableArgs(fi, (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0,
-					throwsGError);
-		if (args == null) {
-			logger.warning("Skipping function with unhandled arg signature: " + fi.getSymbol());
-			return null;
-		}
-		String name = ucaseToCamel(fi.getName());
-		String signature = getUniqueSignature(name, returnType, args);
-		if (seenSignatures.contains(signature)) {
-			logger.warning("Function " + fi.getSymbol() + " duplicates signature: " 
-						+ signature);
-			return null;
-		}
-		seenSignatures.add(signature);
-		return new CallableCompilationContext(returnType, argInfos, args, throwsGError);
+		builder.append('/');
+		builder.append(Type.getMethodDescriptor(returnType, args.toArray(new Type[] {})));
+		return builder.toString();
 	}
 	
 	private Type writeLoadArgument(MethodVisitor mv, int loadOffset, Type argType) {
@@ -1354,27 +1413,30 @@ public class CodeFactory {
 		private Map<String,LocalVariable> locals;
 		private int lastOffset;
 		
-		public LocalVariableTable(Type thisArg, List<Type> args, ArgInfo[] argInfos, boolean isCtor) {
+		public LocalVariableTable(Type thisType, List<Type> args, List<String> argNames) {
 			lastOffset = 0;
 			locals = new LinkedHashMap<String,LocalVariable>();
-			if (thisArg != null) {
-				locals.put("this", new LocalVariable("this", 0, thisArg));
-				lastOffset += thisArg.getSize();
+			if (thisType != null) {
+				locals.put("this", new LocalVariable("this", 0, thisType));
+				lastOffset += thisType.getSize();
 			}
-			if (args == null)
-				return;			
-			final int thisOffset = (thisArg != null && !isCtor) ? 1 : 0;
 			int i = 0;
+			if (args == null)
+				return;
 			for (Type arg: args) {
 				String name;
-				if (argInfos != null)
-					name = argInfos[i+thisOffset].getName();
+				if (argNames != null)
+					name = argNames.get(i);
 				else
 					name = "arg" + i;
 				locals.put(name, new LocalVariable(name, lastOffset, arg));
 				lastOffset += arg.getSize();
 				i++;
-			}
+			}			
+		}
+		
+		public LocalVariableTable(CallableCompilationContext ctx) {
+			this(ctx.thisType, ctx.argTypes, ctx.argNames);
 		}
 		
 		public LocalVariable add(String name, Type type) {
@@ -1399,7 +1461,7 @@ public class CodeFactory {
 					return variable;
 				i++;
 			}
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException(String.format("Index %d is out of range (max %d)", index, locals.size()-1));
 		}
 		
 		public int getOffset(String name) {
@@ -1416,8 +1478,8 @@ public class CodeFactory {
 	
 	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
 			CallableCompilationContext ctx) {
-		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
-		String name = ucaseToCamel(fi.getName());
+		String descriptor = ctx.getDescriptor();
+		String name = ctx.name;
 		
 		String[] exceptions = null;
 		if (ctx.throwsGError) {
@@ -1446,9 +1508,7 @@ public class CodeFactory {
 			returnTypeBox = ctx.returnType;
 		
 		mv.visitCode();
-		int nArgs = ctx.argTypes.size();
-		LocalVariableTable locals = new LocalVariableTable(includeThis ? Type.getObjectType(compilation.internalName) : null,
-				ctx.argTypes, ctx.args, false);
+		LocalVariableTable locals = ctx.allocLocals();
 		int functionOffset = locals.allocTmp("function", Type.getType(Function.class));
 		int argsOffset = locals.allocTmp("args", Type.getType(Object[].class));
 		int resultOffset = 0;
@@ -1457,9 +1517,8 @@ public class CodeFactory {
 		int errorOffset = 0;
 		if (ctx.throwsGError)
 			errorOffset = locals.allocTmp("error", Type.getType(PointerByReference.class));
-		int nInvokeArgs = nArgs;
-		if (includeThis)
-			nInvokeArgs += 1;
+		int nInvokeArgs = ctx.args.length;
+		int nInvokeArgsNoError = nInvokeArgs - (ctx.throwsGError ? 1 : 0);
 		Label jtarget;
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -1476,14 +1535,24 @@ public class CodeFactory {
 		mv.visitVarInsn(ASTORE, functionOffset);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitIntInsn(BIPUSH, nInvokeArgs + (ctx.throwsGError ? 1 : 0));
+		mv.visitIntInsn(BIPUSH, nInvokeArgs);
 		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
-		for (int i = 0; i < nInvokeArgs; i++) {
+		for (int i = 0; i < nInvokeArgsNoError; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
-			if (!includeThis || i > 0) {
+			Integer arraySource = ctx.lengthIndices.get(i);
+			if (arraySource != null) {
+				ArgInfo source = ctx.args[arraySource];
+				assert source.getType().getTag().equals(TypeTag.ARRAY);
+				int offset = ctx.argOffsetToApi(arraySource);
+				LocalVariable var = locals.get(offset);
+				writeLoadArgument(mv, var.offset, var.type);
+				mv.visitInsn(ARRAYLENGTH);
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(Integer.class), "valueOf", 
+						Type.getMethodDescriptor(getType(Integer.class), new Type[] { Type.INT_TYPE }));				
+			} else if (!includeThis || i > 0) {
 				LocalVariable var = locals.get(i);			
-				writeLoadArgument(mv, var.offset, var.type);			
+				writeLoadArgument(mv, var.offset, var.type);	
 			} else {
 				mv.visitVarInsn(ALOAD, 0);
 			}
@@ -1491,7 +1560,7 @@ public class CodeFactory {
 		}
 		if (ctx.throwsGError) {
 			mv.visitInsn(DUP);
-			mv.visitIntInsn(BIPUSH, nInvokeArgs);
+			mv.visitIntInsn(BIPUSH, nInvokeArgsNoError);
 			mv.visitVarInsn(ALOAD, errorOffset);
 			mv.visitInsn(AASTORE);
 		}
@@ -1688,13 +1757,13 @@ public class CodeFactory {
 			mv.visitEnd();
 			
 			/* constructor that takes all of the fields */
-			LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), null, null, true);			
+			LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), null, null);			
 			List<Type> args = new ArrayList<Type>();
 			args.add(Type.getObjectType(compilation.internalName));
 			boolean allArgsPrimitive = true;
 			for (FieldInfo field : fields) {
 				Type argType = toJava(field);
-				if (getPrimitiveBox(argType) == null) {
+				if (argType == null || getPrimitiveBox(argType) == null) {
 					allArgsPrimitive = false;
 					break;
 				}

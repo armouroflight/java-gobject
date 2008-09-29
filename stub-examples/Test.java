@@ -30,6 +30,13 @@ public class Test extends GObject implements TestIface {
 		set("foo", arg);
 	}
 	
+	public int bar(String foo, byte[] bytes) {
+		Function target = Internals.library.getFunction("gtk_write_buf");	
+		Object[] args = new Object[] { foo, bytes.length, bytes };
+		Integer result = (Integer) target.invoke(Integer.class, args, Internals.invocationOptions);
+		return result;
+	}
+	
 	public float moo(long q, String z) {
 		Function target = Internals.library.getFunction("gtk_foo_bar");	
 		Object[] args = new Object[] { q, z };
