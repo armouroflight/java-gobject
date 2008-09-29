@@ -35,4 +35,9 @@ public class FunctionInfo extends CallableInfo {
 	public int getFlags() {
 		return Repository.getNativeLibrary().g_function_info_get_flags(this);
 	}
+	
+	@Override
+	public String getIdentifier() {
+		return getSymbol();
+	}	
 }

@@ -50,4 +50,8 @@ public class CallableInfo extends BaseInfo {
 			ret[i] = getArg(i);
 		return ret;
 	}
+	
+	public String getIdentifier() {
+		return getNamespace() + '/' + getName();
+	}
 }

@@ -50,4 +50,8 @@ public class TypeInfo extends PointerType {
 	public ErrorDomainInfo getErrorDomainInfo(int n) {
 		return Repository.getNativeLibrary().g_type_info_get_error_domain(this, n);
 	}
+	
+	public String toString() {
+		return String.format("<TypeInfo tag=%s pointer=%s>", getTag(), isPointer());
+	}
 }
