@@ -186,7 +186,7 @@ public abstract class NativeObject extends Handle {
         NativeObject obj = null;
         if (BaseInfo.class.isAssignableFrom(cls))
         	obj = BaseInfo.newInstanceFor(ptr);
-        else if (GObject.class.isAssignableFrom(cls))
+        else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls))
         	obj = NativeObject.instanceFor(ptr);
         if (obj != null && cls.isInstance(obj)) {
             if (refAdjust < 0) {
