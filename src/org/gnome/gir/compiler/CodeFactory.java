@@ -1255,7 +1255,8 @@ public class CodeFactory {
 		boolean throwsGError;
 		boolean isInterfaceMethod = false;
 		InterfaceInfo targetInterface = null;
-		Map<Integer, Integer> lengthIndices;
+		Map<Integer, Integer> lengthOfArrayIndices = new HashMap<Integer,Integer>();
+		Map<Integer, Integer> arrayToLengthIndices = new HashMap<Integer,Integer>();
 		
 		public CallableCompilationContext() {
 			// TODO Auto-generated constructor stub
@@ -1270,7 +1271,7 @@ public class CodeFactory {
 		}
 		
 		public int argOffsetToApi(int offset) {
-			return offset - lengthIndices.size();
+			return offset - lengthOfArrayIndices.size();
 		}
 
 		public LocalVariableTable allocLocals() {
@@ -1320,7 +1321,6 @@ public class CodeFactory {
 		
 		List<Type> types = new ArrayList<Type>();		
 		boolean skipFirst = ctx.isMethod;
-		ctx.lengthIndices = new HashMap<Integer,Integer>();
 		for (int i = 0; i < args.length; i++) {
 			ArgInfo arg = args[i];
 			Type t;
@@ -1339,8 +1339,10 @@ public class CodeFactory {
 			}
 			if (tag.equals(TypeTag.ARRAY)) {
 				int lenIdx = arg.getType().getArrayLength();
-				if (lenIdx >= 0)
-					ctx.lengthIndices.put(lenIdx, i);
+				if (lenIdx >= 0) {
+					ctx.lengthOfArrayIndices.put(lenIdx, i);
+					ctx.arrayToLengthIndices.put(i, lenIdx);
+				}
 			}			
 			if (skipFirst) {
 				skipFirst = false;
@@ -1355,7 +1357,7 @@ public class CodeFactory {
 		/* Now go through and remove array length indices */
 		List<Type> filteredTypes = new ArrayList<Type>();
 		for (int i = 0; i < types.size(); i++) {
-			Integer index = ctx.lengthIndices.get(i + (ctx.isMethod ? 1 : 0));
+			Integer index = ctx.lengthOfArrayIndices.get(i + (ctx.isMethod ? 1 : 0));
 			if (index == null) {		
 				filteredTypes.add(types.get(i));
 			}
@@ -1540,7 +1542,8 @@ public class CodeFactory {
 		for (int i = 0; i < nInvokeArgsNoError; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
-			Integer arraySource = ctx.lengthIndices.get(i);
+			Integer arraySource = ctx.lengthOfArrayIndices.get(i);
+			Integer lengthOfArray = ctx.arrayToLengthIndices.get(i);
 			if (arraySource != null) {
 				ArgInfo source = ctx.args[arraySource];
 				assert source.getType().getTag().equals(TypeTag.ARRAY);
@@ -1549,7 +1552,10 @@ public class CodeFactory {
 				writeLoadArgument(mv, var.offset, var.type);
 				mv.visitInsn(ARRAYLENGTH);
 				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(Integer.class), "valueOf", 
-						Type.getMethodDescriptor(getType(Integer.class), new Type[] { Type.INT_TYPE }));				
+						Type.getMethodDescriptor(getType(Integer.class), new Type[] { Type.INT_TYPE }));
+			} else if (lengthOfArray != null) {
+				LocalVariable var = locals.get(lengthOfArray);
+				writeLoadArgument(mv, var.offset, var.type);
 			} else if (!includeThis || i > 0) {
 				LocalVariable var = locals.get(i);			
 				writeLoadArgument(mv, var.offset, var.type);	
