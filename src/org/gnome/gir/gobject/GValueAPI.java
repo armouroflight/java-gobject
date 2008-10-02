@@ -47,11 +47,12 @@ package org.gnome.gir.gobject;
 
 import java.util.HashMap;
 
-import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.gobject.annotation.Invalidate;
+import org.gnome.gir.gobject.annotation.Return;
 
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
+import com.sun.jna.Pointer;
 
 /**
  *
@@ -65,7 +66,7 @@ public interface GValueAPI extends Library {
 		}
 	});
 
-    GValue g_value_init(GValue value, GType g_type);
+    Pointer g_value_init(GValue value, GType g_type);
     GValue g_value_reset(GValue value);
     void g_value_unset(GValue value);
     void g_value_set_char(GValue value, byte v_char);

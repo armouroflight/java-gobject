@@ -186,8 +186,7 @@ public abstract class GObject extends RefCountedObject {
         }
         final GType propType = propertySpec.value_type;
         
-        GValue propValue = new GValue();
-        GValueAPI.gvalue.g_value_init(propValue, propType);
+        GValue propValue = new GValue(propType);
         propValue.set(data);
         GObjectAPI.gobj.g_object_set_property(this, property, propValue);
         GValueAPI.gvalue.g_value_unset(propValue); // Release any memory
@@ -206,8 +205,7 @@ public abstract class GObject extends RefCountedObject {
             throw new IllegalArgumentException("Unknown property: " + property);
         }
         final GType propType = propertySpec.value_type;
-        GValue propValue = new GValue();
-        GValueAPI.gvalue.g_value_init(propValue, propType);
+        GValue propValue = new GValue(propType);
         GObjectAPI.gobj.g_object_get_property(this, property, propValue);
         return propValue.toJava();
     }

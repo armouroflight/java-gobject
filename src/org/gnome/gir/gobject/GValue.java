@@ -53,13 +53,15 @@ import com.sun.jna.Pointer;
 public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;
-
-	public GValue() {
-		this(GType.INVALID);
+	
+	protected GValue() {
 	}
 	
 	public GValue(GType type) {
 		super();
+		if (type == null)
+			throw new NullPointerException();
+		g_type = GType.INVALID;
         GValueAPI.gvalue.g_value_init(this, type);
 	}
 	
@@ -76,14 +78,12 @@ public class GValue extends com.sun.jna.Structure {
 	public volatile GValueData data[] = new GValueData[2];
 	
     private static GValue transform(GValue src, GType dstType) {
-        GValue dst = new GValue();
-        GValueAPI.gvalue.g_value_init(dst, dstType);
+        GValue dst = new GValue(dstType);
         GValueAPI.gvalue.g_value_transform(src, dst);
         return dst;
     }
     private static void transform(Object data, GType type, GValue dst) {
-        GValue src = new GValue();
-        GValueAPI.gvalue.g_value_init(src, type);
+        GValue src = new GValue(type);
         setGValue(src, type, data);
         GValueAPI.gvalue.g_value_transform(src, dst);
     }	
