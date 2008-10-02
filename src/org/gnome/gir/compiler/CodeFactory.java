@@ -761,7 +761,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(info);
 
 		ArgInfo[] argInfos = fi.getArgs();
-		CallableCompilationContext ctx = tryCompileCallable(fi, false, true, null);
+		CallableCompilationContext ctx = tryCompileCallable(fi, null, false, true, null);
 		if (ctx == null)
 			return;
 		List<Type> args = ctx.argTypes;	 
@@ -1157,14 +1157,14 @@ public class CodeFactory {
 		for (FunctionInfo fi : info.getMethods()) {	
 			if (GOBJECT_METHOD_BLACKLIST.contains(fi.getName()))
 				continue;
-			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null || ctx.isConstructor)
 				continue;
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
 			for (FunctionInfo fi: iface.getMethods()) {
-				CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+				CallableCompilationContext ctx = tryCompileCallable(fi, iface, true, false, sigs);
 				if (ctx == null)
 					continue;
 				ctx.isInterfaceMethod = true;
@@ -1202,7 +1202,7 @@ public class CodeFactory {
 		
 		Type ifaceType = typeFromInfo(info);
 		for (SignalInfo sig : info.getSignals()) {
-			CallableCompilationContext ctx = tryCompileCallable(sig);
+			CallableCompilationContext ctx = tryCompileCallable(sig, null);
 			if (ctx == null)
 				continue;
 			// Insert the object as first parameter
@@ -1216,7 +1216,7 @@ public class CodeFactory {
 				info.getProperties(), sigs, true, false);
 		
 		for (FunctionInfo fi : info.getMethods()) {
-			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null)
 				continue;			
 			String name = ucaseToCamel(fi.getName());
@@ -1233,7 +1233,7 @@ public class CodeFactory {
 		writeHandleInitializer(anonProxy, "org/gnome/gir/gobject/GObject");
 		sigs = new HashSet<String>();		
 		for (FunctionInfo fi: info.getMethods()) {
-			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null)
 				continue;
 			ctx.isInterfaceMethod = false;
@@ -1291,10 +1291,11 @@ public class CodeFactory {
 	
 	private CallableCompilationContext tryCompileCallable(CallableInfo si, boolean allowError,
 			Set<String> seenSignatures) {
-		return tryCompileCallable(si, allowError, false, seenSignatures);
+		return tryCompileCallable(si, null, allowError, false, seenSignatures);
 	}
 	
-	private CallableCompilationContext tryCompileCallable(CallableInfo si, boolean allowError,
+	private CallableCompilationContext tryCompileCallable(CallableInfo si, RegisteredTypeInfo thisType,
+			boolean allowError,
 			boolean isStaticCtor,
 			Set<String> seenSignatures) {
 		CallableCompilationContext ctx = new CallableCompilationContext();
@@ -1310,6 +1311,8 @@ public class CodeFactory {
 			ctx.returnType = Type.VOID_TYPE;
 			ctx.thisType = getCallableReturn(si); 
 		} else {
+			if (ctx.isMethod && thisType != null)
+				ctx.thisType = Type.getObjectType(getInternalNameMapped(thisType));
 			ctx.returnType = getCallableReturn(si);
 		}
 		if (ctx.returnType == null) {
@@ -1322,7 +1325,6 @@ public class CodeFactory {
 			args[args.length-1].getType().getTag().equals(TypeTag.ERROR);
 		
 		List<Type> types = new ArrayList<Type>();		
-		boolean skipFirst = ctx.isMethod;
 		for (int i = 0; i < args.length; i++) {
 			ArgInfo arg = args[i];
 			Type t;
@@ -1342,26 +1344,25 @@ public class CodeFactory {
 			if (tag.equals(TypeTag.ARRAY)) {
 				int lenIdx = arg.getType().getArrayLength();
 				if (lenIdx >= 0) {
-					ctx.lengthOfArrayIndices.put(lenIdx, i);
-					ctx.arrayToLengthIndices.put(i, lenIdx);
+					/* FIXME - remove this hack when the repository is fixed */
+					int arrIdx = i;
+					if (ctx.isMethod) {
+						arrIdx++;
+					} 
+					ctx.lengthOfArrayIndices.put(lenIdx, arrIdx);
+					ctx.arrayToLengthIndices.put(arrIdx, lenIdx);
 				}
 			}			
-			if (skipFirst) {
-				skipFirst = false;
-				if (ctx.isMethod)
-					ctx.thisType = t;
-			} else {
-				types.add(t);
-				ctx.argNames.add(arg.getName());
-			}
+			types.add(t);
+			ctx.argNames.add(arg.getName());
 		}
 		
 		/* Now go through and remove array length indices */
 		List<Type> filteredTypes = new ArrayList<Type>();
-		for (int i = 0; i < types.size(); i++) {
-			Integer index = ctx.lengthOfArrayIndices.get(i + (ctx.isMethod ? 1 : 0));
+		for (int i = 1; i < types.size()+1; i++) {
+			Integer index = ctx.lengthOfArrayIndices.get(i);
 			if (index == null) {		
-				filteredTypes.add(types.get(i));
+				filteredTypes.add(types.get(i-1));
 			}
 		}
 		
@@ -1478,6 +1479,11 @@ public class CodeFactory {
 				mv.visitLocalVariable(var.name, var.type.getDescriptor(), null, start, end, var.offset);
 			}			
 		}
+		
+		@Override
+		public String toString() {
+			return String.format("<locals lastOffset=%s table=%s>", lastOffset, locals);
+		}
 	}
 	
 	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
@@ -1500,8 +1506,7 @@ public class CodeFactory {
 			av.visitEnd();
 		}		
 		
-		String globalInternalsName = getInternals(fi);
-		boolean includeThis = (fi.getFlags() & FunctionInfoFlags.IS_METHOD) > 0;			
+		String globalInternalsName = getInternals(fi);	
 		String symbol = fi.getSymbol();
 		
 		Class<?> returnBox = getPrimitiveBox(ctx.returnType);
@@ -1522,6 +1527,8 @@ public class CodeFactory {
 		if (ctx.throwsGError)
 			errorOffset = locals.allocTmp("error", Type.getType(PointerByReference.class));
 		int nInvokeArgs = ctx.args.length;
+		if (ctx.isMethod)
+			nInvokeArgs += 1;
 		int nInvokeArgsNoError = nInvokeArgs - (ctx.throwsGError ? 1 : 0);
 		Label jtarget;
 		Label l0 = new Label();
@@ -1547,7 +1554,7 @@ public class CodeFactory {
 			Integer arraySource = ctx.lengthOfArrayIndices.get(i);
 			Integer lengthOfArray = ctx.arrayToLengthIndices.get(i);
 			if (arraySource != null) {
-				ArgInfo source = ctx.args[arraySource];
+				ArgInfo source = ctx.args[arraySource - (ctx.isMethod ? 1 : 0)];
 				assert source.getType().getTag().equals(TypeTag.ARRAY);
 				int offset = ctx.argOffsetToApi(arraySource);
 				LocalVariable var = locals.get(offset);
@@ -1558,7 +1565,7 @@ public class CodeFactory {
 			} else if (lengthOfArray != null) {
 				LocalVariable var = locals.get(lengthOfArray);
 				writeLoadArgument(mv, var.offset, var.type);
-			} else if (!includeThis || i > 0) {
+			} else if (!ctx.isMethod || i > 0) {
 				LocalVariable var = locals.get(i);			
 				writeLoadArgument(mv, var.offset, var.type);	
 			} else {
@@ -1812,7 +1819,7 @@ public class CodeFactory {
 		
 		Set<String> sigs = new HashSet<String>();		
 		for (FunctionInfo fi : methods) {
-			CallableCompilationContext ctx = tryCompileCallable(fi, sigs);
+			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null)
 				continue;			
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);	
