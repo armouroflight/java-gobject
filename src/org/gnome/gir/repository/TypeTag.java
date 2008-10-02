@@ -45,6 +45,7 @@ public enum TypeTag {
 	FLOAT, 
 	DOUBLE,
 	TIMET,
+	GTYPE,	
 	UTF8, 
 	FILENAME, 
 	ARRAY, 

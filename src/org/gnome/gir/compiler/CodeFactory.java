@@ -277,6 +277,8 @@ public class CodeFactory {
 			return Type.DOUBLE_TYPE;
 		if (tag == TypeTag.TIMET)
 			return Type.getType(Date.class);
+		if (tag == TypeTag.GTYPE)
+			return Type.getType(GType.class);		
 		if (tag == TypeTag.UTF8)
 			return Type.getType(String.class);
 		if (tag == TypeTag.FILENAME)
