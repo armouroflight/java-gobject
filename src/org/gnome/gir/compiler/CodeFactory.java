@@ -111,7 +111,6 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Function;
 import com.sun.jna.Pointer;
-import com.sun.jna.PointerType;
 import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.DoubleByReference;
 import com.sun.jna.ptr.FloatByReference;
@@ -229,7 +228,7 @@ public class CodeFactory {
 		if (arg.getDirection() == Direction.IN) {
 			return toJava(arg.getType());
 		} else {
-			return Type.getType(PointerType.class);
+			return toJavaRef(arg.getType().getTag());
 		}
 	}
 	
@@ -251,9 +250,7 @@ public class CodeFactory {
 			return Type.getType(DoubleByReference.class);
 		if (t.equals(Type.getType(String.class)) || t.equals(Type.getType(File.class)))
 			return Type.getType(PointerByReference.class);
-		if (t.equals(Type.VOID_TYPE))
-			return Type.getType(Pointer.class);
-		return t;
+		return Type.getType(Pointer.class);
 	}
 	
 	private static Type toTypeBase(TypeTag tag) {
@@ -972,8 +969,8 @@ public class CodeFactory {
 					mv.visitLabel(l0);
 					mv.visitVarInsn(ALOAD, 0);
 					mv.visitLdcInsn(prop.getName());
-					mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", "(Ljava/lang/String;)"
-							+ propTypeBox.getDescriptor());
+					mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "get", 
+							Type.getMethodDescriptor(getType(Object.class), new Type[] { getType(String.class) }));
 					mv.visitTypeInsn(CHECKCAST, propTypeBox.getInternalName());
 					if (propBox != null)
 						mv.visitMethodInsn(INVOKEVIRTUAL, propTypeBox.getInternalName(), type.getClassName() + "Value",
