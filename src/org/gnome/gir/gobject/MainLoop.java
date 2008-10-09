@@ -53,7 +53,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.gnome.gir.gobject.GlibAPI.GSourceFunc;
 
 import com.sun.jna.Pointer;
 
@@ -212,6 +215,26 @@ public class MainLoop extends RefCountedObject {
                 source.disown(); // gets destroyed in the callback
             }
         }
+    }
+    
+    public void invokeLater(int timeout, TimeUnit units, final Runnable r) {
+    	GSourceFunc func = new GSourceFunc() {
+			@Override
+			public boolean callback(Pointer data) {
+				try {
+					r.run();
+				} catch (Exception e) {
+					Thread.currentThread().getUncaughtExceptionHandler()
+						.uncaughtException(Thread.currentThread(), e);
+				}
+				return false;
+			}
+    	};
+    	if (units.equals(TimeUnit.SECONDS)) {
+    		GlibAPI.glib.g_timeout_add_seconds(timeout, func, null);
+    	} else {
+    		GlibAPI.glib.g_timeout_add((int) units.toMillis(timeout), func, null);
+    	}
     }
     
     /**
