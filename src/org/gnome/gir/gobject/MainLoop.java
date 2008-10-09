@@ -45,15 +45,13 @@
 
 package org.gnome.gir.gobject;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.gnome.gir.gobject.GlibAPI.GSourceFunc;
@@ -64,8 +62,6 @@ import com.sun.jna.Pointer;
  * The GLib main loop.
  */
 public class MainLoop extends RefCountedObject {
-    private static final List<Runnable> bgTasks = new LinkedList<Runnable>();
-    
     private static MainLoop defaultLoop;
     private ThreadFactory asyncFactory = new ThreadFactory() {
     	private AtomicLong threadNum = new AtomicLong();
@@ -73,7 +69,7 @@ public class MainLoop extends RefCountedObject {
 		public Thread newThread(Runnable r) {
 			Thread t = new Thread(r);
 			long num = threadNum.getAndIncrement();
-			t.setName(String.format("Async task %d for mainloop %s", num, MainLoop.this));
+			t.setName(String.format("Async task %d", num));
 			return t;
 		}
     };
@@ -149,75 +145,75 @@ public class MainLoop extends RefCountedObject {
     }
     
     /**
-     * Runs the main loop in a background thread.
+     * Handle representing pending work on this loop.  This class implements
+     * {@link Future} in order to provide means of determining when the work is
+     * complete and to cancel it.  The {@code get} method will always return {@code null}.
+     * @author walters
      */
-    public void startInBackground() {
-        bgThread = new java.lang.Thread(new Runnable() {
+    private static final class AsyncFuture implements Future<Object> {
+    	int srcId = 0;
+    	Thread thread = null;    	
+    	private boolean cancelled;
+    	
+    	public synchronized void setComplete() {
+    		srcId = 0;
+    	}
+    	
+    	public synchronized void threadToIdle(int srcId) {
+    		thread = null;
+    		this.srcId = srcId;
+    	}
+    	
+		@Override
+		public synchronized boolean cancel(boolean mayInterruptIfRunning) {
+			if (thread != null && mayInterruptIfRunning) {
+				thread.interrupt();
+				return true;
+			}
+			if (srcId == 0)
+				return false;
+			cancelled = true;
+			GlibAPI.glib.g_source_remove(srcId);
+			srcId = 0;
+			return true;
+		}
 
-            public void run() {
-                MainLoop.this.run();
-            }
-        });
-        bgThread.setDaemon(true);
-        bgThread.setName("gmainloop");
-        bgThread.start();
+		@Override
+		public Object get() throws InterruptedException, ExecutionException {
+			return null;
+		}
+
+		@Override
+		public Object get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException,
+				TimeoutException {
+			return null;
+		}
+
+		@Override
+		public synchronized boolean isCancelled() {
+			return isDone() && cancelled;
+		}
+
+		@Override
+		public synchronized boolean isDone() {
+			return thread == null && srcId == 0;
+		}
     }
     
     /**
-     * Invokes a task on the main loop thread.
-     * <p> This method will wait until the task has completed before returning.
+	 * Queues a task for later invocation on this loop.
+	 * <p> This method is safe to call from any thread - the code will be executed
+	 * on the thread processing this loop.   
      * 
      * @param r the task to invoke.
+     * @return a handle for the task
+     * @see Future
      */
-    public void invokeAndWait(Runnable r) {
-        FutureTask<Object> task = new FutureTask<Object>(r, null);
-        invokeLater(task);
-        try {
-            task.get();
-        } catch (InterruptedException ex) {
-            throw new RuntimeException(ex.getCause());
-        } catch (ExecutionException ex) {
-            throw new RuntimeException(ex.getCause());
-        }
-    }
-    private static final GlibAPI.GSourceFunc bgCallback = new GlibAPI.GSourceFunc() {
-        public boolean callback(Pointer source) {
-            List<Runnable> tasks = new ArrayList<Runnable>();
-            synchronized (bgTasks) {
-                tasks.addAll(bgTasks);
-                bgTasks.clear();
-            }
-            for (Runnable r : tasks) {
-                r.run();
-            }
-            GlibAPI.glib.g_source_unref(source);
-            return false;
-        }
-    };
-    
-    /**
-     * Invokes a task on the main loop thread.
-     * <p> This method returns immediately, without waiting for the task to 
-     * complete.
-     * 
-     * @param r the task to invoke.
-     */
-    public void invokeLater(final Runnable r) {
-        synchronized (bgTasks) {
-            boolean empty = bgTasks.isEmpty();
-            bgTasks.add(r);
-            // Only trigger the callback if there were no existing elements in the list
-            // otherwise it is already triggered
-            if (empty) {
-                GSource source = GlibAPI.glib.g_idle_source_new();
-                GlibAPI.glib.g_source_set_callback(source, bgCallback, source, null);
-                source.attach(getMainContext());
-                source.disown(); // gets destroyed in the callback
-            }
-        }
+    public Future<?> invokeLater(Runnable r) {
+    	return invokeLater(0, TimeUnit.MILLISECONDS, r);
     }
     
-    public void invokeLater(int timeout, TimeUnit units, final Runnable r) {
+    private GSourceFunc sourceFuncForRunnable(final Runnable r, final Runnable finallyHandler) {
     	GSourceFunc func = new GSourceFunc() {
 			@Override
 			public boolean callback(Pointer data) {
@@ -226,15 +222,47 @@ public class MainLoop extends RefCountedObject {
 				} catch (Exception e) {
 					Thread.currentThread().getUncaughtExceptionHandler()
 						.uncaughtException(Thread.currentThread(), e);
+				} finally {
+					if (finallyHandler != null)
+						finallyHandler.run();
 				}
 				return false;
 			}
     	};
+    	return func;
+    }
+    
+    private int rawInvokeLater(final Runnable r) {
+    	GSourceFunc func = sourceFuncForRunnable(r, null);
+    	return GlibAPI.glib.g_timeout_add(0, func, null);   	
+    }
+    
+    /**
+	 * Queues a task for later invocation on this loop after a specified time
+	 * period has elapsed.
+	 * <p> This method is safe to call from any thread - the code will be executed
+	 * on the thread processing this loop.   
+     * 
+     * @param r the task to invoke.
+     * @return a handle for the task
+     * @see Future
+     */
+    public Future<?> invokeLater(int timeout, TimeUnit units, final Runnable r) {
+    	final AsyncFuture handle = new AsyncFuture();
+    	GSourceFunc func = sourceFuncForRunnable(r, new Runnable() {
+			@Override
+			public void run() {
+				handle.setComplete();
+			}
+    	});
+    	int id;
     	if (units.equals(TimeUnit.SECONDS)) {
-    		GlibAPI.glib.g_timeout_add_seconds(timeout, func, null);
+    		id = GlibAPI.glib.g_timeout_add_seconds(timeout, func, null);
     	} else {
-    		GlibAPI.glib.g_timeout_add((int) units.toMillis(timeout), func, null);
+    		id = GlibAPI.glib.g_timeout_add((int) units.toMillis(timeout), func, null);
     	}
+    	handle.srcId = id;
+    	return handle;
     }
     
     /**
@@ -245,13 +273,27 @@ public class MainLoop extends RefCountedObject {
      */
     public interface Handler<T> {
     	public void handle(Future<T> proxy);
-    }    
+    }
 
-    public <T> void threadInvoke(Callable<T> callable, Handler<T> handler) {
-    	threadInvoke(asyncFactory, callable, handler);
+    /**
+     * Run code {@code callable} in a new {@link Thread}.  When the code completes, the
+     * result will be passed to {@code handler} which is processed in the thread context of this
+     * loop.  
+     * <p>
+     * For example, this function could be used to retrieve data over HTTP via a blocking API,
+     * and then display the retrieved data inside a graphical interface.
+     * 
+     * @param <T> Result type of callable
+     * @param callable Code to call in a new thread
+     * @param handler Code to process result of thread computation
+     * @return handle for this task
+     */
+    public <T> Future<?> threadInvoke(Callable<T> callable, Handler<T> handler) {
+    	return threadInvoke(asyncFactory, callable, handler);
     }
     
-    public <T> void threadInvoke(ThreadFactory factory, final Callable<T> callable, final Handler<T> handler) {
+    public <T> Future<?> threadInvoke(ThreadFactory factory, final Callable<T> callable, final Handler<T> handler) {
+    	final AsyncFuture handle = new AsyncFuture();    	
     	Thread taskRunner = factory.newThread(new Runnable() {
 			@Override
 			public void run() {
@@ -274,15 +316,24 @@ public class MainLoop extends RefCountedObject {
 					}
 				});
 				proxy.run();
-				invokeLater(new Runnable() {
-					@Override
-					public void run() {					
-						handler.handle(proxy);
-					}
-				});
+				/* Need to ensure that we hold a lock on handle here - conceivably
+				 * the idle handler could fire in the main thread before we transition
+				 * the handle, and that would result in an inconsistent state.
+				 */
+				synchronized (handle) {
+					int idleId = rawInvokeLater(new Runnable() {
+						@Override
+						public void run() {	
+							handler.handle(proxy);
+						}
+					});
+					handle.threadToIdle(idleId);
+				}
 			}
     	});
+    	handle.thread = taskRunner;
     	taskRunner.start();
+    	return handle;
     }
     
     //--------------------------------------------------------------------------
@@ -308,9 +359,4 @@ public class MainLoop extends RefCountedObject {
     protected void disposeNativeHandle(Pointer ptr) {
         GlibAPI.glib.g_main_loop_unref(ptr);
     }
-    
-    //--------------------------------------------------------------------------
-    // Instance variables
-    //
-    private Thread bgThread;
 }
