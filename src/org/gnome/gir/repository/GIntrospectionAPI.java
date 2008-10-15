@@ -29,8 +29,6 @@ import java.util.HashMap;
 
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
-import org.gnome.gir.gobject.ZeroTerminatedArray;
-import org.gnome.gir.gobject.annotation.RepositoryId;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;
@@ -49,10 +47,12 @@ interface GIntrospectionAPI extends Library {
 	Repository g_irepository_get_default();
 	int g_irepository_get_n_infos(Repository repo, String namespace);
 	boolean g_irepository_is_registered (Repository repository, String namespace);
-	boolean g_irepository_require(Repository repo, String namespace, int flags, PointerByReference error);
+	boolean g_irepository_require(Repository repo, String namespace, String version, int flags, PointerByReference error);
 	BaseInfo g_irepository_find_by_name(Repository repo, String namespace, String name);
 	BaseInfo g_irepository_find_by_gtype(Repository repository, NativeLong g_type);	
-	@RepositoryId(namespace="girepository", name="get_namespaces") ZeroTerminatedArray<String> g_irepository_get_namespaces(Repository repo);
+	String[] g_irepository_get_namespaces(Repository repo);
+	String[] g_irepository_get_dependencies(Repository repo, String namespace);
+	String g_irepository_get_version(Repository repo, String namespace);
 	BaseInfo g_irepository_get_info(Repository repo, String namespace, int idx);
 	String g_irepository_get_shared_library(Repository repository, String namespace);
 	String g_irepository_get_typelib_path(Repository repository, String namespace);		

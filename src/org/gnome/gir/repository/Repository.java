@@ -1,11 +1,8 @@
 package org.gnome.gir.repository;
 
-import java.util.List;
-
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObjectGlobals;
-import org.gnome.gir.gobject.ZeroTerminatedArray;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.PointerType;
@@ -21,16 +18,16 @@ public class Repository extends PointerType {
 		return GIntrospectionAPI.gi.g_irepository_find_by_gtype(this, g_type);
 	}
 		
-	public void require(String namespace) throws GErrorException {
+	public void require(String namespace, String version) throws GErrorException {
 		PointerByReference error = new PointerByReference(null);
-		if (!GIntrospectionAPI.gi.g_irepository_require(this, namespace, 0, error)) {
+		if (!GIntrospectionAPI.gi.g_irepository_require(this, namespace, version, 0, error)) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}
 	}
 	
-	public void requireNoFail(String namespace) {
+	public void requireNoFail(String namespace, String version) {
 		try {
-			require(namespace);
+			require(namespace, version);
 		} catch (GErrorException e) {
 			throw new RuntimeException(e);
 		}
@@ -49,20 +46,21 @@ public class Repository extends PointerType {
 		return GIntrospectionAPI.gi.g_irepository_get_shared_library(this, namespace);
 	}
 	
+	public String[] getDependencies(String namespace) {
+		return GIntrospectionAPI.gi.g_irepository_get_dependencies(this, namespace);
+	}
+	
 	public String getTypelibPath(String namespace) {
 		return GIntrospectionAPI.gi.g_irepository_get_typelib_path(this, namespace);
-	}	
-
-	public List<String> getNamespaces() {
-		ZeroTerminatedArray<String> z = GIntrospectionAPI.gi.g_irepository_get_namespaces(this);
-		List<String> ret = z.convert(String.class);
-		z.dispose(Transfer.EVERYTHING);
-		return ret;
 	}
 	
 	public boolean isRegistered(String targetNamespace) {
 		return GIntrospectionAPI.gi.g_irepository_is_registered(this, targetNamespace);
-	}	
+	}
+	
+	public String getNamespaceVersion(String namespace) {
+		return GIntrospectionAPI.gi.g_irepository_get_version(this, namespace);
+	}
 
 	static GIntrospectionAPI getNativeLibrary() {
 		return GIntrospectionAPI.gi;

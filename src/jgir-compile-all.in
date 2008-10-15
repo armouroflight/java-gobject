@@ -1,2 +1,27 @@
-#!/bin/sh
-exec ${DEBUG} java ${JAVA_OPTS} -cp "@CLASSPATH@" org.gnome.gir.compiler.CodeFactory "$@"
+#!/usr/bin/python
+import os,sys,subprocess
+
+classpath="@CLASSPATH@"
+datadirs = os.environ.get('XDG_DATA_DIRS', '/usr/share')
+nsversions = []
+for dirname in datadirs.split(':'):
+    repodir = os.path.join(dirname, 'girepository')
+    if not os.access(repodir, os.W_OK):
+        continue
+    for name in os.listdir(repodir):
+        if not name.endswith('.typelib'):
+            continue
+        base,_ = os.path.splitext(name)
+        nsversions.append(base)
+        print "%r" % (base, )
+        ns,version = base.rsplit('-', 1)
+        subprocess.check_call(['java', '-cp', classpath, 'org.gnome.gir.compiler.CodeFactory', ns, version],
+                              stdout=sys.stdout,
+                              stderr=sys.stderr,
+                              close_fds=True)
+subprocess.check_call(['java', '-cp', classpath, 'org.gnome.gir.compiler.CodeFactory',
+                       '--verify', ','.join(nsversions)],
+                      stdout=sys.stdout,
+                      stderr=sys.stderr,
+                      close_fds=True)
+

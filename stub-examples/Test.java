@@ -119,6 +119,7 @@ public class Test extends GObject implements TestIface {
 		public static final NativeLibrary library = NativeLibrary.getInstance("gtk-2.0");
 		public static final Repository repo = Repository.getDefault();
 		public static final String namespace = "Gtk";
+		public static final String nsversion = "2.0";
 		public static final Map<Object,Object> invocationOptions = new HashMap<Object,Object>() {
 			private static final long serialVersionUID = 1L;
 
@@ -128,7 +129,7 @@ public class Test extends GObject implements TestIface {
 		};
 		
 		static {
-			Repository.getDefault().requireNoFail(namespace);
+			Repository.getDefault().requireNoFail(namespace, nsversion);
 		}
 	};
 

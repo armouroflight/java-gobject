@@ -152,7 +152,6 @@ public class CodeFactory {
 	}
 	
 	private Type typeFromInfo(BaseInfo info) {
-		requireNamespaceOf(info);
 		/* Unfortunately, flags are best mapped as plain Integer  for now */
 		if (info instanceof FlagsInfo)
 			return Type.getObjectType("java/lang/Integer");
@@ -234,6 +233,8 @@ public class CodeFactory {
 	
 	public static Type toJavaRef(TypeTag tag) {
 		Type t = toJava(tag);
+		if (t == null)
+			return null;
 		if (t.equals(Type.INT_TYPE))
 			return Type.getType(IntByReference.class);
 		if (t.equals(Type.LONG_TYPE))
@@ -286,10 +287,7 @@ public class CodeFactory {
 	private Type getCallableReturn(CallableInfo callable) {
 		TypeInfo info = callable.getReturnType();
 		if (info.getTag().equals(TypeTag.INTERFACE)) {
-			if (!requireNamespaceOf(info.getInterface()))
-				return Type.getType(Pointer.class);
-			else
-				return typeFromInfo(info);
+			return typeFromInfo(info);
 		}
 		return toJava(info.getTag());
 	}
@@ -316,12 +314,14 @@ public class CodeFactory {
 	
 	private static abstract class ClassCompilation {
 		String namespace;
+		String nsversion;
 		String baseName;
 		String internalName;
 		ClassVisitor writer;
 		private ClassWriter realWriter;
 		public ClassCompilation(String namespace, String baseName) {
 			this.namespace = namespace;
+			this.nsversion = Repository.getDefault().getNamespaceVersion(namespace);
 			this.baseName = baseName;
 			this.internalName = GType.getInternalName(namespace, baseName);
 			this.realWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
@@ -1078,7 +1078,6 @@ public class CodeFactory {
 		BaseInfo parent = info.getParent();
 		String parentInternalName;
 				
-		requireNamespaceOf(parent);
 		parentInternalName = getInternalNameMapped(parent);
 		
 		String[] interfaces = null;
@@ -1338,7 +1337,7 @@ public class CodeFactory {
 				logger.warning(String.format("Unhandled argument %s in callable %s", arg, si.getIdentifier()));
 				return null;
 			}
-			if (tag.equals(TypeTag.ARRAY)) {
+			if (tag.equals(TypeTag.ARRAY) && arg.getDirection().equals(Direction.IN)) {
 				int lenIdx = arg.getType().getArrayLength();
 				if (lenIdx >= 0) {
 					/* FIXME - remove this hack when the repository is fixed */
@@ -1908,15 +1907,11 @@ public class CodeFactory {
 		compilation.close();	
 	}	
 	
-	private boolean requireNamespaceOf(BaseInfo info) {
-		return requireNamespace(info.getNamespace());
-	}
-	
-	private boolean requireNamespace(String namespace) {
+	private boolean requireNamespace(String namespace, String version) {
 		if (alreadyCompiled.contains(namespace))
 			return true;
 		try {
-			repo.require(namespace);
+			repo.require(namespace, version);
 		} catch (GErrorException e) {
 			if (!loadFailed.contains(namespace)) {
 				logger.log(Level.SEVERE, "Failed to load namespace=" + namespace, e);
@@ -2018,6 +2013,9 @@ public class CodeFactory {
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "namespace", "Ljava/lang/String;", null, globals.namespace);
 		fv.visitEnd();
+		
+		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "nsversion", "Ljava/lang/String;", null, globals.nsversion);
+		fv.visitEnd();		
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "invocationOptions", 
 				"Ljava/util/Map;", "Ljava/util/Map<Ljava/lang/Object;Ljava/lang/Object;>;", null);
@@ -2086,16 +2084,18 @@ public class CodeFactory {
 
 		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault", "()Lorg/gnome/gir/repository/Repository;");
 		mv.visitLdcInsn(globals.namespace);
-		mv.visitMethodInsn(INVOKEVIRTUAL, "org/gnome/gir/repository/Repository", "requireNoFail", "(Ljava/lang/String;)V");		
+		mv.visitLdcInsn(globals.nsversion);
+		mv.visitMethodInsn(INVOKEVIRTUAL, "org/gnome/gir/repository/Repository", "requireNoFail", 
+				Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(String.class), getType(String.class) }));		
 		
 		globals.clinit = mv;
 	}
 	
-	private void compileNamespaceSingle(String namespace) {
+	private void compileNamespaceSingle(String namespace, String version) {
 		alreadyCompiled.add(namespace);
 		
 		try {
-			repo.require(namespace);
+			repo.require(namespace, version);
 			logger.info("Loaded typelib from " + repo.getTypelibPath(namespace));			
 		} catch (GErrorException e) {
 			throw new RuntimeException(e);
@@ -2118,8 +2118,8 @@ public class CodeFactory {
 		global.close();
 	}	
 	
-	private List<ClassCompilation> compileNamespace(String namespace) {
-		compileNamespaceSingle(namespace);
+	private List<ClassCompilation> compileNamespace(String namespace, String version) {
+		compileNamespaceSingle(namespace, version);
 		return finish();
 	}
 	
@@ -2141,8 +2141,8 @@ public class CodeFactory {
 		while (pendingCompilation.size() > 0) {
 			String pending = pendingCompilation.iterator().next();
 			logger.info("Namespace: " + pending);
-			requireNamespace(pending);
-			compileNamespaceSingle(pending);	
+			requireNamespace(pending, null);
+			compileNamespaceSingle(pending, null);	
 			pendingCompilation.remove(pending);
 		}
 		logger.info("Compiled " + writers.size() + " info objects");
@@ -2170,9 +2170,9 @@ public class CodeFactory {
 		}
 	}
 	
-	public static List<ClassCompilation> compile(Repository repo, String namespace) {
+	public static List<ClassCompilation> compile(Repository repo, String namespace, String version) {
 		CodeFactory cf = new CodeFactory(repo);
-		return cf.compileNamespace(namespace);
+		return cf.compileNamespace(namespace, version);
 	}
 	
 	public static ClassLoader getLoader(List<ClassCompilation> stubs) {
@@ -2194,17 +2194,17 @@ public class CodeFactory {
 		};
 	}
 
-	public static File generateJar(String namespace, String version) throws GErrorException, IOException {
+	public static File compile(String namespace, String version) throws GErrorException, IOException {
 		Repository repo = Repository.getDefault();
 		File destFile = null;		
 		
-		repo.require(namespace);
+		repo.require(namespace, version);
 		String typelibPathName = repo.getTypelibPath(namespace);
 		File typelibPath = new File(typelibPathName);
 		long typelibLastModified = typelibPath.lastModified();
 		
 		if (destFile == null) {
-			destFile = new File(typelibPath.getParent(), namespace+".jar");
+			destFile = getJarPath(namespace);
 			logger.info("Will install to: " + destFile);
 		}
 		
@@ -2213,9 +2213,9 @@ public class CodeFactory {
 			return destFile;
 		}
 		
-		logger.info("Compiling namespace: " + namespace);		
+		logger.info(String.format("Compiling namespace: %s version: %s", namespace, version));
 		List<ClassCompilation> stubs;
-		stubs = CodeFactory.compile(repo, namespace);
+		stubs = CodeFactory.compile(repo, namespace, version);
 
 		Set<String> classNames = new HashSet<String>();
 		ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(destFile));
@@ -2235,10 +2235,10 @@ public class CodeFactory {
 	public static void verifyJarFiles(Set<File> jarPaths) throws Exception {
 		List<URL> urls = new ArrayList<URL>();
 		Map<String, InputStream> allClassnames = new HashMap<String, InputStream>();		
-		logger.info("Verifying " + jarPaths.size() + " jar paths");
 		List<ZipFile> zips = new ArrayList<ZipFile>();
 		for (File jarPath : jarPaths) {
 			urls.add(jarPath.toURI().toURL());
+			logger.info("Verifing " + jarPath);			
 			ZipFile zf = new ZipFile(jarPath);
 			for (Enumeration<? extends ZipEntry> e = zf.entries(); e.hasMoreElements();) {
 				ZipEntry entry = e.nextElement();
@@ -2282,42 +2282,51 @@ public class CodeFactory {
 		logger.info(String.format("Verified %d classes", nClasses));
 	}
 	
-	public static Set<File> compileAll() throws Exception {
-		/* Freedesktop/Unix specific */
-		String datadirsPath = System.getenv("XDG_DATA_DIRS");
-		String dataDirs[];
-		if (datadirsPath != null)
-			dataDirs = datadirsPath.split(":");
-		else
-			dataDirs = new String[] { "/usr/share" };
-		Set<File> jarPaths = new HashSet<File>();
-		for (String dir : dataDirs) {
-			File typelibsDir = new File(dir, "girepository");
-			if (!typelibsDir.canWrite()) // Exists and writable
+	public static File getJarPath(String namespace) {
+		File typelibPath = new File(Repository.getDefault().getTypelibPath(namespace));
+		String version = Repository.getDefault().getNamespaceVersion(namespace);
+		return new File(typelibPath.getParent(), String.format("%s-%s.jar", namespace, version));		
+	}
+	
+	private static boolean namespaceIsExcluded(String namespace) {
+		return namespace.equals("GLib") || namespace.equals("GObject");		
+	}
+	
+	public static void verifyAll(String[] nsversions) throws Exception {
+		for (String nsversion : nsversions) {
+			int dashIdx = nsversion.lastIndexOf('-');
+			String namespace = nsversion.substring(0, dashIdx);
+			String version = nsversion.substring(dashIdx+1);
+			
+			if (namespaceIsExcluded(namespace))
 				continue;
 			
-			for (String filename : typelibsDir.list()) {
-				String namespace;
-				String version = null;
-				int dashIdx = filename.lastIndexOf('-');
-				int dot = filename.lastIndexOf('.'); // for typelib
-				if (dashIdx < 0)
-					namespace = filename.substring(0, dot);
-				else {
-					namespace = filename.substring(0, dashIdx);
-					version = filename.substring(dashIdx+1, dot);
-				}
-				/* Skip GObject+below for now, we manually bind */
-				if (!(namespace.equals("GLib") || namespace.equals("GObject"))) {
-					jarPaths.add(generateJar(namespace, version));
+			Set<File> jarPaths = new HashSet<File>();
+						
+			Repository.getDefault().require(namespace, version);
+			jarPaths.add(getJarPath(namespace));
+			
+			String[] deps = Repository.getDefault().getDependencies(namespace);
+			if (deps != null) {
+				for (String dep : deps) {
+					String depNamespace = dep.substring(0, dep.lastIndexOf('-'));
+					if (!namespaceIsExcluded(depNamespace))
+						jarPaths.add(getJarPath(depNamespace));
 				}
 			}
+			verifyJarFiles(jarPaths);
 		}
-		return jarPaths;
 	}
 	
 	public static void main(String[] args) throws Exception {
 		GObjectAPI.gobj.g_type_init();
-		verifyJarFiles(compileAll());
+		if (args[0].equals("--verify"))
+			verifyAll(args[1].split(","));
+		else {
+			String namespace = args[0];
+			String version = args[1];
+			if (!namespaceIsExcluded(namespace))
+				compile(namespace, version);
+		}
 	}
 }
