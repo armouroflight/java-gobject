@@ -2062,10 +2062,21 @@ public class CodeFactory {
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
-		/* The JNA NativeLibrary expects it without the .so */
-		String shlib = repo.getSharedLibrary(globals.namespace);
+		/* This goop is to deal with new comma-separated list of shared libraries;
+		 * really, we should rely on the library loading inside GIRepository, and have
+		 * JNA just open the process.
+		 */
+		String shlibList = repo.getSharedLibrary(globals.namespace);
+		String shlib;
+		if (shlibList == null)
+			shlib = null;
+		else {
+			String[] shlibs = shlibList.split(",");
+			shlib = shlibs[0];
+		}
 		if (shlib == null)
 			shlib = namespaceShlibMapping.get(globals.namespace);
+		/* The JNA NativeLibrary expects it without the .so */		
 		if (shlib.endsWith(".so"))
 			shlib = shlib.substring(0, shlib.length()-3);
 		mv.visitLdcInsn(shlib);
