@@ -76,6 +76,7 @@ import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
+import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
@@ -251,7 +252,7 @@ public class CodeFactory {
 			return Type.getType(DoubleByReference.class);
 		if (t.equals(Type.getType(String.class)) || t.equals(Type.getType(File.class)))
 			return Type.getType(PointerByReference.class);
-		return Type.getType(Pointer.class);
+		return Type.getType(UnmappedPointer.class);
 	}
 	
 	private static Type toTypeBase(TypeTag tag) {
