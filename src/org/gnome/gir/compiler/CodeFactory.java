@@ -2245,12 +2245,12 @@ public class CodeFactory {
 	}
 	
 	public static void verifyJarFiles(Set<File> jarPaths) throws Exception {
+		logger.info(String.format("Verifing %d jars", jarPaths.size()));			
 		List<URL> urls = new ArrayList<URL>();
 		Map<String, InputStream> allClassnames = new HashMap<String, InputStream>();		
 		List<ZipFile> zips = new ArrayList<ZipFile>();
 		for (File jarPath : jarPaths) {
-			urls.add(jarPath.toURI().toURL());
-			logger.info("Verifing " + jarPath);			
+			urls.add(jarPath.toURI().toURL());		
 			ZipFile zf = new ZipFile(jarPath);
 			for (Enumeration<? extends ZipEntry> e = zf.entries(); e.hasMoreElements();) {
 				ZipEntry entry = e.nextElement();
