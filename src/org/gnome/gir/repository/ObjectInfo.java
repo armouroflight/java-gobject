@@ -10,7 +10,7 @@ public class ObjectInfo extends RegisteredTypeInfo {
 		return GIntrospectionAPI.gi.g_object_info_get_type_name(this);
 	}
 	
-	public BaseInfo getParent() {
+	public ObjectInfo getParent() {
 		return GIntrospectionAPI.gi.g_object_info_get_parent(this);
 	}
 	

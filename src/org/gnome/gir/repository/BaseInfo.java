@@ -5,6 +5,8 @@ import org.gnome.gir.gobject.RefCountedObject;
 import com.sun.jna.Pointer;
 
 public class BaseInfo extends RefCountedObject {
+	private String cachedNamespace = null;
+	private String cachedName = null;
 	protected BaseInfo(Initializer init) {
 		super(init);
 	}
@@ -53,7 +55,9 @@ public class BaseInfo extends RefCountedObject {
 	}
 	
 	public String getName() {
-		return Repository.getNativeLibrary().g_base_info_get_name(this.handle());		
+		if (cachedName == null)
+			cachedName = Repository.getNativeLibrary().g_base_info_get_name(this.handle());
+		return cachedName;
 	}
 
 	@Override
@@ -62,7 +66,9 @@ public class BaseInfo extends RefCountedObject {
 	}
 
 	public String getNamespace() {
-		return GIntrospectionAPI.gi.g_base_info_get_namespace(this.handle());
+		if (cachedNamespace == null)
+			cachedNamespace = GIntrospectionAPI.gi.g_base_info_get_namespace(this.handle());
+		return cachedNamespace;
 	}
 	
 	public String toString() {
@@ -71,5 +77,22 @@ public class BaseInfo extends RefCountedObject {
 	
 	public boolean isDeprecated() {
 		return GIntrospectionAPI.gi.g_base_info_is_deprecated(this);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (!(o instanceof BaseInfo))
+			return super.equals(o);
+		BaseInfo bo = (BaseInfo) o;
+		return getNamespace().equals(bo.getNamespace())
+			&& getName().equals(bo.getName());
+	}
+
+	@Override
+	public int hashCode() {
+		int hash = 1;
+		hash += 31 * getNamespace().hashCode();
+		hash += 31 * getName().hashCode();
+		return hash;
 	}
 }
