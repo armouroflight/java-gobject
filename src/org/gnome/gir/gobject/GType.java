@@ -109,7 +109,7 @@ public class GType extends NativeLong {
 			put("GObject.InterfaceInfo", "org/gnome/gir/gobject/GObjectAPI$GInterfaceInfo");
 			put("GObject.TypeValueTable", "org/gnome/gir/gobject/GObjectAPI$GTypeValueTable");			
 			put("GObject.TypeFundamentalInfo", "org/gnome/gir/gobject/GObjectAPI$GTypeFundamentalInfo");			
-			put("GObject.Class", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
+			put("GObject.ObjectClass", "org/gnome/gir/gobject/GObjectAPI$GObjectClass");
 			put("GObject.InitiallyUnownedClass", "org/gnome/gir/gobject/GObjectAPI$GInitiallyUnownedClass");			
 			put("GObject.TypeDebugFlags", "org/gnome/gir/gobject/GObjectAPI$GTypeDebugFlags");
 			put("GObject.TypeInstance", "org/gnome/gir/gobject/GObjectAPI$GTypeInstance");
