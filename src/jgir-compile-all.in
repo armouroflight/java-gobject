@@ -2,6 +2,11 @@
 import os,sys,subprocess
 
 classpath="@CLASSPATH@"
+java_opts=os.environ.get('JAVA_OPTS', None)
+if java_opts:
+    java_opts = java_opts.split(' ')
+else:
+    java_opts = []
 datadirs = os.environ.get('XDG_DATA_DIRS', '/usr/share')
 nsversions = []
 for dirname in datadirs.split(':'):
@@ -15,7 +20,10 @@ for dirname in datadirs.split(':'):
         nsversions.append(base)
         print "%r" % (base, )
         ns,version = base.rsplit('-', 1)
-        subprocess.check_call(['java', '-cp', classpath, 'org.gnome.gir.compiler.CodeFactory', ns, version],
+        args = ['java']
+        args.extend(java_opts)
+        args.extend(['-cp', classpath, 'org.gnome.gir.compiler.CodeFactory', ns, version])
+        subprocess.check_call(args,
                               stdout=sys.stdout,
                               stderr=sys.stderr,
                               close_fds=True)
