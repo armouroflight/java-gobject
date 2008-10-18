@@ -111,6 +111,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Function;
+import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.DoubleByReference;
@@ -270,6 +271,12 @@ public class CodeFactory {
 		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64
 				|| tag == TypeTag.SIZE || tag == TypeTag.SSIZE)
 			return Type.LONG_TYPE;
+		if (tag == TypeTag.LONG) {
+			if (Native.LONG_SIZE == 8)
+				return Type.LONG_TYPE;
+			else
+				return Type.INT_TYPE;
+		}
 		if (tag == TypeTag.FLOAT)
 			return Type.FLOAT_TYPE;
 		if (tag == TypeTag.DOUBLE)
