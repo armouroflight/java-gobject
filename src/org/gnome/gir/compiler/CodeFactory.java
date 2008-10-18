@@ -57,6 +57,7 @@ import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -320,8 +321,57 @@ public class CodeFactory {
 		return null;
 	}
 	
+	public boolean introspectionImplements(ObjectInfo obj, InterfaceInfo iface) {
+		while (!(obj.getNamespace().equals("GObject") && obj.getName().equals("Object"))) {
+			List<InterfaceInfo> ifaces = Arrays.asList(obj.getInterfaces());
+			for (InterfaceInfo possible : ifaces) {
+				if (isAssignableFrom(iface, possible))
+					return true;
+			}
+			obj = obj.getParent();
+		}
+		return false;
+	}
+	
+	public List<InterfaceInfo> getUniqueInterfaces(ObjectInfo obj) {
+		List<InterfaceInfo> ifaces = Arrays.asList(obj.getInterfaces());
+		return getUniqueInterfaces(ifaces);
+	}
+	
+	private boolean isAssignableFrom(InterfaceInfo lhs, InterfaceInfo rhs) {
+		if (lhs.equals(rhs))
+			return true;
+		List<InterfaceInfo> prereqs = Arrays.asList(lhs.getPrerequisites());
+		for (InterfaceInfo iface : prereqs) {
+			if (isAssignableFrom(iface, rhs))
+				return true;
+		}
+		return false;
+	}
+	
+	public List<InterfaceInfo> getUniqueInterfaces(List<InterfaceInfo> ifaces) {
+		boolean hit = true;
+		ifaces = new ArrayList<InterfaceInfo>(ifaces);
+		while (hit) {
+			hit = false;
+			for (Iterator<InterfaceInfo> it = ifaces.iterator(); it.hasNext();) {
+				InterfaceInfo possible = it.next();
+				for (InterfaceInfo iface : ifaces) {
+					if (iface == possible)
+						continue;
+					if (isAssignableFrom(possible, iface)) {
+						it.remove();
+						hit = true;
+						break;
+					}
+				}
+			}
+		}
+		return ifaces;
+	}
+	
 	private static abstract class ClassCompilation {
-		String namespace;
+ 		String namespace;
 		String nsversion;
 		String baseName;
 		String internalName;
@@ -1034,7 +1084,7 @@ public class CodeFactory {
 			PropertyInfo prop, Type propType, Class<?> propBox,
 			boolean isInterfaceSource, boolean isInterfaceTarget) {
 		String propPascal = ucaseToPascal(prop.getName());		
-		String notifyClass = propPascal + "Notify";
+		String notifyClass = propPascal + "PropertyNotify";
 		String sigHandlerName = "on" + notifyClass;
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { objectType, propType } );
 		String internalName = objectType.getInternalName() + "$" + notifyClass;
@@ -1089,12 +1139,12 @@ public class CodeFactory {
 		parentInternalName = getInternalNameMapped(parent);
 		
 		String[] interfaces = null;
-		InterfaceInfo[] giInterfaces = info.getInterfaces();
-		if (giInterfaces.length > 0) {
-			interfaces = new String[giInterfaces.length];
+		List<InterfaceInfo> giInterfaces = getUniqueInterfaces(info);
+		if (giInterfaces.size() > 0) {
+			interfaces = new String[giInterfaces.size()];
 		}
-		for (int i = 0; i < giInterfaces.length; i++) {
-			interfaces[i] = getInternalNameMapped(giInterfaces[i]);
+		for (int i = 0; i < giInterfaces.size(); i++) {
+			interfaces[i] = getInternalNameMapped(giInterfaces.get(i));
 		}
 		
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, parentInternalName, interfaces);
@@ -1167,6 +1217,8 @@ public class CodeFactory {
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
+			if (introspectionImplements(info.getParent(), iface))
+				continue;
 			for (FunctionInfo fi: iface.getMethods()) {
 				CallableCompilationContext ctx = tryCompileCallable(fi, iface, true, false, sigs);
 				if (ctx == null)
@@ -2143,7 +2195,7 @@ public class CodeFactory {
 	}
 	
 	private List<ClassCompilation> finish() {
-		logger.info("Compiled " + writers.size() + " info objects");		
+		logger.info("Compiled " + writers.size() + " info objects");
 		List<ClassCompilation> ret = new LinkedList<ClassCompilation>();
 		for (StubClassCompilation infoc : writers.values()) {
 			infoc.close();
