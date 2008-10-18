@@ -96,7 +96,8 @@ public class GType extends NativeLong {
 			for (String unmapped : glibIntegerUnmapped)
 				put("GLib." + unmapped, "java/lang/Integer");			
 			
-			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");			
+			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");
+			put("GObject.Parameter", "org/gnome/gir/gobject/GObjectAPI$GParameter");				
 			put("GObject.Object", "org/gnome/gir/gobject/GObject");
 			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
 			put("GObject.Type", "org/gnome/gir/gobject/GType");

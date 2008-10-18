@@ -63,12 +63,20 @@ def build(bld):
   jsrc.jarname = 'jgir.jar'
   jsrc.source_root = 'src'
 
+  full_cp = bld.env['CLASSPATH'] + ':' + bld.env['PREFIX'] + '/share/java/jgir.jar'
   compscript = bld.new_task_gen('subst')
   compscript.install_path = "${PREFIX}/bin"
   compscript.chmod = 0755
   compscript.source = 'src/jgir-compile-all.in'
   compscript.target = 'jgir-compile-all'
-  compscript.dict = {'CLASSPATH': bld.env['CLASSPATH'] + ':' + bld.env['PREFIX'] + '/share/java/jgir.jar'}
+  compscript.dict = {'CLASSPATH': full_cp}
+
+  compscript = bld.new_task_gen('subst')
+  compscript.install_path = "${PREFIX}/bin"
+  compscript.chmod = 0755
+  compscript.source = 'src/jgir-compile.in'
+  compscript.target = 'jgir-compile'
+  compscript.dict = {'CLASSPATH': full_cp}
 
   #libinvoke = bld.new_task_gen('cc', 'shlib')
   #libinvoke.packages = ['gobject-introspection-1.0']

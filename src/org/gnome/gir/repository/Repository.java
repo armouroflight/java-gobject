@@ -10,6 +10,10 @@ import com.sun.jna.ptr.PointerByReference;
 
 public class Repository extends PointerType {
 
+	public void prependSearchPath(String path) {
+		GIntrospectionAPI.gi.g_irepository_prepend_search_path(path);
+	}
+	
 	public BaseInfo findByName(String namespace, String name) {
 		return GIntrospectionAPI.gi.g_irepository_find_by_name(this, namespace, name);
 	}

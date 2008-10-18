@@ -272,7 +272,7 @@ public interface GObjectAPI extends Library {
     };
     
     
-    static class GParamSpec extends com.sun.jna.Structure {
+    public static class GParamSpec extends com.sun.jna.Structure {
         public volatile GTypeInstance g_type_instance;
         public volatile String g_name;
         public volatile /* GParamFlags */ int g_flags;
@@ -287,6 +287,12 @@ public interface GObjectAPI extends Library {
         
         public GParamSpec() {}
     }
+    
+    public static class GParameter /* auxillary structure for _setv() variants */
+    {
+      String name;
+      GValue value;
+    };
     
     public interface GTypeDebugFlags {
     	public static final int NONE = 0;

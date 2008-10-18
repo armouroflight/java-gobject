@@ -2341,7 +2341,18 @@ public class CodeFactory {
 		GObjectAPI.gobj.g_type_init();
 		if (args[0].equals("--verify"))
 			verifyAll(args[1].split(","));
-		else {
+		else if (args[0].endsWith(".typelib")) {
+			File typelib = new File(args[0]);
+			String base = typelib.getName();
+			int dash = base.indexOf('-');
+			String namespace = base.substring(0, dash);
+			String version = base.substring(dash+1, base.lastIndexOf('.'));
+			String parent = typelib.getParent();
+			if (parent == null)
+				parent = System.getProperty("user.dir");
+			Repository.getDefault().prependSearchPath(parent);
+			compile(namespace, version);
+		} else {
 			String namespace = args[0];
 			String version = args[1];
 			if (!namespaceIsExcluded(namespace))
