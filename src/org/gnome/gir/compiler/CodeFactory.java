@@ -473,12 +473,15 @@ public class CodeFactory {
 		
 		public InnerClassCompilation getConstants() {
 			if (constants == null) {
-				constants = newInner("Constants");
-				constants.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER,
+				String constantsName = "Constants";
+				constants = newInner(constantsName);
+				writer.visitInnerClass(constants.internalName, internalName, constantsName, 
+						ACC_PUBLIC + ACC_FINAL + ACC_STATIC);				
+				constants.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL,
 						constants.internalName, 
 						null, "java/lang/Object", null);
-				writer.visitInnerClass(constants.internalName, internalName, "Constants", 
-						ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
+				constants.writer.visitInnerClass(constants.internalName, 
+						internalName, constantsName, ACC_PUBLIC + ACC_FINAL + ACC_STATIC);			
 			}
 			return constants;
 		}
