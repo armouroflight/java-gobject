@@ -271,6 +271,9 @@ public class GType extends NativeLong {
             return DOUBLE;
         } else if (String.class == javaType) {
             return STRING;
+        } else if (GObject.class.isAssignableFrom(javaType) 
+        		|| GObject.GObjectProxy.class.isAssignableFrom(javaType)) {
+        	return OBJECT;
         } else {
             throw new IllegalArgumentException("No GType for " + javaType);
         }
