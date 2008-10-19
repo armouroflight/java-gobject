@@ -37,4 +37,31 @@ public class Argument extends Union {
 	  public Double v_double;
 	  public String v_string;
 	  public Pointer v_pointer;
+	  
+	  public Object toJava(TypeTag tag) {
+		switch (tag) {
+		case BOOLEAN:
+			setType(Integer.class);
+			read();
+			return (boolean) (v_int32 != 0);
+		case INT:
+		case INT32:
+		case UINT32:
+			setType(Integer.class);
+			read();
+			return v_int32;
+		case INT64:
+		case UINT64:
+			setType(Long.class);
+			read();
+			return v_int64;
+		case UTF8:
+		case FILENAME:
+			setType(String.class);
+			read();
+			return v_string;
+		default:
+			throw new RuntimeException("Unhandled constant with tag " + tag);
+		}
+	  }
 }

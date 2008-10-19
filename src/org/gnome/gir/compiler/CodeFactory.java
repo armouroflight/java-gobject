@@ -83,6 +83,7 @@ import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
 import org.gnome.gir.repository.CallableInfo;
 import org.gnome.gir.repository.CallbackInfo;
+import org.gnome.gir.repository.ConstantInfo;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.EnumInfo;
 import org.gnome.gir.repository.FieldInfo;
@@ -376,7 +377,9 @@ public class CodeFactory {
 		String baseName;
 		String internalName;
 		ClassVisitor writer;
+		MethodVisitor clinit;
 		private ClassWriter realWriter;
+		boolean closed = false;		
 		public ClassCompilation(String namespace, String baseName) {
 			this.namespace = namespace;
 			this.nsversion = Repository.getDefault().getNamespaceVersion(namespace);
@@ -398,25 +401,36 @@ public class CodeFactory {
 			return GType.getPublicNameMapped(namespace, baseName);
 		}
 		
-		public abstract void close();
+		MethodVisitor getClinit() {
+			if (clinit == null) {
+				clinit = writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
+				clinit.visitCode();
+			}
+			return clinit;
+		}
+		
+		public void close() {
+			if (closed)
+				return;				
+			if (clinit != null) {
+				clinit.visitInsn(RETURN);	
+				clinit.visitMaxs(0, 0);
+				clinit.visitEnd();
+			}
+			closed = true;
+		}
 	}	
 	
 	private static class InnerClassCompilation extends ClassCompilation {
 		public InnerClassCompilation(String namespace, String baseName) {
 			super(namespace, baseName);
 		}
-
-		@Override
-		public void close() {
-			throw new IllegalArgumentException();
-		}
-		
 	}
 	
 	private static class StubClassCompilation extends ClassCompilation {
 		Set<InnerClassCompilation> innerClasses;
 		String publicName;
-		private boolean closed = false;
+
 		
 		public StubClassCompilation(String namespace,
 				String name) {
@@ -440,18 +454,33 @@ public class CodeFactory {
 		}
 		
 		public void close() {
-			if (!closed) {
-				writer.visitEnd();
-				closed = true;
-			}
+			if (closed)
+				return;
+			for (InnerClassCompilation inner : innerClasses)
+				inner.close();
+			super.close();
+			writer.visitEnd();
+			closed = true;
 		}
 	}
 	
 	public static final class GlobalsCompilation extends StubClassCompilation {
 		Map<String,String> interfaceTypes = new HashMap<String,String>();
-		public MethodVisitor clinit;
+		public InnerClassCompilation constants;
 		public GlobalsCompilation(String namespace, String name) {
 			super(namespace, name);
+		}
+		
+		public InnerClassCompilation getConstants() {
+			if (constants == null) {
+				constants = newInner("Constants");
+				constants.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER,
+						constants.internalName, 
+						null, "java/lang/Object", null);
+				writer.visitInnerClass(constants.internalName, internalName, "Constants", 
+						ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
+			}
+			return constants;
 		}
 	}
 
@@ -509,10 +538,15 @@ public class CodeFactory {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
 
-	private static final Pattern allNumeric = Pattern.compile("[0-9]+"); 	
+	private static final Pattern allNumeric = Pattern.compile("[0-9]+");
+	private static final Pattern firstNumericUscore = Pattern.compile("([0-9]+)_"); 	
 	private static final Pattern replaceFirstNumeric = Pattern.compile("([0-9]+)([A-Za-z]+)"); 
 	private String fixIdentifier(String base, String ident) {
-		Matcher match = replaceFirstNumeric.matcher(ident);
+		Matcher match = firstNumericUscore.matcher(ident);
+		if (match.lookingAt()) {
+			return base + ident;
+		}
+		match = replaceFirstNumeric.matcher(ident);
 		if (!match.lookingAt()) {
 			if (allNumeric.matcher(ident).matches()) {
 				return base + ident;
@@ -1928,6 +1962,27 @@ public class CodeFactory {
 		compilation.close();	
 	}
 	
+	private void compile(ConstantInfo info) {
+		GlobalsCompilation globals = getGlobals(info.getNamespace());
+		InnerClassCompilation compilation = globals.getConstants();
+		Type type =  toJava(info.getType());
+		if (type == null) {
+			logger.warning("Unhandled constant type " + type);
+			return;
+		}
+		String fieldName = fixIdentifier("n", info.getName());
+		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL,
+				fieldName, type.getDescriptor(), null, null);
+		fv.visitEnd();
+		
+		Object value = info.getValue();
+		
+		MethodVisitor clinit = compilation.getClinit();
+		
+		clinit.visitLdcInsn(value);
+		clinit.visitFieldInsn(PUTSTATIC, compilation.internalName, fieldName, type.getDescriptor());
+	}	
+	
 	private void writeJnaCallbackTypeMapper(ClassCompilation compilation) {
 		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;", null, null);
 		fv.visitEnd();
@@ -2007,6 +2062,8 @@ public class CodeFactory {
 				compile((InterfaceInfo) baseInfo);
 			} else if (baseInfo instanceof CallbackInfo) {
 				compile((CallbackInfo) baseInfo);
+			} else if (baseInfo instanceof ConstantInfo) {
+				compile((ConstantInfo) baseInfo);				
 			} else {
 				logger.warning("unhandled info " + baseInfo.getName());
 			}
@@ -2181,10 +2238,6 @@ public class CodeFactory {
 		initGlobalsClass(global);
 
 		compileNamespaceComponents(namespace);
-		
-		global.clinit.visitInsn(RETURN);
-		global.clinit.visitMaxs(3, 0);
-		global.clinit.visitEnd();
 		
 		global.close();
 	}	
