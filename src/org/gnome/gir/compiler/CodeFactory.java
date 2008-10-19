@@ -563,6 +563,19 @@ public class CodeFactory {
 		return fixIdentifier(base, nick.replace("-", "_")).toUpperCase();
 	}
 	
+	public boolean isDestroyNotify(ArgInfo arg) {
+		TypeInfo type = arg.getType();
+		if (!type.getTag().equals(TypeTag.INTERFACE))
+			return false;
+		BaseInfo iface = type.getInterface();
+		String ns = iface.getNamespace();
+		if (ns.equals("GLib") || ns.equals("Gtk"))
+			return iface.getName().equals("DestroyNotify");
+		if (ns.equals("GLib") && iface.getName().equals("FreeFunc"))
+			return true;
+		return false;
+	}
+	
 	private void compile(EnumInfo info) {
 		ClassCompilation compilation = getCompilation(info);
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.internalName, 
@@ -1352,6 +1365,8 @@ public class CodeFactory {
 		InterfaceInfo targetInterface = null;
 		Map<Integer, Integer> lengthOfArrayIndices = new HashMap<Integer,Integer>();
 		Map<Integer, Integer> arrayToLengthIndices = new HashMap<Integer,Integer>();
+		Set<Integer> userDataIndices = new HashSet<Integer>();
+		Set<Integer> destroyNotifyIndices = new HashSet<Integer>();		
 		
 		public CallableCompilationContext() {
 			// TODO Auto-generated constructor stub
@@ -1365,8 +1380,24 @@ public class CodeFactory {
 			return getUniqueSignature(name, returnType, argTypes);
 		}
 		
+		public Set<Integer> getAllEliminiated() {
+			Set<Integer> eliminated = new HashSet<Integer>();
+			eliminated.addAll(lengthOfArrayIndices.keySet());
+			eliminated.addAll(userDataIndices);
+			eliminated.addAll(destroyNotifyIndices);
+			return eliminated;
+		}
+		
 		public int argOffsetToApi(int offset) {
-			return offset - lengthOfArrayIndices.size();
+			/* Calculate how many arguments we deleted */
+			int nEliminated = 0;
+			for (Integer i : getAllEliminiated()) {
+				if (offset >= i)
+					nEliminated++;
+			}
+			
+			/* And simply subtract that from the offset */
+			return offset - nEliminated;
 		}
 
 		public LocalVariableTable allocLocals() {
@@ -1428,6 +1459,17 @@ public class CodeFactory {
 					continue;
 				logger.warning("Skipping callable with invalid error argument: " + si.getIdentifier());
 				return null;
+			}
+			if (tag.equals(TypeTag.VOID) && arg.getName().contains("data")) {
+				int dataIdx = i;
+				if (ctx.isMethod) dataIdx++;
+				ctx.userDataIndices.add(dataIdx);
+				continue;
+			} else if (isDestroyNotify(arg)) {
+				int dataIdx = i;
+				if (ctx.isMethod) dataIdx++;
+				ctx.destroyNotifyIndices.add(dataIdx);
+				continue;
 			}
 			t = toJava(arg);
 			if (t == null) {
@@ -1658,8 +1700,15 @@ public class CodeFactory {
 			} else if (lengthOfArray != null) {
 				LocalVariable var = locals.get(lengthOfArray);
 				writeLoadArgument(mv, var.offset, var.type);
+			} else if (ctx.userDataIndices.contains(i) || ctx.destroyNotifyIndices.contains(i)) {
+				/* Always pass null for user datas - Java allows environment capture */
+				/* For destroy notifies, we always pass null too; in the future we may want
+				 * to clean up any allocated callback data here?
+				 */
+				mv.visitInsn(ACONST_NULL);
 			} else if (!ctx.isMethod || i > 0) {
-				LocalVariable var = locals.get(i);			
+				int localOff = ctx.argOffsetToApi(i);
+				LocalVariable var = locals.get(localOff);	
 				writeLoadArgument(mv, var.offset, var.type);	
 			} else {
 				mv.visitVarInsn(ALOAD, 0);
