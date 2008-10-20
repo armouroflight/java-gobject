@@ -139,6 +139,8 @@ public class GValue extends com.sun.jna.Structure {
             return ((Number) value).intValue();
         } else if (value instanceof String) {
             return Integer.parseInt((String) value);
+        } else if (value instanceof Enum) {
+        	return EnumMapper.getInstance().intValue((Enum<?>) value);
         }
         throw new IllegalArgumentException("Expected integer value, not " + value.getClass());
     }
@@ -147,6 +149,8 @@ public class GValue extends com.sun.jna.Structure {
             return ((Number) value).longValue();
         } else if (value instanceof String) {
             return Long.parseLong((String) value);
+        } else if (value instanceof Enum) {
+        	return EnumMapper.getInstance().intValue((Enum<?>) value);
         }
         throw new IllegalArgumentException("Expected long value, not " + value.getClass());
     }
