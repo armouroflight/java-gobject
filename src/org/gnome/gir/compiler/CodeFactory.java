@@ -114,6 +114,7 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Function;
 import com.sun.jna.Native;
+import com.sun.jna.NativeMapped;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.DoubleByReference;
@@ -579,7 +580,8 @@ public class CodeFactory {
 	private void compile(EnumInfo info) {
 		ClassCompilation compilation = getCompilation(info);
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.internalName, 
-				"Ljava/lang/Enum<L" + compilation.internalName + ";>;", "java/lang/Enum", null);
+				"Ljava/lang/Enum<L" + compilation.internalName + ";>;", "java/lang/Enum", 
+				null);
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			String name = enumNameToUpper(info.getName(), valueInfo.getName());			
@@ -1117,7 +1119,7 @@ public class CodeFactory {
 						mv.visitMethodInsn(INVOKESTATIC, propTypeBox.getInternalName(), "valueOf", "("
 								+ type.getDescriptor() + ")" + propTypeBox.getDescriptor());
 					mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "set",
-							"(Ljava/lang/String;Ljava/lang/Object;)" + type.getDescriptor());
+							Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(String.class), getType(Object.class) }));
 					mv.visitInsn(RETURN);
 					Label l1 = new Label();
 					mv.visitLabel(l1);
