@@ -191,7 +191,7 @@ public abstract class NativeObject extends Handle {
         	obj = NativeObject.instanceFor(ptr);
         if (obj != null && cls.isInstance(obj)) {
             if (refAdjust < 0) {
-                ((RefCountedObject) obj).unref(); // Lose the extra ref added by gstreamer
+                ((RefCountedObject) obj).unref(); // Lose the extra ref that we expect functions to add by default
             }
             return cls.cast(obj);
         }
