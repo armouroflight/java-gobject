@@ -8,8 +8,10 @@ import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
+import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
+import org.gnome.gir.repository.Transfer;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Function;
@@ -150,6 +152,11 @@ public class Test extends GObject implements TestIface {
 		Object[] args = new Object[] { widget, event };
 		f.invoke(Void.class, args, Internals.invocationOptions);
 	}	
+	
+	@Return(transfer=Transfer.NOTHING)
+	public static GObject getStage() {
+		return null;
+	}
 	
 	public void foo(Pointer widget, Structure event) {
 		Function f = Internals.library.getFunction("gtk_propagate_event");
