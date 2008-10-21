@@ -1274,8 +1274,15 @@ public class CodeFactory {
 			}
 		}
 		
-		// Now do methods
-		Set<String> sigs = new HashSet<String>();		
+		Set<String> sigs = new HashSet<String>();
+		
+		// Write out property getters and setters - we do this before methods
+		// because we want them to override any extant getters or setters with
+		// unknown transfer properties
+		writeProperties(compilation, Type.getObjectType(compilation.internalName),
+				info.getProperties(), sigs, false, false);		
+		
+		// Now do methods		
 		for (FunctionInfo fi : info.getMethods()) {	
 			if (GOBJECT_METHOD_BLACKLIST.contains(fi.getName()))
 				continue;
@@ -1307,9 +1314,6 @@ public class CodeFactory {
 			writeProperties(compilation, ifaceType, iface.getProperties(), sigs,
 					false, true);
 		}
-		
-		writeProperties(compilation, Type.getObjectType(compilation.internalName),
-				info.getProperties(), sigs, false, false);
 		
 		compilation.close();	
 	}
