@@ -31,4 +31,5 @@ public interface FunctionInfoFlags {
 	public static final int IS_SETTER = (1 << 2);
 	public static final int IS_GETTER = (1 << 3);
 	public static final int WRAPS_VFUNC = (1 << 4);
+	public static final int THROWS = (1 << 5);	
 }

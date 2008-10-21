@@ -25,7 +25,7 @@ import static org.objectweb.asm.Opcodes.CHECKCAST;
 import static org.objectweb.asm.Opcodes.DUP;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
 import static org.objectweb.asm.Opcodes.ICONST_0;
-import static org.objectweb.asm.Opcodes.IFNONNULL;
+import static org.objectweb.asm.Opcodes.IFNULL;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
@@ -73,6 +73,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import org.gnome.gir.gobject.GErrorException;
+import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GSList;
@@ -116,7 +117,7 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Function;
 import com.sun.jna.Native;
-import com.sun.jna.NativeMapped;
+import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.DoubleByReference;
@@ -1452,6 +1453,7 @@ public class CodeFactory {
 			int flags = fi.getFlags();
 			ctx.isConstructor = !isStaticCtor && (flags & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
 			ctx.isMethod = !ctx.isConstructor && (flags & FunctionInfoFlags.IS_METHOD) != 0;
+			ctx.throwsGError = (flags & FunctionInfoFlags.THROWS) != 0;
 		}
 		ctx.info = si;
 		ctx.args = si.getArgs();
@@ -1468,9 +1470,6 @@ public class CodeFactory {
 			return null;
 		}
 		ArgInfo[] args = ctx.args;
-		
-		ctx.throwsGError = args.length > 0 && 
-			args[args.length-1].getType().getTag().equals(TypeTag.ERROR);
 		
 		List<Type> types = new ArrayList<Type>();		
 		for (int i = 0; i < args.length; i++) {
@@ -1652,7 +1651,7 @@ public class CodeFactory {
 		
 		String[] exceptions = null;
 		if (ctx.throwsGError) {
-			exceptions = new String[] { "org/gnome/gir/gobject/GErrorException" };
+			exceptions = new String[] { Type.getInternalName(GErrorException.class) };
 		}
 		
 		if (fi.isDeprecated()) {
@@ -1690,30 +1689,34 @@ public class CodeFactory {
 		if (!ctx.returnType.equals(Type.VOID_TYPE))
 			resultOffset = locals.allocTmp("result", returnTypeBox);
 		int errorOffset = 0;
-		if (ctx.throwsGError)
-			errorOffset = locals.allocTmp("error", Type.getType(PointerByReference.class));
 		int nInvokeArgs = ctx.args.length;
 		if (ctx.isMethod)
+			nInvokeArgs += 1;		
+		int nInvokeArgsNoError = nInvokeArgs;		
+		if (ctx.throwsGError) {
+			errorOffset = locals.allocTmp("error", Type.getType(PointerByReference.class));
 			nInvokeArgs += 1;
-		int nInvokeArgsNoError = nInvokeArgs - (ctx.throwsGError ? 1 : 0);
+		}
 		Label jtarget;
 		Label l0 = new Label();
 		mv.visitLabel(l0);
 		if (ctx.throwsGError) {
-			mv.visitTypeInsn(NEW, "com/sun/jna/ptr/PointerByReference");
+			mv.visitTypeInsn(NEW, Type.getInternalName(PointerByReference.class));
 			mv.visitInsn(DUP);
 			mv.visitInsn(ACONST_NULL);
-			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/ptr/PointerByReference", "<init>", "(Lcom/sun/jna/Pointer;)V");	
+			mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(PointerByReference.class), 
+					"<init>", Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(Pointer.class) }));	
 			mv.visitVarInsn(ASTORE, errorOffset);			
 		}
-		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "library", "Lcom/sun/jna/NativeLibrary;");
+		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "library", Type.getDescriptor(NativeLibrary.class));
 		mv.visitLdcInsn(symbol);
-		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/NativeLibrary", "getFunction", "(Ljava/lang/String;)Lcom/sun/jna/Function;");				
+		mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(NativeLibrary.class), "getFunction", 
+				Type.getMethodDescriptor(getType(Function.class), new Type[] { getType(String.class)} ));				
 		mv.visitVarInsn(ASTORE, functionOffset);
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitIntInsn(BIPUSH, nInvokeArgs);
-		mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+		mv.visitTypeInsn(ANEWARRAY, Type.getInternalName(Object.class));
 		for (int i = 0; i < nInvokeArgsNoError; i++) {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
@@ -1762,9 +1765,9 @@ public class CodeFactory {
 			mv.visitLdcInsn(returnTypeBox);
 		}
 		mv.visitVarInsn(ALOAD, argsOffset);
-		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
-		mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/Function", "invoke", 
-				"(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
+		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", Type.getDescriptor(Map.class));
+		mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Function.class), "invoke", 
+				Type.getMethodDescriptor(getType(Object.class), new Type[] { getType(Class.class), getType(Object[].class), getType(Map.class) }));
 		Label l3 = new Label();
 		mv.visitLabel(l3);		
 		if (!ctx.throwsGError) {
@@ -1788,17 +1791,20 @@ public class CodeFactory {
 				mv.visitVarInsn(ASTORE, resultOffset);
 			}
 			mv.visitVarInsn(ALOAD, errorOffset);
-			mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/ptr/PointerByReference", 
-					"getPointer", "()Lcom/sun/jna/Pointer;");	
-			mv.visitJumpInsn(IFNONNULL, jtarget);
-			mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GErrorException");
+			mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(PointerByReference.class), 
+					"getValue", Type.getMethodDescriptor(getType(Pointer.class), new Type[] {}));	
+			mv.visitJumpInsn(IFNULL, jtarget);
+			mv.visitTypeInsn(NEW, Type.getInternalName(GErrorException.class));
 			mv.visitInsn(DUP);
-			mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GErrorStruct");
+			mv.visitTypeInsn(NEW, Type.getInternalName(GErrorStruct.class));
 			mv.visitInsn(DUP);
 			mv.visitVarInsn(ALOAD, errorOffset);
-			mv.visitMethodInsn(INVOKEVIRTUAL, "com/sun/jna/ptr/PointerByReference", "getValue", "()Lcom/sun/jna/Pointer;");
-			mv.visitMethodInsn(INVOKESPECIAL, "org/gnome/gir/gobject/GErrorStruct", "<init>", "(Lcom/sun/jna/Pointer;)V");
-			mv.visitMethodInsn(INVOKESPECIAL, "org/gnome/gir/gobject/GErrorException", "<init>", "(Lorg/gnome/gir/gobject/GErrorStruct;)V");
+			mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(PointerByReference.class), "getValue", 
+					Type.getMethodDescriptor(getType(Pointer.class), new Type[] {}));
+			mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(GErrorStruct.class), "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(Pointer.class) }));
+			mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(GErrorException.class), "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(GErrorStruct.class) }));
 			mv.visitInsn(ATHROW);
 			mv.visitLabel(jtarget);
 			if (ctx.returnType.equals(Type.VOID_TYPE)) {
