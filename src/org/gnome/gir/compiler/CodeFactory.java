@@ -78,6 +78,7 @@ import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.UnmappedPointer;
+import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
@@ -98,6 +99,7 @@ import org.gnome.gir.repository.RegisteredTypeInfo;
 import org.gnome.gir.repository.Repository;
 import org.gnome.gir.repository.SignalInfo;
 import org.gnome.gir.repository.StructInfo;
+import org.gnome.gir.repository.Transfer;
 import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
@@ -1661,7 +1663,7 @@ public class CodeFactory {
 		if (fi.isDeprecated()) {
 			AnnotationVisitor av = mv.visitAnnotation(Type.getType(Deprecated.class).getDescriptor(), true);
 			av.visitEnd();
-		}		
+		}
 		
 		String globalInternalsName = getInternals(fi);	
 		String symbol = fi.getSymbol();
@@ -1672,6 +1674,13 @@ public class CodeFactory {
 			returnTypeBox = Type.getType(returnBox);
 		else
 			returnTypeBox = ctx.returnType;
+		
+		Transfer returnTransfer = fi.getCallerOwns();
+		if (returnBox == null) {
+			AnnotationVisitor av = mv.visitAnnotation(Type.getDescriptor(Return.class), true);
+			av.visitEnum("transfer", Type.getDescriptor(Transfer.class), returnTransfer.name());
+			av.visitEnd();
+		}
 		
 		mv.visitCode();
 		LocalVariableTable locals = ctx.allocLocals();

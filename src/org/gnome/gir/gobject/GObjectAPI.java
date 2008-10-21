@@ -108,6 +108,7 @@ public interface GObjectAPI extends Library {
     //GQuark                g_type_qname                   (GType            type);
     GType g_type_from_name(String name);
     GType g_type_parent(GType type);
+    GType g_type_fundamental(GType type);
     int g_type_depth(GType type);
     Pointer g_type_create_instance(GType type);
     void g_type_free_instance(Pointer instance);

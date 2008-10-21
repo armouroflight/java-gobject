@@ -54,6 +54,7 @@ import org.gnome.gir.gobject.annotation.ConstField;
 import org.gnome.gir.gobject.annotation.IncRef;
 import org.gnome.gir.gobject.annotation.Invalidate;
 import org.gnome.gir.gobject.annotation.Return;
+import org.gnome.gir.repository.Transfer;
 
 import com.sun.jna.CallbackParameterContext;
 import com.sun.jna.FromNativeContext;
@@ -134,10 +135,17 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             }
             if (context instanceof MethodResultContext) {
                 //
-                // By default, gstreamer increments the refcount on objects 
-                // returned from functions, so drop a ref here
+                // By default, we assume objects have incremented reference counts. 
+            	// Otherwise, the code generator should have created an @Return(transfer=NOTHING)
+            	// annotation.
                 //
-                boolean ownsHandle = ((MethodResultContext) context).getMethod().isAnnotationPresent(Return.class);
+                Return anno = ((MethodResultContext) context).getMethod().getAnnotation(Return.class);
+                boolean ownsHandle;
+                if (anno == null || anno.transfer().equals(Transfer.EVERYTHING)) {
+                	ownsHandle = true;
+                } else {
+                	ownsHandle = false;
+                }
                 int refadj = ownsHandle ? -1 : 0;
                 return NativeObject.objectFor((Pointer) result, context.getTargetType(), refadj, ownsHandle);
             }
