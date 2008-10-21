@@ -54,18 +54,30 @@ public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;
 	
+	private boolean ownsHandle;
+	
 	protected GValue() {
 	}
 	
 	public GValue(GType type) {
 		super();
+		ownsHandle = true;
 		if (type == null)
 			throw new NullPointerException();
 		g_type = GType.INVALID;
         GValueAPI.gvalue.g_value_init(this, type);
 	}
 	
-	public static GValue fromJava(Object obj) {
+	@Override
+	public void finalize() throws Throwable {
+		if (ownsHandle) {
+			GValueAPI.gvalue.g_value_unset(this.getPointer());
+			ownsHandle = false;
+		}
+		super.finalize();
+	}
+	
+	public static GValue box(Object obj) {
 		GType type = GType.valueOf(obj.getClass());
 		GValue val = new GValue(type);
 		val.set(obj);
@@ -171,32 +183,33 @@ public class GValue extends com.sun.jna.Structure {
         throw new IllegalArgumentException("Expected double value, not " + value.getClass());
     }    
 	
-	public Object toJava() {
-		if (g_type.equals(GType.INT)) {
+	public Object unbox() {
+		GType fundamental = g_type.getFundamental();		
+		if (fundamental.equals(GType.INT)) {
 			return GValueAPI.gvalue.g_value_get_int(this);
-		} else if (g_type.equals(GType.UINT)) {
+		} else if (fundamental.equals(GType.UINT)) {
 			return GValueAPI.gvalue.g_value_get_uint(this);
-		} else if (g_type.equals(GType.CHAR)) {
+		} else if (fundamental.equals(GType.CHAR)) {
 			return Integer.valueOf(GValueAPI.gvalue.g_value_get_char(this));
-		} else if (g_type.equals(GType.UCHAR)) {
+		} else if (fundamental.equals(GType.UCHAR)) {
 			return Integer.valueOf(GValueAPI.gvalue.g_value_get_uchar(this));
-		} else if (g_type.equals(GType.LONG)) {
+		} else if (fundamental.equals(GType.LONG)) {
 			return GValueAPI.gvalue.g_value_get_long(this).longValue();
-		} else if (g_type.equals(GType.ULONG)) {
+		} else if (fundamental.equals(GType.ULONG)) {
 			return GValueAPI.gvalue.g_value_get_ulong(this).longValue();
-		} else if (g_type.equals(GType.INT64)) {
+		} else if (fundamental.equals(GType.INT64)) {
 			return GValueAPI.gvalue.g_value_get_int64(this);
-		} else if (g_type.equals(GType.UINT64)) {
+		} else if (fundamental.equals(GType.UINT64)) {
 			return GValueAPI.gvalue.g_value_get_uint64(this);
-		} else if (g_type.equals(GType.BOOLEAN)) {
+		} else if (fundamental.equals(GType.BOOLEAN)) {
 			return GValueAPI.gvalue.g_value_get_boolean(this);
-		} else if (g_type.equals(GType.FLOAT)) {
+		} else if (fundamental.equals(GType.FLOAT)) {
 			return GValueAPI.gvalue.g_value_get_float(this);
-		} else if (g_type.equals(GType.DOUBLE)) {
+		} else if (fundamental.equals(GType.DOUBLE)) {
 			return GValueAPI.gvalue.g_value_get_double(this);
-		} else if (g_type.equals(GType.STRING)) {
+		} else if (fundamental.equals(GType.STRING)) {
 			return GValueAPI.gvalue.g_value_get_string(this);
-		} else if (g_type.equals(GType.OBJECT)) {
+		} else if (fundamental.equals(GType.OBJECT)) {
 			return GValueAPI.gvalue.g_value_dup_object(this);
 		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.OBJECT)) {
 			return GValueAPI.gvalue.g_value_dup_object(transform(this, GType.OBJECT));
@@ -210,29 +223,30 @@ public class GValue extends com.sun.jna.Structure {
 	}
 	
 	public void set(Object data) {
-	    if (g_type.equals(GType.INT)) {
+		GType fundamental = g_type.getFundamental();
+	    if (fundamental.equals(GType.INT)) {
 			GValueAPI.gvalue.g_value_set_int(this, intValue(data));
-		} else if (g_type.equals(GType.UINT)) {
+		} else if (fundamental.equals(GType.UINT)) {
 			GValueAPI.gvalue.g_value_set_uint(this, intValue(data));
-		} else if (g_type.equals(GType.CHAR)) {
+		} else if (fundamental.equals(GType.CHAR)) {
 			GValueAPI.gvalue.g_value_set_char(this, (byte) intValue(data));
-		} else if (g_type.equals(GType.UCHAR)) {
+		} else if (fundamental.equals(GType.UCHAR)) {
 			GValueAPI.gvalue.g_value_set_uchar(this, (byte) intValue(data));
-		} else if (g_type.equals(GType.LONG)) {
+		} else if (fundamental.equals(GType.LONG)) {
 			GValueAPI.gvalue.g_value_set_long(this, new NativeLong(longValue(data)));
-		} else if (g_type.equals(GType.ULONG)) {
+		} else if (fundamental.equals(GType.ULONG)) {
 			GValueAPI.gvalue.g_value_set_ulong(this, new NativeLong(longValue(data)));
-		} else if (g_type.equals(GType.INT64)) {
+		} else if (fundamental.equals(GType.INT64)) {
 			GValueAPI.gvalue.g_value_set_int64(this, longValue(data));
-		} else if (g_type.equals(GType.UINT64)) {
+		} else if (fundamental.equals(GType.UINT64)) {
 			GValueAPI.gvalue.g_value_set_uint64(this, longValue(data));
-		} else if (g_type.equals(GType.BOOLEAN)) {
+		} else if (fundamental.equals(GType.BOOLEAN)) {
 			GValueAPI.gvalue.g_value_set_boolean(this, booleanValue(data));
-		} else if (g_type.equals(GType.FLOAT)) {
+		} else if (fundamental.equals(GType.FLOAT)) {
 			GValueAPI.gvalue.g_value_set_float(this, floatValue(data));
-		} else if (g_type.equals(GType.DOUBLE)) {
+		} else if (fundamental.equals(GType.DOUBLE)) {
 			GValueAPI.gvalue.g_value_set_double(this, doubleValue(data));
-		} else if (g_type.equals(GType.STRING)) {
+		} else if (fundamental.equals(GType.STRING)) {
 			//
 			// Special conversion of java URI to gstreamer compatible uri
 			//
@@ -252,8 +266,11 @@ public class GValue extends com.sun.jna.Structure {
 			} else {
 				GValueAPI.gvalue.g_value_set_string(this, data.toString());
 			}
-		} else if (g_type.equals(GType.OBJECT)) {
+		} else if (fundamental.equals(GType.OBJECT)) {
 			GValueAPI.gvalue.g_value_set_object(this, (GObject) data);
+		} else if (fundamental.equals(GType.BOXED)) {
+			Pointer ptr = GBoxed.getPointerFor(data);
+			GValueAPI.gvalue.g_value_set_boxed(this, ptr);
 		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.INT64, g_type)) {
 			transform(data, GType.INT64, this);
 		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.LONG, g_type)) {

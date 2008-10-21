@@ -278,6 +278,11 @@ public class GType extends NativeLong {
             throw new IllegalArgumentException("No GType for " + javaType);
         }
     }
+    
+    public GType getFundamental() {
+    	return GObjectAPI.gobj.g_type_fundamental(this);
+    }
+    
     @Override
     public Object fromNative(Object nativeValue, FromNativeContext context) {
         return valueOf(((Number) nativeValue).longValue());

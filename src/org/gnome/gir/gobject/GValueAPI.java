@@ -68,7 +68,7 @@ public interface GValueAPI extends Library {
 
     Pointer g_value_init(GValue value, GType g_type);
     GValue g_value_reset(GValue value);
-    void g_value_unset(GValue value);
+    void g_value_unset(Pointer pointer);
     void g_value_set_char(GValue value, byte v_char);
     byte g_value_get_char(GValue value);
     void g_value_set_uchar(GValue value, byte v_uchar);
@@ -102,6 +102,14 @@ public interface GValueAPI extends Library {
     
     void g_value_set_object(GValue value, GObject v_object);
     void g_value_take_object(GValue value, @Invalidate GObject v_object);
-    GObject g_value_get_object(GValue value);
-    @Return GObject g_value_dup_object(GValue value);
+    /* Should not use this one - _dup_object will be handled correctly, just use that */
+    /* GObject g_value_get_object(GValue value); */
+    GObject g_value_dup_object(GValue value);
+    
+    void g_value_set_boxed(GValue value, Pointer boxed);
+    /* Do not use - 
+     * Pointer g_value_get_boxed(GValue value); 
+     * */
+   
+    Pointer g_value_dup_boxed(GValue value);    
 }
