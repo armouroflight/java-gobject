@@ -14,6 +14,10 @@ public class ObjectInfo extends RegisteredTypeInfo {
 		return GIntrospectionAPI.gi.g_object_info_get_parent(this);
 	}
 	
+	public boolean isAbstract() {
+		return GIntrospectionAPI.gi.g_object_info_get_abstract(this);
+	}
+	
 	public boolean isAssignableFrom(ObjectInfo other) {
 		if (other == this)
 			return true;

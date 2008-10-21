@@ -146,6 +146,7 @@ interface GIntrospectionAPI extends Library {
 	
 	String          g_object_info_get_type_name 	    (ObjectInfo    info);
 	String          g_object_info_get_type_init 	    (ObjectInfo    info);
+	boolean         g_object_info_get_abstract             (ObjectInfo    info);	
 	ObjectInfo      g_object_info_get_parent             (ObjectInfo    info);
 	int                   g_object_info_get_n_interfaces      (ObjectInfo    info);
 	InterfaceInfo       g_object_info_get_interface          (ObjectInfo    info,

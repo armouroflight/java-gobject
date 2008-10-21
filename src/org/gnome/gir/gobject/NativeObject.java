@@ -48,6 +48,7 @@ package org.gnome.gir.gobject;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -207,6 +208,9 @@ public abstract class NativeObject extends Handle {
          */        	
         else if (GObject.class.isAssignableFrom(cls)) {
         	cls = classFor(ptr, cls);
+        	/* If it's abstract, pull out the stub */
+        	if ((cls.getModifiers() & Modifier.ABSTRACT) != 0)
+        		cls = (Class<T>) getStubClassFor(cls);
         }        
         /* Ok, let's try to find an Initializer constructor
          */

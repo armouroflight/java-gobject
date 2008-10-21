@@ -1199,7 +1199,23 @@ public class CodeFactory {
 			interfaces[i] = getInternalNameMapped(giInterfaces.get(i));
 		}
 		
-		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, parentInternalName, interfaces);
+		int flags = ACC_PUBLIC + ACC_SUPER;
+		boolean isAbstract = info.isAbstract();
+		if (isAbstract)
+			flags += ACC_ABSTRACT;
+		compilation.writer.visit(V1_6, flags, internalName, null, parentInternalName, interfaces);
+		
+		if (isAbstract) {
+			/* We need to write out a concrete implementation, just in case a method returns an abstract
+			 * class and we don't have one mapped.  An example is GFileMonitor from Gio.  This
+			 * is similar to the interface case.
+			 */			
+			InnerClassCompilation anonProxy = compilation.newInner("AnonStub");
+			compilation.writer.visitInnerClass(anonProxy.internalName,
+					compilation.internalName, "AnonStub", ACC_PUBLIC + ACC_FINAL + ACC_STATIC);
+			anonProxy.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER + ACC_FINAL, anonProxy.internalName, null, compilation.internalName, null);
+			writeHandleInitializer(anonProxy, compilation.internalName);
+		}
 		
 		for (SignalInfo sig : info.getSignals()) {
 			CallableCompilationContext ctx = tryCompileCallable(sig);
