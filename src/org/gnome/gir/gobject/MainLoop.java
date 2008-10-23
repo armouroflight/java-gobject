@@ -219,7 +219,7 @@ public class MainLoop extends RefCountedObject {
 			public boolean callback(Pointer data) {
 				try {
 					r.run();
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					Thread.currentThread().getUncaughtExceptionHandler()
 						.uncaughtException(Thread.currentThread(), e);
 				} finally {
