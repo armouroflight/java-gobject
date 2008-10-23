@@ -52,13 +52,9 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -66,21 +62,16 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
-import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GlibAPI;
 import org.gnome.gir.gobject.GlibRuntime;
-import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
@@ -119,22 +110,15 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Function;
-import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import com.sun.jna.TypeMapper;
-import com.sun.jna.ptr.ByteByReference;
-import com.sun.jna.ptr.DoubleByReference;
-import com.sun.jna.ptr.FloatByReference;
-import com.sun.jna.ptr.IntByReference;
-import com.sun.jna.ptr.LongByReference;
 import com.sun.jna.ptr.PointerByReference;
-import com.sun.jna.ptr.ShortByReference;
 
 @SuppressWarnings("serial")
 public class CodeFactory {
 	
-	private static final Logger logger = Logger.getLogger("org.gnome.gir.Compiler");
+	static final Logger logger = Logger.getLogger("org.gnome.gir.Compiler");
 	
 	private static final Set<String> GOBJECT_METHOD_BLACKLIST = new HashSet<String>() {
 		{
@@ -143,242 +127,6 @@ public class CodeFactory {
 		}
 	};
 
-	public static Type toJava(TypeTag tag) {
-		if (tag == TypeTag.LONG || tag == TypeTag.ULONG ||
-				tag == TypeTag.SSIZE || tag == TypeTag.SIZE)
-			return Type.getType(Long.class);
-		if (tag == TypeTag.ARRAY)
-			return Type.getType(List.class);
-		if (tag == TypeTag.GLIST)
-			return Type.getType(GList.class);
-		if (tag == TypeTag.GSLIST)
-			return Type.getType(GSList.class);
-		if (tag == TypeTag.GHASH)
-			return Type.getType(Map.class);
-		return toTypeBase(tag);		
-	}
-	
-	private Type typeFromInfo(TypeInfo info) {
-		BaseInfo base = info.getInterface();
-		return typeFromInfo(base);
-	}
-	
-	private Type typeFromInfo(BaseInfo info) {
-		/* Unfortunately, flags are best mapped as plain Integer  for now */
-		if (info instanceof FlagsInfo)
-			return Type.getObjectType("java/lang/Integer");
-		String internalName = GType.getInternalNameMapped(info.getNamespace(), info.getName());
-		if (internalName != null)
-			return Type.getObjectType(internalName);
-		return null;
-	}	
-	
-	public Type toJavaArray(TypeInfo containedType) {
-		Type result = toJava(containedType);
-		if (result == null)
-			return null;
-		String descriptor = result.getDescriptor();
-		return Type.getType("[" + descriptor);
-	}
-	
-	public Type toJava(TypeInfo type) {	
-		//Transfer transfer = arg.getOwnershipTransfer();
-		TypeTag tag = type.getTag();
-		
-		if (tag.equals(TypeTag.VOID)) {
-			// FIXME - for now we change random Voids into Pointer, but this seems to
-			// be a G-I bug
-			return Type.getType(Pointer.class);		
-		} else if (tag.equals(TypeTag.INTERFACE)) {
-			return typeFromInfo(type.getInterface());
-		} else if (tag.equals(TypeTag.ARRAY)) {
-			return toJavaArray(type.getParamType(0));
-		} else if (!type.isPointer() || (tag.equals(TypeTag.UTF8) || tag.equals(TypeTag.FILENAME))) {
-			return toTypeBase(tag);
-		} else if (type.isPointer()) {
-			return toJavaRef(tag);
-		} else {
-			return toTypeBase(tag);
-		}	
-	}
-	
-	public Type toJava(FieldInfo arg) {
-		TypeInfo type = arg.getType();
-		if (type.getTag().equals(TypeTag.INTERFACE)) {
-			BaseInfo iface = arg.getType().getInterface();
-			/* Special case structure/union members; we need to use the
-			 * $ByReference tag if the member is actually a pointer.
-			 */
-			if (iface instanceof StructInfo || iface instanceof UnionInfo) {
-				boolean hasFields;
-				if (iface instanceof StructInfo)
-					hasFields = ((StructInfo) iface).getFields().length > 0;
-				else
-					hasFields = ((UnionInfo) iface).getFields().length > 0;
-				if (!hasFields)
-					return Type.getType(Pointer.class);
-				String internalName = getInternalNameMapped(iface);
-				if (type.isPointer() && internalName.startsWith(GType.dynamicNamespace))
-					internalName += "$ByReference";
-				return Type.getObjectType(internalName);
-			} else if (iface instanceof InterfaceInfo || iface instanceof ObjectInfo ||
-					iface instanceof BoxedInfo) {
-				/* Interfaces/Objects/Boxed are always Pointer for now
-				 */
-				return Type.getType(Pointer.class);
-			}
-		}
-		Type result = toJava(type);
-		if (result == null) {
-			logger.warning(String.format("Unhandled field type %s (type %s)", result, type));
-		}
-		return result;
-	}	
-	
-	public Type toJava(ArgInfo arg) {
-		if (arg.getDirection() == Direction.IN) {
-			return toJava(arg.getType());
-		} else {
-			return toJavaRef(arg.getType().getTag());
-		}
-	}
-	
-	public static Type toJavaRef(TypeTag tag) {
-		Type t = toJava(tag);
-		if (t == null)
-			return null;
-		if (t.equals(Type.INT_TYPE))
-			return Type.getType(IntByReference.class);
-		if (t.equals(Type.LONG_TYPE))
-			return Type.getType(LongByReference.class);
-		if (t.equals(Type.BOOLEAN_TYPE))
-			return Type.getType(IntByReference.class);
-		if (t.equals(Type.BYTE_TYPE))
-			return Type.getType(ByteByReference.class);
-		if (t.equals(Type.SHORT_TYPE))
-			return Type.getType(ShortByReference.class);
-		if (t.equals(Type.FLOAT_TYPE))
-			return Type.getType(FloatByReference.class);
-		if (t.equals(Type.DOUBLE_TYPE))
-			return Type.getType(DoubleByReference.class);
-		if (t.equals(Type.getType(String.class)) || t.equals(Type.getType(File.class)))
-			return Type.getType(PointerByReference.class);
-		return Type.getType(UnmappedPointer.class);
-	}
-	
-	private static Type toTypeBase(TypeTag tag) {
-		if (tag == TypeTag.VOID)
-			return Type.VOID_TYPE;
-		if (tag == TypeTag.BOOLEAN)
-			return Type.BOOLEAN_TYPE;
-		if (tag == TypeTag.INT8 || tag == TypeTag.UINT8)
-			return Type.BYTE_TYPE;
-		if (tag == TypeTag.INT16 || tag == TypeTag.UINT16)
-			return Type.SHORT_TYPE;
-		if (tag == TypeTag.INT32 || tag == TypeTag.UINT32 ||
-				tag == TypeTag.INT || tag == TypeTag.UINT)
-			return Type.INT_TYPE;
-		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64
-				|| tag == TypeTag.SIZE || tag == TypeTag.SSIZE)
-			return Type.LONG_TYPE;
-		if (tag == TypeTag.LONG) {
-			if (Native.LONG_SIZE == 8)
-				return Type.LONG_TYPE;
-			else
-				return Type.INT_TYPE;
-		}
-		if (tag == TypeTag.FLOAT)
-			return Type.FLOAT_TYPE;
-		if (tag == TypeTag.DOUBLE)
-			return Type.DOUBLE_TYPE;
-		if (tag == TypeTag.TIMET)
-			return Type.getType(Date.class);
-		if (tag == TypeTag.GTYPE)
-			return Type.getType(GType.class);		
-		if (tag == TypeTag.UTF8)
-			return Type.getType(String.class);
-		if (tag == TypeTag.FILENAME)
-			return Type.getType(File.class);		
-		return null;
-	}
-
-	private Type getCallableReturn(CallableInfo callable) {
-		TypeInfo info = callable.getReturnType();
-		if (info.getTag().equals(TypeTag.INTERFACE)) {
-			return typeFromInfo(info);
-		}
-		return toJava(info.getTag());
-	}
-	
-	private Class<?> getPrimitiveBox(Type type) {
-		if (type.equals(Type.BOOLEAN_TYPE))
-			return Boolean.class;
-		if (type.equals(Type.BYTE_TYPE))
-			return Byte.class;
-		if (type.equals(Type.CHAR_TYPE))
-			return Character.class;
-		if (type.equals(Type.SHORT_TYPE))
-			return Short.class;
-		if (type.equals(Type.INT_TYPE))
-			return Integer.class;
-		if (type.equals(Type.LONG_TYPE))
-			return Long.class;
-		if (type.equals(Type.FLOAT_TYPE))
-			return Float.class;
-		if (type.equals(Type.DOUBLE_TYPE))
-			return Double.class;
-		return null;
-	}
-	
-	public boolean introspectionImplements(ObjectInfo obj, InterfaceInfo iface) {
-		while (!(obj.getNamespace().equals("GObject") && obj.getName().equals("Object"))) {
-			List<InterfaceInfo> ifaces = Arrays.asList(obj.getInterfaces());
-			for (InterfaceInfo possible : ifaces) {
-				if (isAssignableFrom(iface, possible))
-					return true;
-			}
-			obj = obj.getParent();
-		}
-		return false;
-	}
-	
-	public List<InterfaceInfo> getUniqueInterfaces(ObjectInfo obj) {
-		List<InterfaceInfo> ifaces = Arrays.asList(obj.getInterfaces());
-		return getUniqueInterfaces(ifaces);
-	}
-	
-	private boolean isAssignableFrom(InterfaceInfo lhs, InterfaceInfo rhs) {
-		if (lhs.equals(rhs))
-			return true;
-		List<InterfaceInfo> prereqs = Arrays.asList(lhs.getPrerequisites());
-		for (InterfaceInfo iface : prereqs) {
-			if (isAssignableFrom(iface, rhs))
-				return true;
-		}
-		return false;
-	}
-	
-	public List<InterfaceInfo> getUniqueInterfaces(List<InterfaceInfo> ifaces) {
-		boolean hit = true;
-		ifaces = new ArrayList<InterfaceInfo>(ifaces);
-		while (hit) {
-			hit = false;
-			for (Iterator<InterfaceInfo> it = ifaces.iterator(); it.hasNext();) {
-				InterfaceInfo possible = it.next();
-				for (InterfaceInfo iface : ifaces) {
-					if (iface == possible)
-						continue;
-					if (isAssignableFrom(possible, iface)) {
-						it.remove();
-						hit = true;
-						break;
-					}
-				}
-			}
-		}
-		return ifaces;
-	}
-	
 	private static abstract class ClassCompilation {
  		String namespace;
 		String nsversion;
@@ -545,32 +293,10 @@ public class CodeFactory {
 		return GType.getInternalName(info.getNamespace(), info.getName());
 	}
 	
-	private static String getInternalNameMapped(BaseInfo info) {
+	static String getInternalNameMapped(BaseInfo info) {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
 
-	private static final Pattern allNumeric = Pattern.compile("[0-9]+");
-	private static final Pattern firstNumericUscore = Pattern.compile("([0-9]+)_"); 	
-	private static final Pattern replaceFirstNumeric = Pattern.compile("([0-9]+)([A-Za-z]+)"); 
-	private String fixIdentifier(String base, String ident) {
-		Matcher match = firstNumericUscore.matcher(ident);
-		if (match.lookingAt()) {
-			return base + ident;
-		}
-		match = replaceFirstNumeric.matcher(ident);
-		if (!match.lookingAt()) {
-			if (allNumeric.matcher(ident).matches()) {
-				return base + ident;
-			}
-			return ident;
-		}
-		return match.replaceFirst("$2$1");
-	}
-	
-	private String enumNameToUpper(String base, String nick) {
-		return fixIdentifier(base, nick.replace("-", "_")).toUpperCase();
-	}
-	
 	public boolean isDestroyNotify(ArgInfo arg) {
 		TypeInfo type = arg.getType();
 		if (!type.getTag().equals(TypeTag.INTERFACE))
@@ -591,7 +317,7 @@ public class CodeFactory {
 				null);
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(info.getName(), valueInfo.getName());			
+			String name = NameMap.enumNameToUpper(info.getName(), valueInfo.getName());			
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC + ACC_ENUM, 
 						name, "L" + compilation.internalName + ";", null, null);
 			fv.visitEnd();				
@@ -626,7 +352,7 @@ public class CodeFactory {
 		mv.visitLabel(l0);
 		int i = 0;
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(info.getName(), valueInfo.getName());
+			String name = NameMap.enumNameToUpper(info.getName(), valueInfo.getName());
 			mv.visitTypeInsn(NEW, compilation.internalName);
 			mv.visitInsn(DUP);
 			mv.visitLdcInsn(name);
@@ -640,7 +366,7 @@ public class CodeFactory {
 		mv.visitTypeInsn(ANEWARRAY, compilation.internalName);
 		i = 0;
 		for (ValueInfo valueInfo : values) {
-			String name = enumNameToUpper(info.getName(), valueInfo.getName());			
+			String name = NameMap.enumNameToUpper(info.getName(), valueInfo.getName());			
 			mv.visitInsn(DUP);			
 			mv.visitIntInsn(BIPUSH, i);
 			i++;
@@ -748,7 +474,7 @@ public class CodeFactory {
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, 
-						enumNameToUpper(info.getName(), valueInfo.getName()), "J", null, valueInfo.getValue());
+						NameMap.enumNameToUpper(info.getName(), valueInfo.getName()), "J", null, valueInfo.getValue());
 			fv.visitEnd();				
 		}
 		compilation.close();
@@ -1048,13 +774,13 @@ public class CodeFactory {
 			PropertyInfo[] props, Set<String> sigs, 
 			boolean isInterfaceSource, boolean isInterfaceTarget) {
 		for (PropertyInfo prop : props) {
-			Type type = toJava(prop.getType());
+			Type type = TypeMap.toJava(prop.getType());
 			if (type == null) {
 				logger.warning(String.format("Skipping unhandled property type %s of %s", prop.getName(), compilation.internalName));
 				continue;
 			}
 			int propFlags = prop.getFlags();
-			Class<?> propBox = getPrimitiveBox(type);
+			Class<?> propBox = TypeMap.getPrimitiveBox(type);
 			Type propTypeBox;
 			if (propBox != null)
 				propTypeBox = Type.getType(propBox);
@@ -1198,7 +924,7 @@ public class CodeFactory {
 		parentInternalName = getInternalNameMapped(parent);
 		
 		String[] interfaces = null;
-		List<InterfaceInfo> giInterfaces = getUniqueInterfaces(info);
+		List<InterfaceInfo> giInterfaces = TypeMap.getUniqueInterfaces(info);
 		if (giInterfaces.size() > 0) {
 			interfaces = new String[giInterfaces.size()];
 		}
@@ -1229,7 +955,7 @@ public class CodeFactory {
 			if (ctx == null)
 				continue;
 			// Insert the object as first parameter
-			ctx.argTypes.add(0, typeFromInfo(info));				
+			ctx.argTypes.add(0, TypeMap.typeFromInfo(info));				
 			compileSignal(compilation, ctx, sig, false, false);
 		}
 		
@@ -1299,7 +1025,7 @@ public class CodeFactory {
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
-			if (introspectionImplements(info.getParent(), iface))
+			if (TypeMap.introspectionImplements(info.getParent(), iface))
 				continue;
 			for (FunctionInfo fi: iface.getMethods()) {
 				CallableCompilationContext ctx = tryCompileCallable(fi, iface, true, false, sigs);
@@ -1309,7 +1035,7 @@ public class CodeFactory {
 				ctx.targetInterface = iface;
 				writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 			}
-			Type ifaceType = typeFromInfo(iface);
+			Type ifaceType = TypeMap.typeFromInfo(iface);
 			for (SignalInfo sig : iface.getSignals()) {
 				CallableCompilationContext ctx = tryCompileCallable(sig, null);
 				if (ctx == null)
@@ -1335,7 +1061,7 @@ public class CodeFactory {
 				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
 		globals.interfaceTypes.put(internalName, info.getTypeInit());
 		
-		Type ifaceType = typeFromInfo(info);
+		Type ifaceType = TypeMap.typeFromInfo(info);
 		for (SignalInfo sig : info.getSignals()) {
 			CallableCompilationContext ctx = tryCompileCallable(sig, null);
 			if (ctx == null)
@@ -1379,7 +1105,7 @@ public class CodeFactory {
 		compilation.close();
 	}
 	
-	private static final class CallableCompilationContext {
+	static final class CallableCompilationContext {
 		CallableInfo info;
 		boolean isMethod;
 		boolean isConstructor;
@@ -1463,11 +1189,11 @@ public class CodeFactory {
 		ctx.args = si.getArgs();
 		if (ctx.isConstructor) {
 			ctx.returnType = Type.VOID_TYPE;
-			ctx.thisType = getCallableReturn(si); 
+			ctx.thisType = TypeMap.getCallableReturn(si); 
 		} else {
 			if (ctx.isMethod && thisType != null)
 				ctx.thisType = Type.getObjectType(getInternalNameMapped(thisType));
-			ctx.returnType = getCallableReturn(si);
+			ctx.returnType = TypeMap.getCallableReturn(si);
 		}
 		if (ctx.returnType == null) {
 			logger.warning("Skipping callable with unhandled return signature: "+ si.getIdentifier());
@@ -1515,7 +1241,7 @@ public class CodeFactory {
 					ctx.arrayToLengthIndices.put(argOffset, lenIdx);
 				}
 			}	
-			t = toJava(arg);
+			t = TypeMap.toJava(arg);
 			if (t == null) {
 				logger.warning(String.format("Unhandled argument %s in callable %s", arg, si.getIdentifier()));
 				return null;
@@ -1558,7 +1284,7 @@ public class CodeFactory {
 	}
 	
 	private Type writeLoadArgument(MethodVisitor mv, int loadOffset, Type argType) {
-		Class<?> box = getPrimitiveBox(argType);
+		Class<?> box = TypeMap.getPrimitiveBox(argType);
 		mv.visitVarInsn(argType.getOpcode(ILOAD), loadOffset);		
 		if (box != null) {
 			Type boxedType = Type.getType(box);	
@@ -1567,90 +1293,6 @@ public class CodeFactory {
 			return boxedType;
 		}
 		return argType;
-	}
-	
-	private static final class LocalVariable {
-		String name;
-		int offset;
-		Type type;
-		public LocalVariable(String name, int offset, Type type) {
-			super();
-			this.name = name;
-			this.offset = offset;
-			this.type = type;
-		}
-	}
-	
-	private static final class LocalVariableTable {
-		private Map<String,LocalVariable> locals;
-		private int lastOffset;
-		
-		public LocalVariableTable(Type thisType, List<Type> args, List<String> argNames) {
-			lastOffset = 0;
-			locals = new LinkedHashMap<String,LocalVariable>();
-			if (thisType != null) {
-				locals.put("this", new LocalVariable("this", 0, thisType));
-				lastOffset += thisType.getSize();
-			}
-			int i = 0;
-			if (args == null)
-				return;
-			for (Type arg: args) {
-				String name;
-				if (argNames != null)
-					name = argNames.get(i);
-				else
-					name = "arg" + i;
-				locals.put(name, new LocalVariable(name, lastOffset, arg));
-				lastOffset += arg.getSize();
-				i++;
-			}			
-		}
-		
-		public LocalVariableTable(CallableCompilationContext ctx) {
-			this(ctx.thisType, ctx.argTypes, ctx.argNames);
-		}
-		
-		public LocalVariable add(String name, Type type) {
-			LocalVariable ret = new LocalVariable(name, lastOffset, type);
-			lastOffset += type.getSize();
-			locals.put(name, ret);
-			return ret;
-		}
-		
-		public int allocTmp(String name, Type type) {
-			return add("tmp_" + name, type).offset;
-		}
-		
-		public Collection<LocalVariable> getAll() {
-			return locals.values();
-		}
-		
-		public LocalVariable get(int index) {
-			int i = 0;
-			for (LocalVariable variable : locals.values()) {
-				if (i == index)
-					return variable;
-				i++;
-			}
-			throw new IllegalArgumentException(String.format("Index %d is out of range (max %d)", index, locals.size()-1));
-		}
-		
-		public int getOffset(String name) {
-			LocalVariable var = locals.get(name);
-			return var.offset;
-		}
-		
-		private void writeLocals(MethodVisitor mv, Label start, Label end) {
-			for (LocalVariable var : getAll()) {
-				mv.visitLocalVariable(var.name, var.type.getDescriptor(), null, start, end, var.offset);
-			}			
-		}
-		
-		@Override
-		public String toString() {
-			return String.format("<locals lastOffset=%s table=%s>", lastOffset, locals);
-		}
 	}
 	
 	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
@@ -1676,7 +1318,7 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(fi);	
 		String symbol = fi.getSymbol();
 		
-		Class<?> returnBox = getPrimitiveBox(ctx.returnType);
+		Class<?> returnBox = TypeMap.getPrimitiveBox(ctx.returnType);
 		Type returnTypeBox;
 		if (returnBox != null)
 			returnTypeBox = Type.getType(returnBox);
@@ -2002,8 +1644,8 @@ public class CodeFactory {
 			args.add(Type.getObjectType(compilation.internalName));
 			boolean allArgsPrimitive = true;
 			for (FieldInfo field : fields) {
-				Type argType = toJava(field);
-				if (argType == null || getPrimitiveBox(argType) == null) {
+				Type argType = TypeMap.toJava(field);
+				if (argType == null || TypeMap.getPrimitiveBox(argType) == null) {
 					allArgsPrimitive = false;
 					break;
 				}
@@ -2051,7 +1693,7 @@ public class CodeFactory {
 		}
 		for (FieldInfo fi : fields) {
 			String name = ucaseToCamel(fi.getName());
-			Type fieldType = toJava(fi);
+			Type fieldType = TypeMap.toJava(fi);
 			if (fieldType.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
 				fieldType = Type.getType(Pointer.class);
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, fieldType.getDescriptor(), null, null);
@@ -2100,12 +1742,12 @@ public class CodeFactory {
 	private void compile(ConstantInfo info) {
 		GlobalsCompilation globals = getGlobals(info.getNamespace());
 		InnerClassCompilation compilation = globals.getConstants();
-		Type type =  toJava(info.getType());
+		Type type =  TypeMap.toJava(info.getType());
 		if (type == null) {
 			logger.warning("Unhandled constant type " + type);
 			return;
 		}
-		String fieldName = fixIdentifier("n", info.getName());
+		String fieldName = NameMap.fixIdentifier("n", info.getName());
 		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL,
 				fieldName, type.getDescriptor(), null, null);
 		fv.visitEnd();
