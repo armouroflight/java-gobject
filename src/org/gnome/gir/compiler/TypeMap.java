@@ -275,4 +275,24 @@ public class TypeMap {
 		return false;
 	}
 
+	public static boolean isDestroyNotify(ArgInfo arg) {
+		TypeInfo type = arg.getType();
+		if (!type.getTag().equals(TypeTag.INTERFACE))
+			return false;
+		BaseInfo iface = type.getInterface();
+		String ns = iface.getNamespace();
+		if (ns.equals("GLib") || ns.equals("Gtk"))
+			return iface.getName().equals("DestroyNotify");
+		if (ns.equals("GLib") && iface.getName().equals("FreeFunc"))
+			return true;
+		return false;
+	}
+
+	static String getUniqueSignature(String name, Type returnType, List<Type> args) {
+		StringBuilder builder = new StringBuilder(name);
+		builder.append('/');
+		builder.append(Type.getMethodDescriptor(returnType, args.toArray(new Type[] {})));
+		return builder.toString();
+	}
+
 }

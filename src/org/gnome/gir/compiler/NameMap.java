@@ -26,4 +26,9 @@ public class NameMap {
 	public static String enumNameToUpper(String base, String nick) {
 		return fixIdentifier(base, nick.replace("-", "_")).toUpperCase();
 	}
+
+	static String ucaseToPascal(String ucase) {
+		String camel = CodeFactory.ucaseToCamel(ucase);
+		return Character.toUpperCase(camel.charAt(0)) + camel.substring(1);
+	}
 }

@@ -297,19 +297,6 @@ public class CodeFactory {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
 
-	public boolean isDestroyNotify(ArgInfo arg) {
-		TypeInfo type = arg.getType();
-		if (!type.getTag().equals(TypeTag.INTERFACE))
-			return false;
-		BaseInfo iface = type.getInterface();
-		String ns = iface.getNamespace();
-		if (ns.equals("GLib") || ns.equals("Gtk"))
-			return iface.getName().equals("DestroyNotify");
-		if (ns.equals("GLib") && iface.getName().equals("FreeFunc"))
-			return true;
-		return false;
-	}
-	
 	private void compile(EnumInfo info) {
 		ClassCompilation compilation = getCompilation(info);
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.internalName, 
@@ -480,7 +467,7 @@ public class CodeFactory {
 		compilation.close();
 	}	
 	
-	private static String ucaseToCamel(String ucase) {
+	static String ucaseToCamel(String ucase) {
 		// So this function works on signal/property names too
 		ucase = ucase.replace('-', '_');
 		String[] components = ucase.split("_");
@@ -493,11 +480,6 @@ public class CodeFactory {
 			builder.append(component);
 		return builder.toString();
 	}
-	
-	private static String ucaseToPascal(String ucase) {
-		String camel = ucaseToCamel(ucase);
-		return Character.toUpperCase(camel.charAt(0)) + camel.substring(1);
-	}	
 	
 	private void compileDefaultConstructor(ObjectInfo info, ClassCompilation compilation) {		
 		BaseInfo parent = info.getParent(); 
@@ -629,7 +611,7 @@ public class CodeFactory {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
 			Type argType = args.get(i);
-			writeLoadArgument(mv, argOffset, argType);
+			LocalVariable.writeLoadArgument(mv, argOffset, argType);
 			argOffset += argType.getSize();			
 			mv.visitInsn(AASTORE);			
 		}
@@ -683,7 +665,7 @@ public class CodeFactory {
 			mv.visitInsn(DUP);
 			mv.visitIntInsn(BIPUSH, i);
 			LocalVariable var = locals.get(i+1);
-			writeLoadArgument(mv, var.offset, var.type);
+			var.writeLoadArgument(mv);
 			mv.visitInsn(AASTORE);			
 		}
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", "Ljava/util/Map;");
@@ -706,7 +688,7 @@ public class CodeFactory {
 				boolean isInterfaceSource, boolean isInterfaceTarget) {
 		String rawSigName = sig.getName();
 		String sigName = rawSigName.replace('-', '_');
-		String sigClass = ucaseToPascal(sigName);
+		String sigClass = NameMap.ucaseToPascal(sigName);
 		String sigHandlerName = "on" + sigClass;
 		String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
 		String internalName = ctx.argTypes.get(0).getInternalName() + "$" + sigClass;
@@ -787,14 +769,14 @@ public class CodeFactory {
 			else
 				propTypeBox = type;
 			if ((propFlags & FieldInfoFlags.READABLE) != 0) {
-				String propPascal = ucaseToPascal(prop.getName());
+				String propPascal = NameMap.ucaseToPascal(prop.getName());
 				
 				writePropertyNotify(compilation, objectType, prop, type, propBox,
 						isInterfaceSource, isInterfaceTarget);				
 				
 				String getterName = "get" + propPascal;
 				String descriptor = Type.getMethodDescriptor(type, new Type[] {});
-				String signature = getUniqueSignature(getterName, type, Arrays.asList(new Type[] {}));
+				String signature = TypeMap.getUniqueSignature(getterName, type, Arrays.asList(new Type[] {}));
 				if (sigs.contains(signature)) {
 					logger.warning("Getter " + getterName + " duplicates signature: " 
 								+ signature);
@@ -827,9 +809,9 @@ public class CodeFactory {
 				mv.visitEnd();		
 			}
 			if ((propFlags & FieldInfoFlags.WRITABLE) != 0) {
-				String setterName = "set" + ucaseToPascal(prop.getName());
+				String setterName = "set" + NameMap.ucaseToPascal(prop.getName());
 				String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { type });
-				String signature = getUniqueSignature(setterName, Type.VOID_TYPE, Arrays.asList(new Type[] { type }));
+				String signature = TypeMap.getUniqueSignature(setterName, Type.VOID_TYPE, Arrays.asList(new Type[] { type }));
 				if (sigs.contains(signature)) {
 					logger.warning("Setter " + setterName + " duplicates signature: " 
 								+ signature);
@@ -868,7 +850,7 @@ public class CodeFactory {
 	private void writePropertyNotify(StubClassCompilation compilation, Type objectType, 
 			PropertyInfo prop, Type propType, Class<?> propBox,
 			boolean isInterfaceSource, boolean isInterfaceTarget) {
-		String propPascal = ucaseToPascal(prop.getName());		
+		String propPascal = NameMap.ucaseToPascal(prop.getName());		
 		String notifyClass = propPascal + "PropertyNotify";
 		String sigHandlerName = "on" + notifyClass;
 		String descriptor = Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { objectType, propType } );
@@ -1132,7 +1114,7 @@ public class CodeFactory {
 		}
 		
 		public String getSignature() {
-			return getUniqueSignature(name, returnType, argTypes);
+			return TypeMap.getUniqueSignature(name, returnType, argTypes);
 		}
 		
 		public Set<Integer> getAllEliminiated() {
@@ -1219,7 +1201,7 @@ public class CodeFactory {
 			if (tag.equals(TypeTag.VOID) && arg.getName().contains("data")) {
 				ctx.userDataIndices.add(argOffset);
 				continue;
-			} else if (isDestroyNotify(arg)) {
+			} else if (TypeMap.isDestroyNotify(arg)) {
 				if (firstSeenCallback == -1) {
 					logger.warning("Skipping callable with unpaired DestroyNotify: " + si.getIdentifier());
 					return null;
@@ -1264,7 +1246,7 @@ public class CodeFactory {
 		ctx.name = ucaseToCamel(si.getName());
 		
 		if (seenSignatures != null) {
-			String signature = getUniqueSignature(ctx.name, ctx.returnType, ctx.argTypes);
+			String signature = TypeMap.getUniqueSignature(ctx.name, ctx.returnType, ctx.argTypes);
 			if (seenSignatures.contains(signature)) {
 				logger.warning(String.format("Callable %s duplicates signature: %s", 
 						si.getIdentifier(), signature));
@@ -1274,25 +1256,6 @@ public class CodeFactory {
 		}
 
 		return ctx;
-	}
-	
-	private static String getUniqueSignature(String name, Type returnType, List<Type> args) {
-		StringBuilder builder = new StringBuilder(name);
-		builder.append('/');
-		builder.append(Type.getMethodDescriptor(returnType, args.toArray(new Type[] {})));
-		return builder.toString();
-	}
-	
-	private Type writeLoadArgument(MethodVisitor mv, int loadOffset, Type argType) {
-		Class<?> box = TypeMap.getPrimitiveBox(argType);
-		mv.visitVarInsn(argType.getOpcode(ILOAD), loadOffset);		
-		if (box != null) {
-			Type boxedType = Type.getType(box);	
-			mv.visitMethodInsn(INVOKESTATIC, boxedType.getInternalName(), 
-					"valueOf", "(" + argType.getDescriptor() + ")" + boxedType.getDescriptor());
-			return boxedType;
-		}
-		return argType;
 	}
 	
 	private void writeCallable(int accessFlags, ClassCompilation compilation, FunctionInfo fi,
@@ -1379,26 +1342,26 @@ public class CodeFactory {
 				assert source.getType().getTag().equals(TypeTag.ARRAY);
 				int offset = ctx.argOffsetToApi(arraySource);
 				LocalVariable var = locals.get(offset);
-				writeLoadArgument(mv, var.offset, var.type);
+				var.writeLoadArgument(mv);
 				mv.visitInsn(ARRAYLENGTH);
 				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(Integer.class), "valueOf", 
 						Type.getMethodDescriptor(getType(Integer.class), new Type[] { Type.INT_TYPE }));
 			} else if (lengthOfArray != null) {
 				LocalVariable var = locals.get(lengthOfArray);
-				writeLoadArgument(mv, var.offset, var.type);
+				var.writeLoadArgument(mv);
 			} else if (ctx.userDataIndices.contains(i)) {
 				/* Always pass null for user datas - Java allows environment capture */
 				mv.visitInsn(ACONST_NULL);
 			} else if (callbackIdx != null) {
 				int offset = ctx.argOffsetToApi(callbackIdx);
 				LocalVariable var = locals.get(offset);
-				writeLoadArgument(mv, var.offset, var.type);				
+				var.writeLoadArgument(mv);				
 				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "createDestroyNotify", 
 						Type.getMethodDescriptor(getType(GlibAPI.GDestroyNotify.class), new Type[] { getType(Callback.class) } ));
 			} else if (!ctx.isMethod || i > 0) {
 				int localOff = ctx.argOffsetToApi(i);
 				LocalVariable var = locals.get(localOff);	
-				writeLoadArgument(mv, var.offset, var.type);	
+				var.writeLoadArgument(mv);	
 			} else {
 				mv.visitVarInsn(ALOAD, 0);
 			}
