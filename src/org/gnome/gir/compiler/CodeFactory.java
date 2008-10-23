@@ -100,8 +100,6 @@ import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
@@ -126,122 +124,20 @@ public class CodeFactory {
 			add("unref");
 		}
 	};
-
-	private static abstract class ClassCompilation {
- 		String namespace;
-		String nsversion;
-		String baseName;
-		String internalName;
-		ClassVisitor writer;
-		MethodVisitor clinit;
-		private ClassWriter realWriter;
-		boolean closed = false;		
-		public ClassCompilation(String namespace, String baseName) {
-			this.namespace = namespace;
-			this.nsversion = Repository.getDefault().getNamespaceVersion(namespace);
-			this.baseName = baseName;
-			this.internalName = GType.getInternalName(namespace, baseName);
-			this.realWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-			this.writer = new CheckClassAdapter(this.realWriter);
-		}
-
-		public byte[] getBytes() {
-			return realWriter.toByteArray();
-		}
-		
-		public String getNamespace() {
-			return namespace;
-		}
-		
-		public String getPublicName() {
-			return GType.getPublicNameMapped(namespace, baseName);
-		}
-		
-		MethodVisitor getClinit() {
-			if (clinit == null) {
-				clinit = writer.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
-				clinit.visitCode();
-			}
-			return clinit;
-		}
-		
-		public void close() {
-			if (closed)
-				return;				
-			if (clinit != null) {
-				clinit.visitInsn(RETURN);	
-				clinit.visitMaxs(0, 0);
-				clinit.visitEnd();
-			}
-			closed = true;
-		}
-	}	
 	
-	private static class InnerClassCompilation extends ClassCompilation {
-		public InnerClassCompilation(String namespace, String baseName) {
-			super(namespace, baseName);
-		}
+	private final Repository repo;
+	private final Set<String> alreadyCompiled = new HashSet<String>();
+	private final Set<String> loadFailed = new HashSet<String>();
+	private final Set<String> pendingCompilation = new HashSet<String>();	
+	private final Map<String, StubClassCompilation> writers = new HashMap<String, StubClassCompilation>();
+	private final Map<String, GlobalsCompilation> globals = new HashMap<String, GlobalsCompilation>();
+	private final Map<String,String> namespaceShlibMapping = new HashMap<String, String>();
+	
+	private CodeFactory(Repository repo) {
+		this.repo = repo;
+		this.alreadyCompiled.add("GLib");
 	}
 	
-	private static class StubClassCompilation extends ClassCompilation {
-		Set<InnerClassCompilation> innerClasses;
-		String publicName;
-
-		
-		public StubClassCompilation(String namespace,
-				String name) {
-			super(namespace, name);
-			this.innerClasses = new HashSet<InnerClassCompilation>();
-			this.baseName = name.substring(0, 1).toUpperCase() + name.substring(1);
-			this.publicName = GType.getPublicNameMapped(namespace, name);
-		}
-		
-		public ClassCompilation newInner() {
-			int size = innerClasses.size();
-			InnerClassCompilation cw = new InnerClassCompilation(namespace, baseName + "$" + size+1);
-			innerClasses.add(cw);
-			return cw;
-		}
-		
-		public InnerClassCompilation newInner(String name) {
-			InnerClassCompilation cw = new InnerClassCompilation(namespace, baseName + "$" + name);
-			innerClasses.add(cw);
-			return cw;
-		}
-		
-		public void close() {
-			if (closed)
-				return;
-			for (InnerClassCompilation inner : innerClasses)
-				inner.close();
-			super.close();
-			writer.visitEnd();
-			closed = true;
-		}
-	}
-	
-	public static final class GlobalsCompilation extends StubClassCompilation {
-		Map<String,String> interfaceTypes = new HashMap<String,String>();
-		public InnerClassCompilation constants;
-		public GlobalsCompilation(String namespace, String name) {
-			super(namespace, name);
-		}
-		
-		public InnerClassCompilation getConstants() {
-			if (constants == null) {
-				String constantsName = "Constants";
-				constants = newInner(constantsName);
-				writer.visitInnerClass(constants.internalName, internalName, constantsName, 
-						ACC_PUBLIC + ACC_FINAL + ACC_STATIC);				
-				constants.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL,
-						constants.internalName, 
-						null, "java/lang/Object", null);
-				constants.writer.visitInnerClass(constants.internalName, 
-						internalName, constantsName, ACC_PUBLIC + ACC_FINAL + ACC_STATIC);			
-			}
-			return constants;
-		}
-	}
 
 	public StubClassCompilation getCompilation(String namespace, String name) {
 		String peerInternalName = GType.getInternalName(namespace, name);
@@ -271,19 +167,6 @@ public class CodeFactory {
 	
 	public ClassCompilation getCompilation(FunctionInfo info) {
 		return getGlobals(info.getNamespace());
-	}		
-	
-	private final Repository repo;
-	private final Set<String> alreadyCompiled = new HashSet<String>();
-	private final Set<String> loadFailed = new HashSet<String>();
-	private final Set<String> pendingCompilation = new HashSet<String>();	
-	private final Map<String, StubClassCompilation> writers = new HashMap<String, StubClassCompilation>();
-	private final Map<String, GlobalsCompilation> globals = new HashMap<String, GlobalsCompilation>();
-	private final Map<String,String> namespaceShlibMapping = new HashMap<String, String>();
-	
-	private CodeFactory(Repository repo) {
-		this.repo = repo;
-		this.alreadyCompiled.add("GLib");
 	}
 	
 	private static final Map<Repository,List<ClassCompilation>> loadedRepositories 
@@ -466,20 +349,6 @@ public class CodeFactory {
 		}
 		compilation.close();
 	}	
-	
-	static String ucaseToCamel(String ucase) {
-		// So this function works on signal/property names too
-		ucase = ucase.replace('-', '_');
-		String[] components = ucase.split("_");
-		for (int i = 1; i < components.length; i++) {
-			if (components[i].length() > 0)
-				components[i] = "" + Character.toUpperCase(components[i].charAt(0)) + components[i].substring(1);
-		}
-		StringBuilder builder = new StringBuilder();
-		for (String component : components)
-			builder.append(component);
-		return builder.toString();
-	}
 	
 	private void compileDefaultConstructor(ObjectInfo info, ClassCompilation compilation) {		
 		BaseInfo parent = info.getParent(); 
@@ -1062,7 +931,7 @@ public class CodeFactory {
 			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null)
 				continue;			
-			String name = ucaseToCamel(fi.getName());
+			String name = NameMap.ucaseToCamel(fi.getName());
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
 			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, null, null);
 			mv.visitEnd();			
@@ -1243,7 +1112,7 @@ public class CodeFactory {
 		
 		ctx.argTypes = filteredTypes;
 		
-		ctx.name = ucaseToCamel(si.getName());
+		ctx.name = NameMap.ucaseToCamel(si.getName());
 		
 		if (seenSignatures != null) {
 			String signature = TypeMap.getUniqueSignature(ctx.name, ctx.returnType, ctx.argTypes);
@@ -1655,7 +1524,7 @@ public class CodeFactory {
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);	
 		}
 		for (FieldInfo fi : fields) {
-			String name = ucaseToCamel(fi.getName());
+			String name = NameMap.ucaseToCamel(fi.getName());
 			Type fieldType = TypeMap.toJava(fi);
 			if (fieldType.equals(Type.VOID_TYPE)) // FIXME Temporary hack for GdkAtom
 				fieldType = Type.getType(Pointer.class);
