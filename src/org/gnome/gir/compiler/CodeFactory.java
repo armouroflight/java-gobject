@@ -119,6 +119,7 @@ import com.sun.jna.Function;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
+import com.sun.jna.TypeMapper;
 import com.sun.jna.ptr.ByteByReference;
 import com.sun.jna.ptr.DoubleByReference;
 import com.sun.jna.ptr.FloatByReference;
@@ -1876,20 +1877,30 @@ public class CodeFactory {
 		String internalName = getInternalName(info);
 		String typeInit = info.getTypeInit();
 		boolean isRegistered = typeInit != null;
-		boolean hasFields = fields.length > 0;
-		if (hasFields) {
-			compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
-					(isRegistered ? "org/gnome/gir/gobject/Boxed" : "com/sun/jna/") + type, null);
+		String parentInternalName;
+		boolean hasFields = fields.length > 0;		
+		if (isRegistered) {
+			if (hasFields)
+				parentInternalName = "org/gnome/gir/gobject/Boxed" + type;
+			else
+				parentInternalName = "org/gnome/gir/gobject/GBoxed";	
 		} else {
-			compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
-					"com/sun/jna/PointerType", null);
+			if (hasFields)
+				parentInternalName = "com/sun/jna/" + type;				
+			else
+				parentInternalName = "com/sun/jna/PointerType";
+		}
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER, internalName, null, 
+				parentInternalName, null);
+		
+		if (!hasFields) {
 			/* Write out a no-args ctor, though people shouldn't use this */
 			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 			mv.visitCode();
 			Label l0 = new Label();
 			mv.visitLabel(l0);
 			mv.visitVarInsn(ALOAD, 0);
-			mv.visitMethodInsn(INVOKESPECIAL, "com/sun/jna/PointerType", "<init>", "()V");
+			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "()V");
 			mv.visitInsn(RETURN);
 			Label l1 = new Label();
 			mv.visitLabel(l1);
@@ -1898,8 +1909,31 @@ public class CodeFactory {
 			mv.visitEnd();			
 		}
 		
-		if (hasFields && isRegistered)
-			writeGetGType(info, compilation);
+		if (isRegistered) {			
+			/* constructor; protected, taking GType, Pointer, TypeMapper; used in GValue */			
+			MethodVisitor mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { Type.getType(GType.class), Type.getType(Pointer.class), Type.getType(TypeMapper.class)} ), 
+					null, null);
+			mv.visitCode();
+			Label l0 = new Label();
+			mv.visitLabel(l0);
+			mv.visitVarInsn(ALOAD, 0);
+			mv.visitVarInsn(ALOAD, 1);
+			mv.visitVarInsn(ALOAD, 2);
+			mv.visitVarInsn(ALOAD, 3);			
+			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { Type.getType(GType.class), Type.getType(Pointer.class), Type.getType(TypeMapper.class)} ));
+			mv.visitInsn(RETURN);
+			Label l1 = new Label();
+			mv.visitLabel(l1);
+			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+			mv.visitLocalVariable("gtype", Type.getDescriptor(GType.class), null, l0, l1, 0);		
+			mv.visitLocalVariable("ptr", Type.getDescriptor(Pointer.class), null, l0, l1, 0);				
+			mv.visitLocalVariable("mapper", Type.getDescriptor(TypeMapper.class), null, l0, l1, 0);		
+			mv.visitMaxs(0, 0);
+			mv.visitEnd();			
+						
+		}
 		
 		if (hasFields) {
 			InnerClassCompilation byRef = compilation.newInner("ByReference");
@@ -1916,8 +1950,6 @@ public class CodeFactory {
 					new String[] { "com/sun/jna/Structure$ByValue" });
 			writeStructUnionInnerCtor(byValue, internalName, fields);
 
-			String parentInternalName = "com/sun/jna/" + type;
-			
 			/* constructor; public no-args */
 			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
 			mv.visitCode();
@@ -1935,21 +1967,23 @@ public class CodeFactory {
 			mv.visitEnd();
 
 			/* constructor; protected, taking TypeMapper */			
-			mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", "(Lcom/sun/jna/TypeMapper;)V", null, null);
+			mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { Type.getType(TypeMapper.class)} ), null, null);
 			mv.visitCode();
 			l0 = new Label();
 			mv.visitLabel(l0);
 			mv.visitVarInsn(ALOAD, 0);
 			mv.visitVarInsn(ALOAD, 1);
-			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
+			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", 
+					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { Type.getType(TypeMapper.class)} ));
 			mv.visitInsn(RETURN);
 			l1 = new Label();
 			mv.visitLabel(l1);
 			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-			mv.visitLocalVariable("mapper", "Lcom/sun/jna/TypeMapper;", null, l0, l1, 0);		
+			mv.visitLocalVariable("mapper", Type.getDescriptor(TypeMapper.class), null, l0, l1, 0);		
 			mv.visitMaxs(0, 0);
 			mv.visitEnd();
-			
+
 			/* constructor that takes all of the fields */
 			LocalVariableTable locals = new LocalVariableTable(Type.getObjectType(compilation.internalName), null, null);			
 			List<Type> args = new ArrayList<Type>();

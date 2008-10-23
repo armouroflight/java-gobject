@@ -62,6 +62,7 @@ public interface GBoxedAPI extends Library {
 	});
     
     GType g_closure_get_type();
+    GType g_hash_table_get_type();    
     Pointer g_boxed_copy(GType gtype, Pointer obj);
     void g_boxed_free(GType gtype, Pointer obj);    
 }

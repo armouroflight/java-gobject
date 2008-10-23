@@ -211,7 +211,8 @@ public class GValue extends com.sun.jna.Structure {
 			return GValueAPI.gvalue.g_value_get_string(this);
 		} else if (fundamental.equals(GType.OBJECT)) {
 			return GValueAPI.gvalue.g_value_dup_object(this);
-			/* FIXME implement boxed mapping */
+		} else if (fundamental.equals(GType.BOXED)) {
+			return GBoxed.boxedFor(g_type, GValueAPI.gvalue.g_value_dup_boxed(this));
 		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.OBJECT)) {
 			return GValueAPI.gvalue.g_value_dup_object(transform(this, GType.OBJECT));
 		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.INT)) {

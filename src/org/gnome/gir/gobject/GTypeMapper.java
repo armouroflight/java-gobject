@@ -190,7 +190,7 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
     
     private TypeConverter booleanConverter = new TypeConverter() {
         public Object toNative(Object arg, ToNativeContext context) {
-            return Integer.valueOf(Boolean.TRUE.equals(arg) ? 1 : 0);
+            return Integer.valueOf(((Boolean) arg).booleanValue() ? 1 : 0);
         }
 
         public Object fromNative(Object arg0, FromNativeContext arg1) {

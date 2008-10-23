@@ -1,10 +1,12 @@
 
 
+import org.gnome.gir.gobject.BoxedStructure;
+import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
 
 import com.sun.jna.Structure;
 
-public class TestStructure extends Structure {
+public class TestStructure extends BoxedStructure {
 	public static class ByValue extends TestStructure implements Structure.ByValue {
 		
 	};
@@ -17,6 +19,10 @@ public class TestStructure extends Structure {
 	public String foo;
 	public int bar;
 	public TestStructure.ByRereference refed;
+	
+	public static GType getGType() {
+		return GType.INVALID;
+	}
 	
 	public TestStructure(String foo, int bar) {
 		super(GTypeMapper.getInstance());		

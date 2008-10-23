@@ -7,20 +7,24 @@ import com.sun.jna.TypeMapper;
 
 public abstract class BoxedStructure extends Structure implements RegisteredType {
 
-	private boolean isNative = false;
+	private final GType gtype;
+	private final boolean isNative;
 	
 	protected BoxedStructure(TypeMapper mapper) {
 		super(mapper);
+		gtype = GType.INVALID; // Should not be used
+		isNative = false;
 	}	
 	
-	public BoxedStructure(Pointer pointer) {
-		Pointer retptr = GBoxedAPI.gboxed.g_boxed_copy(GType.of(this.getClass()), pointer);		
-		useMemory(retptr);
+	protected BoxedStructure(GType gtype, Pointer pointer, TypeMapper mapper) {
+		super(mapper);
+		useMemory(pointer);		
+		this.gtype = gtype;
 		isNative = true;
 	}
-
-	protected void free() {
-		GBoxedAPI.gboxed.g_boxed_free(GType.of(this.getClass()), this.getPointer());
+	
+	protected void free() {	
+		GBoxedAPI.gboxed.g_boxed_free(gtype, this.getPointer());
 	}
 	
 	@Override
@@ -32,6 +36,6 @@ public abstract class BoxedStructure extends Structure implements RegisteredType
 	
 	@Override
 	public String toString() {
-		return GObjectAPI.gobj.g_type_name(GType.of(this.getClass())) + "(" + super.toString() + ")";
+		return String.format("BoxedStructure<%s>(%s)", GObjectAPI.gobj.g_type_name(gtype), super.toString());
 	}
 }

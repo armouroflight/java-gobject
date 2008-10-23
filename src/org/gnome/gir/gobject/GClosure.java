@@ -1,8 +1,10 @@
 package org.gnome.gir.gobject;
 
+import com.sun.jna.Pointer;
+
 
 public abstract class GClosure extends GBoxed {
-	public GType getType() {
-		return GBoxedAPI.gboxed.g_closure_get_type();
+	public GClosure(Pointer ptr) {
+		super(GBoxedAPI.gboxed.g_closure_get_type(), ptr);
 	}
 }
