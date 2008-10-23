@@ -114,11 +114,7 @@ public interface GlibAPI extends Library {
     void g_thread_set_priority(Pointer thread, int priority);
     void g_thread_exit(Pointer retval);
     
-    
-    
-    interface GSourceFunc extends Callback {
-        boolean callback(Pointer data);
-    }
+
     NativeLong g_idle_add(GSourceFunc function, Pointer data);
     interface GDestroyNotify extends Callback {
         void callback(Pointer data);
@@ -128,6 +124,7 @@ public interface GlibAPI extends Library {
     int g_timeout_add_full(int priority, int interval, GSourceFunc function,
             Pointer data, GDestroyNotify notify);
     int g_timeout_add_seconds(int interval, GSourceFunc function, Pointer data);
+    int g_timeout_add_seconds_full(int priority, int interval, GSourceFunc function, Pointer data, GDestroyNotify destroy);    
     void g_error_free(Pointer error);
     void g_error_free(GErrorStruct error);
     

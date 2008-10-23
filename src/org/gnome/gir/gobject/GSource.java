@@ -61,7 +61,7 @@ public class GSource extends RefCountedObject {
         return GlibAPI.glib.g_source_attach(this, context);
     }
     public void setCallback(final Callable<Boolean> call) {
-        this.callback = new GlibAPI.GSourceFunc() {
+        this.callback = new GSourceFunc() {
             public boolean callback(Pointer data) {
                 if (GlibAPI.glib.g_source_is_destroyed(handle())) {
                     return false;
@@ -75,7 +75,7 @@ public class GSource extends RefCountedObject {
         };
         GlibAPI.glib.g_source_set_callback(this, callback, null, null);
     }
-    private GlibAPI.GSourceFunc callback;
+    private GSourceFunc callback;
     
     protected void ref() {
         GlibAPI.glib.g_source_ref(handle());

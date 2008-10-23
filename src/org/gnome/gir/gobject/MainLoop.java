@@ -54,7 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.gnome.gir.gobject.GlibAPI.GSourceFunc;
 
 import com.sun.jna.Pointer;
 
@@ -219,7 +218,7 @@ public class MainLoop extends RefCountedObject {
 			public boolean callback(Pointer data) {
 				try {
 					r.run();
-				} catch (Throwable e) {
+				} catch (Exception e) {
 					Thread.currentThread().getUncaughtExceptionHandler()
 						.uncaughtException(Thread.currentThread(), e);
 				} finally {
@@ -234,7 +233,8 @@ public class MainLoop extends RefCountedObject {
     
     private int rawInvokeLater(final Runnable r) {
     	GSourceFunc func = sourceFuncForRunnable(r, null);
-    	return GlibAPI.glib.g_timeout_add(0, func, null);   	
+    	GlibAPI.GDestroyNotify destroy = GlibRuntime.createDestroyNotify(func);
+    	return GlibAPI.glib.g_timeout_add_full(0, 0, func, null, destroy);   	
     }
     
     /**
@@ -255,11 +255,12 @@ public class MainLoop extends RefCountedObject {
 				handle.setComplete();
 			}
     	});
+    	GlibAPI.GDestroyNotify destroy = GlibRuntime.createDestroyNotify(func);    	
     	int id;
     	if (units.equals(TimeUnit.SECONDS)) {
-    		id = GlibAPI.glib.g_timeout_add_seconds(timeout, func, null);
+    		id = GlibAPI.glib.g_timeout_add_seconds_full(0, timeout, func, null, destroy);
     	} else {
-    		id = GlibAPI.glib.g_timeout_add((int) units.toMillis(timeout), func, null);
+    		id = GlibAPI.glib.g_timeout_add_full(0, (int) units.toMillis(timeout), func, null, destroy);
     	}
     	handle.srcId = id;
     	return handle;

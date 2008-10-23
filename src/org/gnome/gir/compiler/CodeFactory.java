@@ -78,6 +78,8 @@ import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
+import org.gnome.gir.gobject.GlibAPI;
+import org.gnome.gir.gobject.GlibRuntime;
 import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.ArgInfo;
@@ -115,6 +117,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.util.CheckClassAdapter;
 
+import com.sun.jna.Callback;
 import com.sun.jna.Function;
 import com.sun.jna.Native;
 import com.sun.jna.NativeLibrary;
@@ -1392,7 +1395,7 @@ public class CodeFactory {
 		Map<Integer, Integer> lengthOfArrayIndices = new HashMap<Integer,Integer>();
 		Map<Integer, Integer> arrayToLengthIndices = new HashMap<Integer,Integer>();
 		Set<Integer> userDataIndices = new HashSet<Integer>();
-		Set<Integer> destroyNotifyIndices = new HashSet<Integer>();		
+		Map<Integer,Integer> destroyNotifyIndices = new HashMap<Integer,Integer>();		
 		
 		public CallableCompilationContext() {
 			// TODO Auto-generated constructor stub
@@ -1410,7 +1413,7 @@ public class CodeFactory {
 			Set<Integer> eliminated = new HashSet<Integer>();
 			eliminated.addAll(lengthOfArrayIndices.keySet());
 			eliminated.addAll(userDataIndices);
-			eliminated.addAll(destroyNotifyIndices);
+			eliminated.addAll(destroyNotifyIndices.keySet());
 			return eliminated;
 		}
 		
@@ -1473,6 +1476,7 @@ public class CodeFactory {
 		ArgInfo[] args = ctx.args;
 		
 		List<Type> types = new ArrayList<Type>();		
+		int firstSeenCallback = -1;
 		for (int i = 0; i < args.length; i++) {
 			ArgInfo arg = args[i];
 			Type t;
@@ -1484,34 +1488,38 @@ public class CodeFactory {
 				logger.warning("Skipping callable with invalid error argument: " + si.getIdentifier());
 				return null;
 			}
+			int argOffset = i;
+			if (ctx.isMethod) argOffset++;			
 			if (tag.equals(TypeTag.VOID) && arg.getName().contains("data")) {
-				int dataIdx = i;
-				if (ctx.isMethod) dataIdx++;
-				ctx.userDataIndices.add(dataIdx);
+				ctx.userDataIndices.add(argOffset);
 				continue;
 			} else if (isDestroyNotify(arg)) {
-				int dataIdx = i;
-				if (ctx.isMethod) dataIdx++;
-				ctx.destroyNotifyIndices.add(dataIdx);
+				if (firstSeenCallback == -1) {
+					logger.warning("Skipping callable with unpaired DestroyNotify: " + si.getIdentifier());
+					return null;
+				}
+				ctx.destroyNotifyIndices.put(argOffset, firstSeenCallback);
 				continue;
-			}
+			} else if (arg.getDirection() == Direction.IN &&
+					info.getTag().equals(TypeTag.INTERFACE) &&
+					info.getInterface() instanceof CallbackInfo) {
+				if (firstSeenCallback >= 0) {
+					logger.warning("Skipping callable with unpaired multiple callbacks: " + si.getIdentifier());
+					return null;					
+				}			
+				firstSeenCallback = argOffset;
+			} else if (tag.equals(TypeTag.ARRAY) && arg.getDirection().equals(Direction.IN)) {
+				int lenIdx = arg.getType().getArrayLength();
+				if (lenIdx >= 0) {
+					ctx.lengthOfArrayIndices.put(lenIdx, argOffset);
+					ctx.arrayToLengthIndices.put(argOffset, lenIdx);
+				}
+			}	
 			t = toJava(arg);
 			if (t == null) {
 				logger.warning(String.format("Unhandled argument %s in callable %s", arg, si.getIdentifier()));
 				return null;
 			}
-			if (tag.equals(TypeTag.ARRAY) && arg.getDirection().equals(Direction.IN)) {
-				int lenIdx = arg.getType().getArrayLength();
-				if (lenIdx >= 0) {
-					/* FIXME - remove this hack when the repository is fixed */
-					int arrIdx = i;
-					if (ctx.isMethod) {
-						arrIdx++;
-					} 
-					ctx.lengthOfArrayIndices.put(lenIdx, arrIdx);
-					ctx.arrayToLengthIndices.put(arrIdx, lenIdx);
-				}
-			}			
 			types.add(t);
 			ctx.argNames.add(arg.getName());
 		}
@@ -1723,6 +1731,7 @@ public class CodeFactory {
 			mv.visitIntInsn(BIPUSH, i);
 			Integer arraySource = ctx.lengthOfArrayIndices.get(i);
 			Integer lengthOfArray = ctx.arrayToLengthIndices.get(i);
+			Integer callbackIdx = ctx.destroyNotifyIndices.get(i);
 			if (arraySource != null) {
 				ArgInfo source = ctx.args[arraySource - (ctx.isMethod ? 1 : 0)];
 				assert source.getType().getTag().equals(TypeTag.ARRAY);
@@ -1735,12 +1744,15 @@ public class CodeFactory {
 			} else if (lengthOfArray != null) {
 				LocalVariable var = locals.get(lengthOfArray);
 				writeLoadArgument(mv, var.offset, var.type);
-			} else if (ctx.userDataIndices.contains(i) || ctx.destroyNotifyIndices.contains(i)) {
+			} else if (ctx.userDataIndices.contains(i)) {
 				/* Always pass null for user datas - Java allows environment capture */
-				/* For destroy notifies, we always pass null too; in the future we may want
-				 * to clean up any allocated callback data here?
-				 */
 				mv.visitInsn(ACONST_NULL);
+			} else if (callbackIdx != null) {
+				int offset = ctx.argOffsetToApi(callbackIdx);
+				LocalVariable var = locals.get(offset);
+				writeLoadArgument(mv, var.offset, var.type);				
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "createDestroyNotify", 
+						Type.getMethodDescriptor(getType(GlibAPI.GDestroyNotify.class), new Type[] { getType(Callback.class) } ));
 			} else if (!ctx.isMethod || i > 0) {
 				int localOff = ctx.argOffsetToApi(i);
 				LocalVariable var = locals.get(localOff);	

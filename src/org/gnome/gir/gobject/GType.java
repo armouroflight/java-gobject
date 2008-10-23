@@ -86,9 +86,10 @@ public class GType extends NativeLong {
 			put("GLib.Mutex", "org/gnome/gir/gobject/GlibAPI$GMutex");
 			put("GLib.StaticRecMutex", "org/gnome/gir/gobject/GlibAPI$GStaticRecMutex");
 			put("GLib.IOFunc", "org/gnome/gir/gobject/GIOFunc");
+			put("GLib.SourceFunc", "org/gnome/gir/gobject/GSourceFunc");		
 			
 			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
-					"SpawnChildSetupFunc", "SourceFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
+					"SpawnChildSetupFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func",
 					"ThreadPool", "Source", "CompareDataFunc", "Array", "Data", "DataSet", "Date", "IOChannel" };
 			for (String unmapped : glibPointerUnmapped)
 				put("GLib." + unmapped, "com/sun/jna/Pointer");
@@ -99,6 +100,7 @@ public class GType extends NativeLong {
 			put("GObject.ParamSpec", "org/gnome/gir/gobject/GObjectAPI$GParamSpec");
 			put("GObject.Parameter", "org/gnome/gir/gobject/GObjectAPI$GParameter");				
 			put("GObject.Object", "org/gnome/gir/gobject/GObject");
+			put("GObject.Callback", "com/sun/jna/Callback");
 			put("GObject.InitiallyUnowned", "org/gnome/gir/gobject/GInitiallyUnowned");					
 			put("GObject.Type", "org/gnome/gir/gobject/GType");
 			put("GObject.Value", "org/gnome/gir/gobject/GValue");			
@@ -124,7 +126,7 @@ public class GType extends NativeLong {
 			put("GObject.FlagsValue", "org/gnome/gir/gobject/GObjectAPI$GFlagsValue");
 			put("GObject.FlagsClass", "org/gnome/gir/gobject/GObjectAPI$GFlagsClass");
 			
-			String[] gobjectUnmapped = new String[] { "Callback", "BaseInitFunc", "InstanceInitFunc", 
+			String[] gobjectUnmapped = new String[] { "BaseInitFunc", "InstanceInitFunc", 
 					"SignalAccumulator", "ClosureMarshal", "ClassInitFunc", "SignalEmissionHook",
 					"IOChannel", "Date", "BaseFinalizeFunc", "ClassFinalizeFunc", "ValueArray" };
 			for (String unmapped : gobjectUnmapped)

@@ -33,7 +33,8 @@ public class Test extends GObject implements TestIface {
 	}
 	
 	public int bar(String foo, byte[] bytes) {
-		Function target = Internals.library.getFunction("gtk_write_buf");	
+		Function target = Internals.library.getFunction("gtk_write_buf");
+		
 		Object[] args = new Object[] { foo, bytes.length, bytes };
 		Integer result = (Integer) target.invoke(Integer.class, args, Internals.invocationOptions);
 		return result;

@@ -71,7 +71,7 @@ public abstract class GObject extends RefCountedObject {
     
     private static final boolean debugMemory = false;
     
-    private static final void debugMemory(String fmt, String... args) {
+    private static final void debugMemory(String fmt, Object... args) {
     	if (debugMemory)
     		System.err.println(String.format(fmt, (Object[])args));
     }
@@ -105,7 +105,6 @@ public abstract class GObject extends RefCountedObject {
     public GObject(Initializer init) { 
         super(init.needRef ? initializer(init.ptr, false, init.ownsHandle) : init);
         if (init.ownsHandle) {
-        	debugMemory("INIT OWNERSHIP " + this);
             strongReferences.put(this, Boolean.TRUE);
             
             /* Floating refs are just a convenience for C; we always want only strong
@@ -113,7 +112,6 @@ public abstract class GObject extends RefCountedObject {
              */
             boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
             if (wasFloating) {
-            	debugMemory("Sinking " + this);
             	GObjectAPI.gobj.g_object_ref_sink(this);
             }
             
@@ -224,22 +222,22 @@ public abstract class GObject extends RefCountedObject {
     }
     @Override
     protected void ref() {
-    	debugMemory("REF " + this);    	
+    	debugMemory("REF %s", this);    	
     	GObjectAPI.gobj.g_object_ref(this);
     }
 
     @Override
     protected void unref() {
-    	debugMemory("UNREF " + this);    	
+    	debugMemory("UNREF %s", this);    	
     	GObjectAPI.gobj.g_object_unref(this);
     }
     protected void invalidate() {
         try {
-        	debugMemory("INVALIDATE " + this);        	
+        	debugMemory("INVALIDATE %s", this);        	
             // Need to increase the ref count before removing the toggle ref, so 
             // ensure the native object is not destroyed.
             if (ownsHandle.get()) {
-            	debugMemory("REMOVING TOGGLE " + this);             	
+            	debugMemory("REMOVING TOGGLE %s", this);             	
                 ref();
 
                 // Disconnect the callback.
@@ -323,7 +321,6 @@ public abstract class GObject extends RefCountedObject {
              * be retained for later retrieval
              */
             GObject o = (GObject) NativeObject.instanceFor(ptr);
-            debugMemory(String.format("TOGGLE o=%s is_last=%s", o, is_last_ref));
             if (o == null) {
                 return;
             }
@@ -339,7 +336,7 @@ public abstract class GObject extends RefCountedObject {
 		@Override
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) NativeObject.instanceFor(obj);
-            debugMemory(String.format("WEAK o=%s obj=%s", o, obj));			
+            debugMemory("WEAK o=%s obj=%s", o, obj);			
 			// Clear out the signal handler references
 			if (o == null)
 				return;
