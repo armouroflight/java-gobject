@@ -24,7 +24,7 @@ public class Repository extends PointerType {
 		
 	public void require(String namespace, String version) throws GErrorException {
 		PointerByReference error = new PointerByReference(null);
-		if (!GIntrospectionAPI.gi.g_irepository_require(this, namespace, version, 0, error)) {
+		if (GIntrospectionAPI.gi.g_irepository_require(this, namespace, version, 0, error) == null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}
 	}
