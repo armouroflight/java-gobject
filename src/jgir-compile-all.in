@@ -2,17 +2,18 @@
 import os,sys,subprocess
 
 classpath="@CLASSPATH@"
+prefix="@PREFIX@"
+libdir=os.path.join(prefix, "lib64")
+if not os.path.isdir(libdir):
+    libdir = os.path.join(prefix, "lib")
 java_opts=os.environ.get('JAVA_OPTS', None)
 if java_opts:
     java_opts = java_opts.split(' ')
 else:
     java_opts = []
-datadirs = os.environ.get('XDG_DATA_DIRS', '/usr/share')
 nsversions = []
-for dirname in datadirs.split(':'):
+def compile_typelibs(dirname):
     repodir = os.path.join(dirname, 'girepository')
-    if not os.access(repodir, os.W_OK):
-        continue
     for name in os.listdir(repodir):
         if not name.endswith('.typelib'):
             continue
@@ -27,6 +28,8 @@ for dirname in datadirs.split(':'):
                               stdout=sys.stdout,
                               stderr=sys.stderr,
                               close_fds=True)
+compile_typelibs(libdir)
+
 subprocess.check_call(['java', '-cp', classpath, 'org.gnome.gir.compiler.CodeFactory',
                        '--verify', ','.join(nsversions)],
                       stdout=sys.stdout,

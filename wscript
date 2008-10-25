@@ -69,7 +69,7 @@ def build(bld):
   compscript.chmod = 0755
   compscript.source = 'src/jgir-compile-all.in'
   compscript.target = 'jgir-compile-all'
-  compscript.dict = {'CLASSPATH': full_cp}
+  compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX']}
 
   compscript = bld.new_task_gen('subst')
   compscript.install_path = "${PREFIX}/bin"
