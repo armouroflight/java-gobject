@@ -18,7 +18,7 @@ public abstract class BoxedStructure extends Structure implements RegisteredType
 	
 	protected BoxedStructure(GType gtype, Pointer pointer, TypeMapper mapper) {
 		super(mapper);
-		useMemory(pointer);		
+		useMemory(pointer);
 		this.gtype = gtype;
 		isNative = true;
 	}

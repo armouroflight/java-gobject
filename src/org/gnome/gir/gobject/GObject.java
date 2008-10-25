@@ -214,7 +214,7 @@ public abstract class GObject extends RefCountedObject {
         final GType propType = propertySpec.value_type;
         GValue propValue = new GValue(propType);
         GObjectAPI.gobj.g_object_get_property(this, property, propValue);
-        return propValue.unbox();
+        return propValue.unboxAndUnset();
     }
     
     protected void disposeNativeHandle(Pointer ptr) {

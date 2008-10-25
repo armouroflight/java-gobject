@@ -9,7 +9,7 @@ import com.sun.jna.TypeMapper;
 
 public abstract class GBoxed extends PointerType implements RegisteredType {
 	
-	protected GType gtype;
+	protected GType gtype = GType.INVALID;
 	
 	public GBoxed(GType gtype, Pointer ptr) {
 		super(ptr);
@@ -36,9 +36,6 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	
 	public static Pointer getPointerFor(Object data) {
 		Pointer ptr;
-		/* Since we're denaturing it here, we need to ensure that the structure
-		 * is written to native memory.
-		 */
 		if (data instanceof BoxedStructure) {
 			ptr = ((BoxedStructure) data).getPointer();
 		} else if (data instanceof BoxedUnion) {
@@ -48,6 +45,9 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 		} else {	
 			throw new RuntimeException("Invalid unboxed object " + data);
 		}
+		/* Since we're denaturing it here, we need to ensure that the structure
+		 * is written to native memory.
+		 */		
 		if (data instanceof Structure)
 			((Structure) data).write();		
 		return ptr;

@@ -68,12 +68,16 @@ public class GValue extends com.sun.jna.Structure {
         GValueAPI.gvalue.g_value_init(this, type);
 	}
 	
-	@Override
-	public void finalize() throws Throwable {
+	protected void free() {
 		if (ownsHandle) {
 			GValueAPI.gvalue.g_value_unset(this.getPointer());
 			ownsHandle = false;
-		}
+		}		
+	}
+	
+	@Override
+	public void finalize() throws Throwable {
+		free();
 		super.finalize();
 	}
 	
@@ -182,6 +186,12 @@ public class GValue extends com.sun.jna.Structure {
         }
         throw new IllegalArgumentException("Expected double value, not " + value.getClass());
     }    
+    
+    public Object unboxAndUnset() {
+    	Object ret = unbox();
+    	free();
+    	return ret;
+    }
 	
 	public Object unbox() {
 		GType fundamental = g_type.getFundamental();		
