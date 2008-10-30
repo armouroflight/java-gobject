@@ -48,7 +48,7 @@ public class GlibRuntime {
 		final CallbackData data = new CallbackData();
 		GlibAPI.GDestroyNotify destroy = new GlibAPI.GDestroyNotify() {
 			@Override
-			public void callback(Pointer data) {
+			public void callback(Pointer ignored) {
 				outstandingCallbacks.remove(data);
 			}
 		};
