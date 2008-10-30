@@ -42,6 +42,9 @@ public class GlibRuntime {
 		= Collections.synchronizedSet(new HashSet<CallbackData>());
 	
 	public static final GlibAPI.GDestroyNotify createDestroyNotify(Callback callback) {
+		if (callback == null)
+			return null;
+		
 		final CallbackData data = new CallbackData();
 		GlibAPI.GDestroyNotify destroy = new GlibAPI.GDestroyNotify() {
 			@Override
