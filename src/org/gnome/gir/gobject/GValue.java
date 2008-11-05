@@ -45,48 +45,12 @@
 
 package org.gnome.gir.gobject;
 
-import java.net.URI;
-
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
 public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;
-	
-	private boolean ownsHandle;
-	
-	protected GValue() {
-	}
-	
-	public GValue(GType type) {
-		super();
-		ownsHandle = true;
-		if (type == null)
-			throw new NullPointerException();
-		g_type = GType.INVALID;
-        GValueAPI.gvalue.g_value_init(this, type);
-	}
-	
-	protected void free() {
-		if (ownsHandle) {
-			GValueAPI.gvalue.g_value_unset(this.getPointer());
-			ownsHandle = false;
-		}		
-	}
-	
-	@Override
-	public void finalize() throws Throwable {
-		free();
-		super.finalize();
-	}
-	
-	public static GValue box(Object obj) {
-		GType type = GType.valueOf(obj.getClass());
-		GValue val = new GValue(type);
-		val.set(obj);
-		return val;
-	}
 	
 	/* public for GTypeValueTable methods */
 	public static class GValueData extends com.sun.jna.Union {
@@ -98,101 +62,32 @@ public class GValue extends com.sun.jna.Structure {
 		public volatile Pointer v_pointer;
 	}
 
-	public volatile GValueData data[] = new GValueData[2];
+	public volatile GValueData data[] = new GValueData[2];	
 	
-    private static GValue transform(GValue src, GType dstType) {
-        GValue dst = new GValue(dstType);
-        GValueAPI.gvalue.g_value_transform(src, dst);
-        return dst;
-    }
-    private static void transform(Object data, GType type, GValue dst) {
-        GValue src = new GValue(type);
-        setGValue(src, type, data);
-        GValueAPI.gvalue.g_value_transform(src, dst);
-    }	
-    
-    private static boolean setGValue(GValue value, GType type, Object data) {
-        if (type.equals(GType.INT)) {
-            GValueAPI.gvalue.g_value_set_int(value, intValue(data));
-        } else if (type.equals(GType.UINT)) {
-            GValueAPI.gvalue.g_value_set_uint(value, intValue(data));
-        } else if (type.equals(GType.CHAR)) {
-            GValueAPI.gvalue.g_value_set_char(value, (byte) intValue(data));
-        } else if (type.equals(GType.UCHAR)) {
-            GValueAPI.gvalue.g_value_set_uchar(value, (byte) intValue(data));
-        } else if (type.equals(GType.LONG)) {
-            GValueAPI.gvalue.g_value_set_long(value, new NativeLong(longValue(data)));
-        } else if (type.equals(GType.ULONG)) {
-            GValueAPI.gvalue.g_value_set_ulong(value, new NativeLong(longValue(data)));
-        } else if (type.equals(GType.INT64)) {
-            GValueAPI.gvalue.g_value_set_int64(value, longValue(data));
-        } else if (type.equals(GType.UINT64)) {
-            GValueAPI.gvalue.g_value_set_uint64(value, longValue(data));
-        } else if (type.equals(GType.BOOLEAN)) {
-            GValueAPI.gvalue.g_value_set_boolean(value, booleanValue(data));
-        } else if (type.equals(GType.FLOAT)) {
-            GValueAPI.gvalue.g_value_set_float(value, floatValue(data));
-        } else if (type.equals(GType.DOUBLE)) {
-            GValueAPI.gvalue.g_value_set_double(value, doubleValue(data));
-        } else {
-            return false;
-        }
-        return true;
-    }
-    
-    private static boolean booleanValue(Object value) {
-        if (value instanceof Boolean) {
-            return ((Boolean) value).booleanValue();
-        } else if (value instanceof Number) {
-            return ((Number) value).intValue() != 0;
-        } else if (value instanceof String) {
-            return Boolean.parseBoolean((String) value);
-        }
-        throw new IllegalArgumentException("Expected boolean value, not " + value.getClass());
-    }
-    private static int intValue(Object value) {
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        } else if (value instanceof String) {
-            return Integer.parseInt((String) value);
-        } else if (value instanceof Enum) {
-        	return EnumMapper.getInstance().intValue((Enum<?>) value);
-        }
-        throw new IllegalArgumentException("Expected integer value, not " + value.getClass());
-    }
-    private static long longValue(Object value) {
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        } else if (value instanceof String) {
-            return Long.parseLong((String) value);
-        } else if (value instanceof Enum) {
-        	return EnumMapper.getInstance().intValue((Enum<?>) value);
-        }
-        throw new IllegalArgumentException("Expected long value, not " + value.getClass());
-    }
-    private static float floatValue(Object value) {
-        if (value instanceof Number) {
-            return ((Number) value).floatValue();
-        } else if (value instanceof String) {
-            return Float.parseFloat((String) value);
-        }
-        throw new IllegalArgumentException("Expected float value, not " + value.getClass());
-    }
-    private static double doubleValue(Object value) {
-        if (value instanceof Number) {
-            return  ((Number) value).doubleValue();
-        } else if (value instanceof String) {
-            return Double.parseDouble((String) value);
-        }
-        throw new IllegalArgumentException("Expected double value, not " + value.getClass());
-    }    
-    
+	public GValue(GType type) {
+		super();
+		if (type == null)
+			throw new NullPointerException();
+		g_type = GType.INVALID;
+        GValueAPI.gvalue.g_value_init(this, type);
+	}
+	
+	public GValue(GType expected, Object object) {
+		this(expected);
+		set(object);
+	}
+	
+	public void unset() {	
+		GValueAPI.gvalue.g_value_unset(this.getPointer());
+	}
+
     public Object unboxAndUnset() {
     	Object ret = unbox();
-    	free();
+    	unset();
     	return ret;
     }
 	
+	@SuppressWarnings("unchecked")
 	public Object unbox() {
 		GType fundamental = g_type.getFundamental();		
 		if (fundamental.equals(GType.INT)) {
@@ -223,78 +118,58 @@ public class GValue extends com.sun.jna.Structure {
 			return GValueAPI.gvalue.g_value_dup_object(this);
 		} else if (fundamental.equals(GType.BOXED)) {
 			return GBoxed.boxedFor(g_type, GValueAPI.gvalue.g_value_dup_boxed(this));
-		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.OBJECT)) {
-			return GValueAPI.gvalue.g_value_dup_object(transform(this, GType.OBJECT));
-		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.INT)) {
-			return GValueAPI.gvalue.g_value_get_int(transform(this, GType.INT));
-		} else if (GValueAPI.gvalue.g_value_type_transformable(g_type, GType.INT64)) {
-			return GValueAPI.gvalue.g_value_get_int64(transform(this, GType.INT64));
+		} else if (fundamental.equals(GType.ENUM)) {
+			Class<? extends Enum> klass = (Class<? extends Enum>) GType.lookupProxyClass(g_type);
+			if (!Enum.class.isAssignableFrom(klass))
+				throw new RuntimeException();
+			int value = GValueAPI.gvalue.g_value_get_enum(this);
+			Enum<? extends Enum<?>> result = (Enum<? extends Enum<?>>) EnumMapper.getInstance().valueOf(value, klass);
+			return result;
 		} else {
-			throw new IllegalArgumentException("Unknown conversion from GType=" + g_type);
+			throw new IllegalArgumentException("Unsupported GType " + g_type);
 		}
 	}
 	
-	public void set(Object data) {
+	private void set(Object data) {
 		GType fundamental = g_type.getFundamental();
 	    if (fundamental.equals(GType.INT)) {
-			GValueAPI.gvalue.g_value_set_int(this, intValue(data));
+			GValueAPI.gvalue.g_value_set_int(this, (Integer) data);
 		} else if (fundamental.equals(GType.UINT)) {
-			GValueAPI.gvalue.g_value_set_uint(this, intValue(data));
+			GValueAPI.gvalue.g_value_set_uint(this, (Integer) data);
 		} else if (fundamental.equals(GType.CHAR)) {
-			GValueAPI.gvalue.g_value_set_char(this, (byte) intValue(data));
+			GValueAPI.gvalue.g_value_set_char(this, (Byte) data);
 		} else if (fundamental.equals(GType.UCHAR)) {
-			GValueAPI.gvalue.g_value_set_uchar(this, (byte) intValue(data));
+			GValueAPI.gvalue.g_value_set_uchar(this, (Byte) data);
 		} else if (fundamental.equals(GType.LONG)) {
-			GValueAPI.gvalue.g_value_set_long(this, new NativeLong(longValue(data)));
+			GValueAPI.gvalue.g_value_set_long(this, new NativeLong((Long) data));
 		} else if (fundamental.equals(GType.ULONG)) {
-			GValueAPI.gvalue.g_value_set_ulong(this, new NativeLong(longValue(data)));
+			GValueAPI.gvalue.g_value_set_ulong(this, new NativeLong((Long) data));
 		} else if (fundamental.equals(GType.INT64)) {
-			GValueAPI.gvalue.g_value_set_int64(this, longValue(data));
+			GValueAPI.gvalue.g_value_set_int64(this, (Long) data);
 		} else if (fundamental.equals(GType.UINT64)) {
-			GValueAPI.gvalue.g_value_set_uint64(this, longValue(data));
+			GValueAPI.gvalue.g_value_set_uint64(this, (Long) data);
 		} else if (fundamental.equals(GType.BOOLEAN)) {
-			GValueAPI.gvalue.g_value_set_boolean(this, booleanValue(data));
+			GValueAPI.gvalue.g_value_set_boolean(this, (Boolean) data);
 		} else if (fundamental.equals(GType.FLOAT)) {
-			GValueAPI.gvalue.g_value_set_float(this, floatValue(data));
+			GValueAPI.gvalue.g_value_set_float(this, (Float) data);
 		} else if (fundamental.equals(GType.DOUBLE)) {
-			GValueAPI.gvalue.g_value_set_double(this, doubleValue(data));
+			GValueAPI.gvalue.g_value_set_double(this, (Double) data);
 		} else if (fundamental.equals(GType.STRING)) {
-			//
-			// Special conversion of java URI to gstreamer compatible uri
-			//
-			if (data instanceof URI) {
-				URI uri = (URI) data;
-				String uriString = uri.toString();
-				// Need to fixup file:/ to be file:/// for gstreamer
-				if ("file".equals(uri.getScheme()) && uri.getHost() == null) {
-					final String path = uri.getRawPath();
-					if (com.sun.jna.Platform.isWindows()) {
-						uriString = "file:/" + path;
-					} else {
-						uriString = "file://" + path;
-					}
-				}
-				GValueAPI.gvalue.g_value_set_string(this, uriString);
-			} else {
-				GValueAPI.gvalue.g_value_set_string(this, data.toString());
-			}
+			GValueAPI.gvalue.g_value_set_string(this, (String) data);
 		} else if (fundamental.equals(GType.OBJECT)) {
 			GValueAPI.gvalue.g_value_set_object(this, (GObject) data);
 		} else if (fundamental.equals(GType.BOXED)) {
 			Pointer ptr = GBoxed.getPointerFor(data);
 			GValueAPI.gvalue.g_value_set_boxed(this, ptr);
-		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.INT64, g_type)) {
-			transform(data, GType.INT64, this);
-		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.LONG, g_type)) {
-			transform(data, GType.LONG, this);
-		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.INT, g_type)) {
-			transform(data, GType.INT, this);
-		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.DOUBLE, g_type)) {
-			transform(data, GType.DOUBLE, this);
-		} else if (GValueAPI.gvalue.g_value_type_transformable(GType.FLOAT, g_type)) {
-			transform(data, GType.FLOAT, this);
+		} else if (fundamental.equals(GType.ENUM)) {
+			GValueAPI.gvalue.g_value_set_enum(this, EnumMapper.getInstance().intValue((Enum<?>) data));
 		} else {
-			throw new RuntimeException(String.format("Unsupported transformation of GType %s",  g_type));
+			throw new RuntimeException(String.format("Unsupported GType " + g_type));
 		}
+	}
+	
+	@Override
+	public String toString() {
+		return String.format("<GValue type=%s>", g_type);
 	}
 }

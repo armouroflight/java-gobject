@@ -194,9 +194,9 @@ public abstract class GObject extends RefCountedObject {
         }
         final GType propType = propertySpec.value_type;
         
-        GValue propValue = new GValue(propType);
-        propValue.set(data);
+        GValue propValue = new GValue(propType, data);
         GObjectAPI.gobj.g_object_set_property(this, property, propValue);
+        propValue.unset();
     }
     
     /**
