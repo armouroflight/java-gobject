@@ -1827,8 +1827,10 @@ public class CodeFactory {
 		
 		globals.clinit = mv;
 	}
+
+	private static final class PrivateNamespaceException extends Exception {};
 	
-	private void compileNamespaceSingle(String namespace, String version) {
+	private void compileNamespaceSingle(String namespace, String version) throws PrivateNamespaceException {
 		alreadyCompiled.add(namespace);
 		
 		try {
@@ -1837,6 +1839,9 @@ public class CodeFactory {
 		} catch (GErrorException e) {
 			throw new RuntimeException(e);
 		}
+		
+		if (repo.getSharedLibrary(namespace) == null)
+			throw new PrivateNamespaceException();
 		
 		String globalName = namespace + "Globals";
 		String peerInternalName = GType.getInternalName(namespace, globalName);
@@ -1851,7 +1856,7 @@ public class CodeFactory {
 		global.close();
 	}	
 	
-	private List<ClassCompilation> compileNamespace(String namespace, String version) {
+	private List<ClassCompilation> compileNamespace(String namespace, String version) throws PrivateNamespaceException {
 		compileNamespaceSingle(namespace, version);
 		return finish();
 	}
@@ -1869,7 +1874,7 @@ public class CodeFactory {
 		return ret;		
 	}
 	
-	private List<ClassCompilation> compileNamespaceRecursive(String namespace) {
+	private List<ClassCompilation> compileNamespaceRecursive(String namespace) throws PrivateNamespaceException {
 		pendingCompilation.add(namespace);
 		while (pendingCompilation.size() > 0) {
 			String pending = pendingCompilation.iterator().next();
@@ -1882,7 +1887,7 @@ public class CodeFactory {
 		return finish();
 	}
 	
-	private static List<ClassCompilation> getStubsUnlocked(Repository repo, String namespace) {
+	private static List<ClassCompilation> getStubsUnlocked(Repository repo, String namespace) throws PrivateNamespaceException {
 		List<ClassCompilation> ret = loadedRepositories.get(namespace);
 		if (ret != null) {
 			return ret;
@@ -1897,13 +1902,13 @@ public class CodeFactory {
 		return ret;
 	}
 	
-	public static List<ClassCompilation> getNativeStubs(Repository repo, String namespace) {
+	public static List<ClassCompilation> getNativeStubs(Repository repo, String namespace) throws PrivateNamespaceException {
 		synchronized (loadedRepositories) {
 			return getStubsUnlocked(repo, namespace);
 		}
 	}
 	
-	public static List<ClassCompilation> compile(Repository repo, String namespace, String version) {
+	public static List<ClassCompilation> compile(Repository repo, String namespace, String version) throws PrivateNamespaceException {
 		CodeFactory cf = new CodeFactory(repo);
 		return cf.compileNamespace(namespace, version);
 	}
@@ -1938,6 +1943,8 @@ public class CodeFactory {
 		
 		if (destFile == null) {
 			destFile = getJarPath(namespace);
+			if (destFile == null)
+				return null;
 			logger.info("Will install to: " + destFile);
 		}
 		
@@ -1948,7 +1955,12 @@ public class CodeFactory {
 		
 		logger.info(String.format("Compiling namespace: %s version: %s", namespace, version));
 		List<ClassCompilation> stubs;
-		stubs = CodeFactory.compile(repo, namespace, version);
+		try {
+			stubs = CodeFactory.compile(repo, namespace, version);
+		} catch (PrivateNamespaceException e) {
+			logger.info(String.format("Skipping namespace %s with no shared library", namespace));
+			return null;
+		}
 
 		Set<String> classNames = new HashSet<String>();
 		ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(destFile));
@@ -2016,7 +2028,10 @@ public class CodeFactory {
 	}
 	
 	public static File getJarPath(String namespace) {
-		File typelibPath = new File(Repository.getDefault().getTypelibPath(namespace));
+		String path = Repository.getDefault().getTypelibPath(namespace);
+		if (path == null)
+			return null;
+		File typelibPath = new File(path);
 		String version = Repository.getDefault().getNamespaceVersion(namespace);
 		return new File(typelibPath.getParent(), String.format("%s-%s.jar", namespace, version));		
 	}
@@ -2033,11 +2048,14 @@ public class CodeFactory {
 			
 			if (namespaceIsExcluded(namespace))
 				continue;
+			File jarPath = getJarPath(namespace);
+			if (jarPath == null)
+				continue;
 			
 			Set<File> jarPaths = new HashSet<File>();
 						
 			Repository.getDefault().require(namespace, version);
-			jarPaths.add(getJarPath(namespace));
+			jarPaths.add(jarPath);
 			
 			String[] deps = Repository.getDefault().getDependencies(namespace);
 			if (deps != null) {
