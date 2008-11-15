@@ -267,8 +267,11 @@ public class TypeMap {
 	static boolean isAssignableFrom(InterfaceInfo lhs, InterfaceInfo rhs) {
 		if (lhs.equals(rhs))
 			return true;
-		List<InterfaceInfo> prereqs = Arrays.asList(lhs.getPrerequisites());
-		for (InterfaceInfo iface : prereqs) {
+		List<BaseInfo> prereqs = Arrays.asList(lhs.getPrerequisites());
+		for (BaseInfo prereq : prereqs) {
+			if (!(prereq instanceof InterfaceInfo))
+				continue;
+			InterfaceInfo iface = (InterfaceInfo) prereq;
 			if (isAssignableFrom(iface, rhs))
 				return true;
 		}

@@ -6,9 +6,9 @@ public class InterfaceInfo extends RegisteredTypeInfo {
 		super(init);
 	}
 	
-	public InterfaceInfo[] getPrerequisites() {
+	public BaseInfo[] getPrerequisites() {
 		int n = GIntrospectionAPI.gi.g_interface_info_get_n_prerequisites(this);
-		InterfaceInfo[] ret= new InterfaceInfo[n];
+		BaseInfo[] ret= new BaseInfo[n];
 		for (int i = 0; i < n; i++)
 			ret[i] = GIntrospectionAPI.gi.g_interface_info_get_prerequisite(this, i);
 		return ret;

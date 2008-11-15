@@ -174,7 +174,7 @@ interface GIntrospectionAPI extends Library {
 								     int            n);
 	
 	int                   g_interface_info_get_n_prerequisites (InterfaceInfo info);
-	InterfaceInfo           g_interface_info_get_prerequisite    (InterfaceInfo info,
+	BaseInfo           g_interface_info_get_prerequisite    (InterfaceInfo info,
 								     int        n);
 	int                   g_interface_info_get_n_properties    (InterfaceInfo info);
 	PropertyInfo       g_interface_info_get_property        (InterfaceInfo info,
