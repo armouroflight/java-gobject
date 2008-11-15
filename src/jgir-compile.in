@@ -2,6 +2,8 @@
 import os,sys,subprocess
 
 classpath="@CLASSPATH@"
+# Just put this one in the env
+os.environ['TYPELIBDIR'] = "@TYPELIBDIR@"
 java_opts=os.environ.get('JAVA_OPTS', None)
 if java_opts:
     java_opts = java_opts.split(' ')

@@ -5,6 +5,7 @@ import os
 
 import Task,TaskGen,Node
 from TaskGen import *
+import pproc
 
 # the following two variables are used by the target "waf dist"
 VERSION='0.1.0'
@@ -44,9 +45,16 @@ Task.simple_task_type('jgir_compile', 'jgir-compile ${SHLIB} ${NAMESPACE} ${TGT}
 def set_options(opt):
   pass
 
+def get_pkgconfig_var(conf, module, var):
+  conf.env[var] = pproc.Popen(['pkg-config', '--variable='+var, module],
+                              stdout=pproc.PIPE).communicate()[0].strip()
+
 def configure(conf):
   conf.check_tool('gcc gnome java misc')
+
   conf.check_pkg('gobject-introspection-1.0', destvar='GI', mandatory=True)
+  get_pkgconfig_var(conf, 'gobject-introspection-1.0', 'typelibdir')
+
   conf.require_java_class('java.lang.Object')
   asm_deps = ['asm', 'asm-util', 'asm-tree', 'asm-commons', 'asm-analysis']
   for dep in asm_deps:
@@ -69,14 +77,15 @@ def build(bld):
   compscript.chmod = 0755
   compscript.source = 'src/jgir-compile-all.in'
   compscript.target = 'jgir-compile-all'
-  compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX']}
+  compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX'],
+                     'TYPELIBDIR': bld.env['typelibdir']}
 
   compscript = bld.new_task_gen('subst')
   compscript.install_path = "${PREFIX}/bin"
   compscript.chmod = 0755
   compscript.source = 'src/jgir-compile.in'
   compscript.target = 'jgir-compile'
-  compscript.dict = {'CLASSPATH': full_cp}
+  compscript.dict = {'CLASSPATH': full_cp, 'TYPELIBDIR': bld.env['typelibdir']}
 
   #libinvoke = bld.new_task_gen('cc', 'shlib')
   #libinvoke.packages = ['gobject-introspection-1.0']

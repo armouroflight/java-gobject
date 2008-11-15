@@ -3,36 +3,18 @@ import os,sys,subprocess
 
 classpath="@CLASSPATH@"
 prefix="@PREFIX@"
-libdir=os.path.join(prefix, "lib64")
-if not os.path.isdir(libdir):
-    libdir = os.path.join(prefix, "lib")
+# Just put this one in the env
+os.environ['TYPELIBDIR'] = "@TYPELIBDIR@"
 java_opts=os.environ.get('JAVA_OPTS', None)
 if java_opts:
     java_opts = java_opts.split(' ')
 else:
     java_opts = []
-nsversions = []
-def compile_typelibs(dirname):
-    repodir = os.path.join(dirname, 'girepository')
-    for name in os.listdir(repodir):
-        if not name.endswith('.typelib'):
-            continue
-        base,_ = os.path.splitext(name)
-        nsversions.append(base)
-        print "%r" % (base, )
-        ns,version = base.rsplit('-', 1)
-        args = ['java']
-        args.extend(java_opts)
-        args.extend(['-cp', classpath, 'org.gnome.gir.compiler.CodeFactory', ns, version])
-        subprocess.check_call(args,
-                              stdout=sys.stdout,
-                              stderr=sys.stderr,
-                              close_fds=True)
-compile_typelibs(libdir)
-
-subprocess.check_call(['java', '-cp', classpath, 'org.gnome.gir.compiler.CodeFactory',
-                       '--verify', ','.join(nsversions)],
-                      stdout=sys.stdout,
-                      stderr=sys.stderr,
+args = ['java']
+args.extend(java_opts)
+args.extend(['-cp', classpath, 'org.gnome.gir.compiler.CodeFactory'])
+subprocess.check_call(args + ['--compileall'],
+                      close_fds=True)
+subprocess.check_call(args + ['--verifyall'],
                       close_fds=True)
 

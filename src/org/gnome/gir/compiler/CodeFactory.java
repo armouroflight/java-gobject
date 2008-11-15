@@ -43,6 +43,7 @@ import static org.objectweb.asm.Type.getType;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -1961,6 +1962,8 @@ public class CodeFactory {
 			logger.info(String.format("Skipping namespace %s with no shared library", namespace));
 			return null;
 		}
+		
+		repo.unloadAll();
 
 		Set<String> classNames = new HashSet<String>();
 		ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(destFile));
@@ -1977,7 +1980,7 @@ public class CodeFactory {
 		return destFile;
 	}
 	
-	public static void verifyJarFiles(Set<File> jarPaths) throws Exception {
+	public static void verifyJarFiles(List<File> jarPaths) throws Exception {
 		logger.info(String.format("Verifing %d jars", jarPaths.size()));			
 		List<URL> urls = new ArrayList<URL>();
 		Map<String, InputStream> allClassnames = new HashMap<String, InputStream>();		
@@ -2040,50 +2043,67 @@ public class CodeFactory {
 		return namespace.equals("GLib") || namespace.equals("GObject");		
 	}
 	
-	public static void verifyAll(String[] nsversions) throws Exception {
-		for (String nsversion : nsversions) {
-			int dashIdx = nsversion.lastIndexOf('-');
-			String namespace = nsversion.substring(0, dashIdx);
-			String version = nsversion.substring(dashIdx+1);
-			
-			if (namespaceIsExcluded(namespace))
-				continue;
-			File jarPath = getJarPath(namespace);
-			if (jarPath == null)
-				continue;
-			
-			Set<File> jarPaths = new HashSet<File>();
-						
-			Repository.getDefault().require(namespace, version);
-			jarPaths.add(jarPath);
-			
-			String[] deps = Repository.getDefault().getDependencies(namespace);
-			if (deps != null) {
-				for (String dep : deps) {
-					String depNamespace = dep.substring(0, dep.lastIndexOf('-'));
-					if (!namespaceIsExcluded(depNamespace))
-						jarPaths.add(getJarPath(depNamespace));
-				}
+	private static File getTypelibDir() {
+		return new File(System.getenv("TYPELIBDIR"));
+	}
+	
+	public static void verifyAll() throws Exception {
+		File[] jars = getTypelibDir().listFiles(new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.endsWith(".jar");
 			}
-			verifyJarFiles(jarPaths);
+		});
+		Repository.getDefault().disableRequires();
+		verifyJarFiles(Arrays.asList(jars));
+	}
+	
+	private static final class NsVer {
+		public String namespace;
+		public String version;
+		
+		public static NsVer parse(String base) {
+			int dash = base.indexOf('-');
+			NsVer nsver = new NsVer();
+			nsver.namespace = base.substring(0, dash);		
+			nsver.version = base.substring(dash+1, base.lastIndexOf('.'));
+			return nsver;
+		}
+	}
+	
+	public static void compileAll() throws GErrorException, IOException {
+		File[] typelibs = getTypelibDir().listFiles(new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.endsWith(".typelib");
+			}
+		});
+		for (File typelib : typelibs) {
+			String base = typelib.getName();
+
+			NsVer nsver = NsVer.parse(base);
+			if (namespaceIsExcluded(nsver.namespace))
+				continue;
+
+			compile(nsver.namespace, nsver.version);
 		}
 	}
 	
 	public static void main(String[] args) throws Exception {
 		GObjectAPI.gobj.g_type_init();
-		if (args[0].equals("--verify"))
-			verifyAll(args[1].split(","));
+		if (args[0].equals("--compileall"))
+			compileAll();
+		else if (args[0].equals("--verifyall"))
+			verifyAll();
 		else if (args[0].endsWith(".typelib")) {
 			File typelib = new File(args[0]);
 			String base = typelib.getName();
-			int dash = base.indexOf('-');
-			String namespace = base.substring(0, dash);
-			String version = base.substring(dash+1, base.lastIndexOf('.'));
+			NsVer nsver = NsVer.parse(base);
 			String parent = typelib.getParent();
 			if (parent == null)
 				parent = System.getProperty("user.dir");
 			Repository.getDefault().prependSearchPath(parent);
-			compile(namespace, version);
+			compile(nsver.namespace, nsver.version);
 		} else {
 			String namespace = args[0];
 			String version = args[1];

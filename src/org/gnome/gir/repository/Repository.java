@@ -10,6 +10,14 @@ import com.sun.jna.ptr.PointerByReference;
 
 public class Repository extends PointerType {
 
+	private boolean disableRequires = false;
+	
+	/* Needed for the compiler to be able to verify classes without loading typelibs 
+	 * which could potentially conflict. */
+	public void disableRequires() {
+		disableRequires = true;
+	}
+	
 	public void prependSearchPath(String path) {
 		GIntrospectionAPI.gi.g_irepository_prepend_search_path(path);
 	}
@@ -23,6 +31,8 @@ public class Repository extends PointerType {
 	}
 		
 	public void require(String namespace, String version) throws GErrorException {
+		if (disableRequires)
+			return;
 		PointerByReference error = new PointerByReference(null);
 		if (GIntrospectionAPI.gi.g_irepository_require(this, namespace, version, 0, error) == null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
@@ -73,5 +83,9 @@ public class Repository extends PointerType {
 	public static synchronized Repository getDefault() {
 		GObjectGlobals.init();
 		return getNativeLibrary().g_irepository_get_default();
+	}
+	
+	public void unloadAll() {
+		GIntrospectionAPI.gi.g_irepository_unload_all(this);
 	}
 }
