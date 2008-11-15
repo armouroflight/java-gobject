@@ -23,6 +23,13 @@ public abstract class BoxedStructure extends Structure implements RegisteredType
 		isNative = true;
 	}
 	
+	/**
+	 * Return the GType associated with this boxed.  Not intended for public use.
+	 */
+	GType getGType() {
+		return gtype;
+	}	
+	
 	protected void free() {	
 		GBoxedAPI.gboxed.g_boxed_free(gtype, this.getPointer());
 	}

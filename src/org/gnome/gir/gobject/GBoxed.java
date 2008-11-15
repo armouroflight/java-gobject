@@ -20,6 +20,13 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 		GBoxedAPI.gboxed.g_boxed_free(gtype, this.getPointer());
 	}
 	
+	/**
+	 * Return the GType associated with this boxed.  Not intended for public use.
+	 */
+	GType getGType() {
+		return gtype;
+	}
+	
 	@Override
 	public void finalize() throws Throwable {
 		free();

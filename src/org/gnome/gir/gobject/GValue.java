@@ -77,6 +77,10 @@ public class GValue extends com.sun.jna.Structure {
 		set(object);
 	}
 	
+	public GValue(Object object) {
+		this(GType.fromInstance(object), object);
+	}
+	
 	public void unset() {	
 		GValueAPI.gvalue.g_value_unset(this.getPointer());
 	}

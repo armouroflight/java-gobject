@@ -45,7 +45,6 @@
 
 package org.gnome.gir.gobject;
 
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -200,20 +199,6 @@ public class GType extends NativeLong {
     	return lookupProxyClass(gtype);
     };
     
-    /**
-     * Find the associated GType of a class.
-     * @param klass
-     * @return
-     */
-    public static final <T extends RegisteredType> GType of(Class<T> klass) {
-    	try {
-    		Method m = klass.getMethod("getGType", new Class<?>[] {});
-    		return (GType) m.invoke(null, new Object[] {});
-    	} catch (Exception e) {
-    		throw new RuntimeException(e);
-    	}
-    }
-    
     public static final void init() {
     	GObjectAPI.gobj.g_type_init();
     }
@@ -262,22 +247,29 @@ public class GType extends NativeLong {
         }
         return new GType(value);
     }
-    public static GType valueOf(Class<?> javaType) {
-        if (Integer.class == javaType || int.class == javaType) {
+    
+    public static GType fromInstance(Object obj) {
+        if (obj instanceof Integer) {
             return INT;
-        } else if (Long.class == javaType || long.class == javaType) {
+        } else if (obj instanceof Long) {
             return INT64;
-        } else if (Float.class == javaType || float.class == javaType) {
+        } else if (obj instanceof Float) {
             return FLOAT;
-        } else if (Double.class == javaType || double.class == javaType) {
+        } else if (obj instanceof Double) {
             return DOUBLE;
-        } else if (String.class == javaType) {
+        } else if (obj instanceof String) {
             return STRING;
-        } else if (GObject.class.isAssignableFrom(javaType) 
-        		|| GObject.GObjectProxy.class.isAssignableFrom(javaType)) {
-        	return OBJECT;
+        } else if (obj instanceof GObject
+        		|| obj instanceof GObject.GObjectProxy) {
+        	return objectPeekType(((GObject) obj).getNativeAddress());
+        } else if (obj instanceof GBoxed) {
+        	return ((GBoxed) obj).getGType();
+        } else if (obj instanceof BoxedStructure) {
+        	return ((BoxedStructure) obj).getGType();
+        } else if (obj instanceof BoxedUnion) {
+        	return ((BoxedUnion) obj).getGType();
         } else {
-            throw new IllegalArgumentException("No GType for " + javaType);
+        	throw new IllegalArgumentException(String.format("Unhandled GType lookup for object %s", obj));
         }
     }
     
