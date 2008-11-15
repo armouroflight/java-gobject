@@ -92,7 +92,7 @@ public class TypeMap {
 		if (tag == TypeTag.INT64 || tag == TypeTag.UINT64
 				|| tag == TypeTag.SIZE || tag == TypeTag.SSIZE)
 			return Type.LONG_TYPE;
-		if (tag == TypeTag.LONG) {
+		if (tag == TypeTag.LONG || tag == TypeTag.ULONG) {
 			if (Native.LONG_SIZE == 8)
 				return Type.LONG_TYPE;
 			else
