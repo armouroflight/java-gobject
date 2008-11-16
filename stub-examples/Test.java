@@ -8,6 +8,7 @@ import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
+import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
@@ -79,7 +80,7 @@ public class Test extends GObject implements TestIface {
 		if (error.getValue() != null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}
-		return (Test) objectFor(result, Test.class);
+		return (Test) NativeObject.objectFor(result, Test.class, false);
 	}	
 	
 	public static Test newWithFoo(String blah) {

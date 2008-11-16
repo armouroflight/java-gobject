@@ -102,29 +102,6 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
                 return null;
             }
             Pointer ptr = ((NativeObject) arg).handle();
-            
-            //
-            // Deal with any adjustments to the proxy neccessitated by gstreamer
-            // breaking their reference-counting idiom with special cases
-            //
-            if (context instanceof MethodParameterContext) {
-                MethodParameterContext mcontext = (MethodParameterContext) context;
-                Method method = mcontext.getMethod();
-                int index = mcontext.getParameterIndex();
-                Annotation[][] parameterAnnotations = method.getParameterAnnotations();
-                if (index < parameterAnnotations.length) {
-                    Annotation[] annotations = parameterAnnotations[index];
-                    for (int i = 0; i < annotations.length; ++i) {
-                        if (annotations[i] instanceof Invalidate) {
-                            ((Handle) arg).invalidate();
-                            break;
-                        } else if (annotations[i] instanceof IncRef) {
-                            ((RefCountedObject) arg).ref();
-                            break;
-                        }
-                    }
-                }
-            }
             return ptr;
         }
  
@@ -133,33 +110,15 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             if (result == null) {
                 return null;
             }
-            if (context instanceof MethodResultContext) {
-                //
-                // By default, we assume objects have incremented reference counts. 
-            	// Otherwise, the code generator should have created an @Return(transfer=NOTHING)
-            	// annotation.
-                //
-                Return anno = ((MethodResultContext) context).getMethod().getAnnotation(Return.class);
-                boolean ownsHandle;
-                if (anno == null || anno.transfer().equals(Transfer.EVERYTHING)) {
-                	ownsHandle = true;
-                } else {
-                	ownsHandle = false;
-                }
-                int refadj = ownsHandle ? -1 : 0;
-                return NativeObject.objectFor((Pointer) result, context.getTargetType(), refadj, ownsHandle);
-            }
-            if (context instanceof CallbackParameterContext) {
-                return NativeObject.objectFor((Pointer) result, context.getTargetType(), 1, true);
-            }
-            if (context instanceof StructureReadContext) {
-                StructureReadContext sctx = (StructureReadContext) context;
-                boolean ownsHandle = sctx.getField().getAnnotation(ConstField.class) == null;
-                return NativeObject.objectFor((Pointer) result, context.getTargetType(), 1, ownsHandle);
-            }
             if (context instanceof FunctionResultContext) {
-            	return NativeObject.objectFor((Pointer) result, context.getTargetType(), 0, true);
+            	return NativeObject.objectFor((Pointer) result, context.getTargetType(), true, true);
+            }            
+            if (context instanceof CallbackParameterContext || context instanceof StructureReadContext) {
+                return NativeObject.objectFor((Pointer) result, context.getTargetType(), false, true);
             }
+            if (context instanceof MethodResultContext) {
+            	throw new RuntimeException("Got illegal MethodResultContext in GTypeMapper");
+            }            
             throw new IllegalStateException("Cannot convert to NativeObject from " + context);
         }
         

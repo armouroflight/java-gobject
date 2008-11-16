@@ -51,6 +51,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.gnome.gir.gobject.GObjectAPI.GObjectStruct;
 import org.gnome.gir.gobject.GObjectAPI.GParamSpec;
 import org.gnome.gir.gobject.GObjectAPI.GToggleNotify;
 import org.gnome.gir.gobject.GObjectAPI.GWeakNotify;
@@ -75,9 +76,19 @@ public abstract class GObject extends RefCountedObject {
     	debugMemory = System.getProperty("jgir.debugMemory") != null;
     }
     
-    private static final void debugMemory(String fmt, Object... args) {
-    	if (debugMemory)
-    		System.err.println(String.format(fmt, (Object[])args));
+    private static final void debugMemory(GObject obj, String fmt, Object... args) {
+    	if (debugMemory) {
+    		Object[] newArgs = new Object[args.length+2];
+    		System.arraycopy(args, 0, newArgs, 1, args.length);
+    		newArgs[0] = obj;
+    		if (obj != null) {
+    			GObjectStruct objStruct = new GObjectAPI.GObjectStruct(obj);    		
+    			newArgs[newArgs.length-1] = objStruct.ref_count;
+    		} else {
+    			newArgs[newArgs.length-1] = "<null>";
+    		}
+    		System.err.println(String.format(fmt, newArgs));
+    	}
     }
     
     /* Hold a strong Java reference between this proxy object and any signal
@@ -107,7 +118,7 @@ public abstract class GObject extends RefCountedObject {
      * @param init
      */
     public GObject(Initializer init) { 
-        super(init.needRef ? initializer(init.ptr, false, init.ownsHandle) : init);
+        super(init.ownsRef ? initializer(init.ptr, false, init.ownsHandle) : init);
         if (init.ownsHandle) {
             strongReferences.put(this, Boolean.TRUE);
             
@@ -116,10 +127,10 @@ public abstract class GObject extends RefCountedObject {
              */
             boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
             if (wasFloating) {
-            	debugMemory("SINK AND TOGGLE %s", this);
+            	debugMemory(this, "SINK AND TOGGLE %s %s");
             	GObjectAPI.gobj.g_object_ref_sink(this);
             } else {
-            	debugMemory("TOGGLE %s", this);            	
+            	debugMemory(this, "TOGGLE %s %s");            	
             }
             
             /* The toggle reference is our primary means of memory management between
@@ -132,10 +143,16 @@ public abstract class GObject extends RefCountedObject {
              */
             GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
             
-            /* Since we normally have a strong reference given to us (except in special cases),
-             * here we unref and this should normally just leave the toggle reference.
-             */ 
-            if (!init.needRef) {
+            /*
+			 * Normally we have a strong reference given to us by constructors,
+			 * GValue property gets, etc. So here we unref, leaving the toggle
+			 * reference we just added.
+			 * 
+			 * An example case where we don't own a ref are C convenience
+			 * getters - need to ensure those are annotated with (transfer
+			 * none).
+			 */ 
+            if (init.ownsRef) {
                 unref();
             }            
         }
@@ -229,22 +246,24 @@ public abstract class GObject extends RefCountedObject {
     }
     @Override
     protected void ref() {
-    	debugMemory("REF %s", this);    	
+    	debugMemory(this, "REF %s %s");    	
     	GObjectAPI.gobj.g_object_ref(this);
     }
 
     @Override
     protected void unref() {
-    	debugMemory("UNREF %s", this);    	
+    	debugMemory(this, "UNREF %s %s");    	
     	GObjectAPI.gobj.g_object_unref(this);
     }
+    
+    @Override
     protected void invalidate() {
         try {
-        	debugMemory("INVALIDATE %s", this);        	
+        	debugMemory(this, "INVALIDATE %s %s");        	
             // Need to increase the ref count before removing the toggle ref, so 
             // ensure the native object is not destroyed.
             if (ownsHandle.get()) {
-            	debugMemory("REMOVING TOGGLE %s", this);             	
+            	debugMemory(this, "REMOVING TOGGLE %s %s");             	
                 ref();
 
                 // Disconnect the callback.
@@ -302,15 +321,6 @@ public abstract class GObject extends RefCountedObject {
     	GSignalAPI.gsignal.g_signal_handler_disconnect(GObject.this, new NativeLong(id));
     	signalHandlers.remove(id);
     }
-    
-    public static GObject objectFor(Pointer ptr, Class<? extends GObject> defaultClass) {
-        return GObject.objectFor(ptr, defaultClass, true);
-    }
-    
-    @SuppressWarnings("unchecked")
-    public static <T extends GObject> T objectFor(Pointer ptr, Class<T> defaultClass, boolean needRef) {
-        return NativeObject.objectFor(ptr, defaultClass, needRef);        
-    }
 
     private GObjectAPI.GParamSpec findProperty(String propertyName) {
         return GObjectAPI.gobj.g_object_class_find_property(handle().getPointer(0), propertyName);
@@ -343,7 +353,7 @@ public abstract class GObject extends RefCountedObject {
 		@Override
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) NativeObject.instanceFor(obj);
-            debugMemory("WEAK o=%s obj=%s", o, obj);			
+            debugMemory(o, "WEAK %s %s obj=%s", o, obj);			
 			// Clear out the signal handler references
 			if (o == null)
 				return;

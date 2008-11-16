@@ -51,25 +51,19 @@ abstract public class Handle extends NativeValue {
     // Use this to propagate low level pointer arguments up the constructor chain
     protected static class Initializer {
         public final Pointer ptr;
-        public final boolean needRef, ownsHandle;
-        public Initializer() {
-            this.ptr = null;
-            this.needRef = false;
-            this.ownsHandle = false;
-        }
+        public final boolean ownsRef, ownsHandle;
+        
         public Initializer(Pointer ptr) {
-        	this(ptr, false, true);
+        	this(ptr, true, true);
         }
-        public Initializer(Pointer ptr, boolean needRef, boolean ownsHandle) {
+        public Initializer(Pointer ptr, boolean ownsRef, boolean ownsHandle) {
         	if (ptr == null)
         		throw new RuntimeException("Invalid NULL pointer for initializer");
             this.ptr = ptr;
-            this.needRef = needRef;
+            this.ownsRef = ownsRef;
             this.ownsHandle = ownsHandle;
         }
-    }	
-    
-    protected static final Initializer defaultInit = new Initializer();    
+    }  
 
     public Handle() {
     }

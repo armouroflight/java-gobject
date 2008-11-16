@@ -53,7 +53,7 @@ abstract public class RefCountedObject extends NativeObject {
     /** Creates a new instance of RefCountedObject */
     protected RefCountedObject(Initializer init) {
         super(init);
-        if (init.ownsHandle && init.needRef) {
+        if (init.ownsHandle && init.ownsRef) {
             ref();
         }
     }

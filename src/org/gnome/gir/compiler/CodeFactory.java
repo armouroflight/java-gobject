@@ -69,10 +69,12 @@ import java.util.zip.ZipOutputStream;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
+import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GlibAPI;
 import org.gnome.gir.gobject.GlibRuntime;
+import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
@@ -1151,15 +1153,24 @@ public class CodeFactory {
 		String globalInternalsName = getInternals(fi);	
 		String symbol = fi.getSymbol();
 		
-		Class<?> returnBox = TypeMap.getPrimitiveBox(ctx.returnType);
-		Type returnTypeBox;
-		if (returnBox != null)
-			returnTypeBox = Type.getType(returnBox);
-		else
-			returnTypeBox = ctx.returnType;
-		
 		Transfer returnTransfer = fi.getCallerOwns();
-		if (returnBox == null) {
+		TypeInfo returnGIType = fi.getReturnType();
+		TypeTag returnTypeTag = returnGIType.getTag();
+		Class<?> primitiveBox = TypeMap.getPrimitiveBox(ctx.returnType);
+		Type nativeReturnType;
+		if (primitiveBox != null) {
+			nativeReturnType = Type.getType(primitiveBox);
+		} else if /* Now test for special return value transfer handling */   
+			((returnTransfer.equals(Transfer.NOTHING) &&
+				 (returnTypeTag.equals(TypeTag.INTERFACE))) ||
+				(returnTransfer.equals(Transfer.EVERYTHING) && 
+				 returnTypeTag.equals(TypeTag.UTF8))) {
+			nativeReturnType = Type.getType(Pointer.class);
+		} else { 
+			nativeReturnType = ctx.returnType;
+		}
+		
+		if (primitiveBox == null) {
 			AnnotationVisitor av = mv.visitAnnotation(Type.getDescriptor(Return.class), true);
 			av.visitEnum("transfer", Type.getDescriptor(Transfer.class), returnTransfer.name());
 			av.visitEnd();
@@ -1247,7 +1258,7 @@ public class CodeFactory {
 		if (ctx.returnType.equals(Type.VOID_TYPE)) {
 			mv.visitLdcInsn(Type.getType(Void.class));
 		} else {
-			mv.visitLdcInsn(returnTypeBox);
+			mv.visitLdcInsn(nativeReturnType);
 		}
 		mv.visitVarInsn(ALOAD, argsOffset);
 		mv.visitFieldInsn(GETSTATIC, globalInternalsName, "invocationOptions", Type.getDescriptor(Map.class));
@@ -1258,10 +1269,28 @@ public class CodeFactory {
 		if (ctx.returnType.equals(Type.VOID_TYPE)) {
 			mv.visitInsn(POP);
 		} else {
-			mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
-			if (returnBox != null)
-				mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
+			mv.visitTypeInsn(CHECKCAST, nativeReturnType.getInternalName());
+			if (primitiveBox != null) {
+				/* Turn primitive boxeds into the corresponding primitive */
+				mv.visitMethodInsn(INVOKEVIRTUAL, nativeReturnType.getInternalName(), 
 						ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());
+			} else if (nativeReturnType != ctx.returnType) {
+				/* Special handling for return types; see above where nativeReturnType is calculated. */
+				if (returnTypeTag.equals(TypeTag.INTERFACE)) {
+					/* These are objects for which we do *not* own a reference.  */
+					mv.visitLdcInsn(ctx.returnType);
+					mv.visitInsn(ICONST_0);
+					mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(NativeObject.class), "objectFor", 
+							Type.getMethodDescriptor(getType(NativeObject.class), new Type[] { getType(Pointer.class), getType(Class.class), Type.BOOLEAN_TYPE }));
+					mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());					
+				} else if (returnTypeTag.equals(TypeTag.UTF8)) {
+					/* Strings which are *not* const and must be g_free'd */
+					mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "toStringAndGFree", 
+							Type.getMethodDescriptor(getType(String.class), new Type[] { getType(Pointer.class) }));
+				} else {
+					throw new IllegalArgumentException(String.format("Unhandled nativeReturn %s vs public %s", nativeReturnType, ctx.returnType));
+				}
+			}
 		}
 		if (ctx.throwsGError) {
 			jtarget = new Label();

@@ -162,11 +162,8 @@ public abstract class NativeObject extends Handle {
         }
         return ref != null ? ref.get() : null;
     }
-    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean needRef) {
-        return objectFor(ptr, cls, needRef, true);
-    }
-    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean needRef, boolean ownsHandle) {
-        return objectFor(ptr, cls, needRef ? 1 : 0, ownsHandle);
+    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef) {
+        return objectFor(ptr, cls, ownsRef, true);
     }
     
     private static Class<?> getStubClassFor(Class<?> proxyClass) {
@@ -179,7 +176,7 @@ public abstract class NativeObject extends Handle {
     }
     
     @SuppressWarnings("unchecked")
-	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, int refAdjust, boolean ownsHandle) {
+	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean ownsHandle) {
         // Ignore null pointers
         if (ptr == null) {
             return null;
@@ -190,7 +187,7 @@ public abstract class NativeObject extends Handle {
         else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls))
         	obj = NativeObject.instanceFor(ptr);
         if (obj != null && cls.isInstance(obj)) {
-            if (refAdjust < 0) {
+            if (ownsRef) {
                 ((RefCountedObject) obj).unref(); // Lose the extra ref that we expect functions to add by default
             }
             return cls.cast(obj);
@@ -217,7 +214,7 @@ public abstract class NativeObject extends Handle {
         try {
             Constructor<T> constructor = cls.getDeclaredConstructor(Initializer.class);
             constructor.setAccessible(true);
-            T retVal = constructor.newInstance(initializer(ptr, refAdjust > 0, ownsHandle));
+            T retVal = constructor.newInstance(initializer(ptr, ownsRef, ownsHandle));
             //retVal.initNativeHandle(ptr, refAdjust > 0, ownsHandle);
             return retVal;
         } catch (SecurityException ex) {

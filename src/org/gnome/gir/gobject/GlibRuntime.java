@@ -40,6 +40,12 @@ public class GlibRuntime {
 	 */
 	private static final Set<CallbackData> outstandingCallbacks 
 		= Collections.synchronizedSet(new HashSet<CallbackData>());
+
+	public static final String toStringAndGFree(Pointer ptr) {
+		String result = ptr.getString(0);
+		GlibAPI.glib.g_free(ptr);
+		return result;
+	}
 	
 	public static final GlibAPI.GDestroyNotify createDestroyNotify(Callback callback) {
 		if (callback == null)
