@@ -87,8 +87,8 @@ public class Repository extends GObject {
 	
 	public static synchronized Repository getDefault() {
 		GObjectGlobals.init();
-		return (Repository) NativeObject.objectFor(getNativeLibrary().g_irepository_get_default(),
-									  Repository.class, false, true, false);
+		return (Repository) NativeObject.Internals.objectFor(getNativeLibrary().g_irepository_get_default(),
+									  Repository.class, false, false);
 	}
 	
 	public void unloadAll() {

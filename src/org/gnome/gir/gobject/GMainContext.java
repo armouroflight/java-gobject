@@ -63,18 +63,13 @@ public class GMainContext extends RefCountedObject {
         return glib.g_source_attach(source, this);
     }
     public static GMainContext getDefaultContext() {
-        return new GMainContext(initializer(glib.g_main_context_default(), false, false));
+        return new GMainContext(initializer(glib.g_main_context_default(), false));
     }
     
     protected void ref() {
-        glib.g_main_context_ref(handle());
+        glib.g_main_context_ref(getNativeAddress());
     }
     protected void unref() {
-        glib.g_main_context_unref(handle());
-    }
-
-    @Override
-    protected void disposeNativeHandle(Pointer ptr) {
-        glib.g_main_context_unref(ptr);
+        glib.g_main_context_unref(getNativeAddress());
     }
 }

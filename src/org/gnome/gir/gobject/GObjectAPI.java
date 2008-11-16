@@ -146,7 +146,7 @@ public interface GObjectAPI extends Library {
         public volatile Pointer qdata;
         public GObjectStruct() {}
         public GObjectStruct(GObject obj) {
-            useMemory(obj.handle());
+            useMemory(obj.getNativeAddress());
             read();
         }
     }

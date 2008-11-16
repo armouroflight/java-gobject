@@ -80,7 +80,7 @@ public class Test extends GObject implements TestIface {
 		if (error.getValue() != null) {
 			throw new GErrorException(new GErrorStruct(error.getValue()));
 		}
-		return (Test) NativeObject.objectFor(result, Test.class, false);
+		return (Test) NativeObject.Internals.objectFor(result, Test.class, false);
 	}	
 	
 	public static Test newWithFoo(String blah) {

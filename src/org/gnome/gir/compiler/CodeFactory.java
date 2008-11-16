@@ -1280,7 +1280,7 @@ public class CodeFactory {
 					/* These are objects for which we do *not* own a reference.  */
 					mv.visitLdcInsn(ctx.returnType);
 					mv.visitInsn(ICONST_0);
-					mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(NativeObject.class), "objectFor", 
+					mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(NativeObject.Internals.class), "objectFor", 
 							Type.getMethodDescriptor(getType(NativeObject.class), new Type[] { getType(Pointer.class), getType(Class.class), Type.BOOLEAN_TYPE }));
 					mv.visitTypeInsn(CHECKCAST, ctx.returnType.getInternalName());					
 				} else if (returnTypeTag.equals(TypeTag.UTF8)) {

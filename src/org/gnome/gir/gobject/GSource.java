@@ -63,7 +63,7 @@ public class GSource extends RefCountedObject {
     public void setCallback(final Callable<Boolean> call) {
         this.callback = new GSourceFunc() {
             public boolean callback(Pointer data) {
-                if (GlibAPI.glib.g_source_is_destroyed(handle())) {
+                if (GlibAPI.glib.g_source_is_destroyed(getNativeAddress())) {
                     return false;
                 }
                 try {
@@ -78,15 +78,9 @@ public class GSource extends RefCountedObject {
     private GSourceFunc callback;
     
     protected void ref() {
-        GlibAPI.glib.g_source_ref(handle());
+        GlibAPI.glib.g_source_ref(getNativeAddress());
     }
     protected void unref() {
-        GlibAPI.glib.g_source_unref(handle());
-    }
-
-    @Override
-    protected void disposeNativeHandle(Pointer ptr) {
-        GlibAPI.glib.g_source_destroy(ptr);
-        GlibAPI.glib.g_source_unref(ptr);
+        GlibAPI.glib.g_source_unref(getNativeAddress());
     }
 }

@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.gnome.gir.gobject.GObjectAPI.GObjectStruct;
 import org.gnome.gir.repository.BaseInfo;
 
 import com.sun.jna.Pointer;
@@ -61,13 +62,10 @@ import com.sun.jna.Pointer;
  *
  */
 public abstract class NativeObject extends Handle {
-    private final AtomicBoolean disposed = new AtomicBoolean(false);
-    private final AtomicBoolean valid = new AtomicBoolean(true);
     private final Pointer handle;
-    protected final AtomicBoolean ownsHandle = new AtomicBoolean(false);
     private final NativeRef nativeRef;
     
-    private static final ConcurrentMap<Pointer, NativeRef> instanceMap = new ConcurrentHashMap<Pointer, NativeRef>();    
+    private static final ConcurrentMap<Pointer, NativeRef> instanceMap = new ConcurrentHashMap<Pointer, NativeRef>();     
     
     static class NativeRef extends WeakReference<NativeObject> {
         public NativeRef(NativeObject obj) {
@@ -80,13 +78,13 @@ public abstract class NativeObject extends Handle {
      * they own the native object.  Special cases can use the other constructor.
      */
     protected static Initializer initializer(Pointer ptr) {
-        return initializer(ptr, false, true);
+        return initializer(ptr, false);
     }
-    protected static Initializer initializer(Pointer ptr, boolean needRef, boolean ownsHandle) {
+    protected static Initializer initializer(Pointer ptr, boolean needRef) {
         if (ptr == null) {
             throw new IllegalArgumentException("Invalid native pointer");
         }
-        return new Initializer(ptr, needRef, ownsHandle);
+        return new Initializer(ptr, needRef);
     }
     /** Creates a new instance of NativeObject */
     protected NativeObject(final Initializer init) {
@@ -95,7 +93,6 @@ public abstract class NativeObject extends Handle {
         }
         nativeRef = new NativeRef(this);
         this.handle = init.ptr;
-        this.ownsHandle.set(init.ownsHandle);
         
         //
         // Only store this object in the map if we can tell when it has been disposed 
@@ -108,149 +105,143 @@ public abstract class NativeObject extends Handle {
         }
         
     }
-    
-    abstract protected void disposeNativeHandle(Pointer ptr);
-    
-    public void dispose() {
-        if (!disposed.getAndSet(true)) {
-            instanceMap.remove(handle, nativeRef);
-            if (ownsHandle.get()) {
-                disposeNativeHandle(handle);
-            }
-            valid.set(false);
-        }
-    }
-    
-    protected void invalidate() {
-        instanceMap.remove(handle(), nativeRef);
-        disposed.set(true);
-        ownsHandle.set(false);
-        valid.set(false);
-    }
-    
+
     @Override
     protected void finalize() throws Throwable {
-        try {
-            dispose();
-        } finally {
-            super.finalize();
-        }
+        instanceMap.remove(handle, nativeRef);
+        super.finalize();
     }
+    
     protected Object nativeValue() {
-        return handle();
+        return getNativeAddress();
     }
-    protected Pointer handle() {
-        if (!valid.get()) {
-            throw new IllegalStateException("Native object has been disposed");
-        }
-        return handle;
-    }
+
     public Pointer getNativeAddress() {
         return handle;
     }
-    protected boolean isDisposed() {
-        return disposed.get();
-    }
-    protected static NativeObject instanceFor(Pointer ptr) {
-        WeakReference<NativeObject> ref = instanceMap.get(ptr);
+    
+    public static class Internals {
+
+        public static final boolean debugMemory;
         
-        //
-        // If the reference was there, but the object it pointed to had been collected, remove it from the map
-        //
-        if (ref != null && ref.get() == null) {
-            instanceMap.remove(ptr);
+        static {
+        	debugMemory = System.getProperty("jgir.debugMemory") != null;
         }
-        return ref != null ? ref.get() : null;
-    }
-    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef) {
-        return objectFor(ptr, cls, ownsRef, true);
-    }
-    
-    private static Class<?> getStubClassFor(Class<?> proxyClass) {
-    	Class<?>[] declared = proxyClass.getDeclaredClasses();
-    	for (Class<?> c: declared) {
-    		if (c.getName().endsWith("$AnonStub"))
-    			return c;
-    	}
-    	throw new RuntimeException("Couldn't find Stub for interface: " + proxyClass);
-    }
-    
-	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean ownsHandle) {
-		return objectFor(ptr, cls, ownsRef, ownsHandle, true);
-	}
-    
-    @SuppressWarnings("unchecked")
-	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean ownsHandle, boolean peekGType) {
-        // Ignore null pointers
-        if (ptr == null) {
-            return null;
-        }
-        NativeObject obj = null;
-        if (BaseInfo.class.isAssignableFrom(cls))
-        	obj = BaseInfo.newInstanceFor(ptr);
-        else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls))
-        	obj = NativeObject.instanceFor(ptr);
-        if (obj != null && cls.isInstance(obj)) {
-            if (ownsRef) {
-                ((RefCountedObject) obj).unref(); // Lose the extra ref that we expect functions to add by default
-            }
-            return cls.cast(obj);
-        }
-       
-
-        /* Special-case GObject.GObjectProxy here - these are interface values
-         * for which we don't know of a current concrete class.
-         */
-        if (cls.isInterface() && GObject.GObjectProxy.class.isAssignableFrom(cls)) {
-    		cls = (Class<T>) getStubClassFor(cls);        	
-        }
-        /* For GObject, read the g_class field to find
-         * the most exact class match
-         */        	
-        else if (peekGType && GObject.class.isAssignableFrom(cls)) {
-        	cls = classFor(ptr, cls);
-        	/* If it's abstract, pull out the stub */
-        	if ((cls.getModifiers() & Modifier.ABSTRACT) != 0)
-        		cls = (Class<T>) getStubClassFor(cls);
+        
+        public static final void debugMemory(GObject obj, String fmt, Object... args) {
+        	if (debugMemory) {
+        		Object[] newArgs = new Object[args.length+2];
+        		System.arraycopy(args, 0, newArgs, 1, args.length);
+        		newArgs[0] = obj;
+        		if (obj != null) {
+        			GObjectStruct objStruct = new GObjectAPI.GObjectStruct(obj);    		
+        			newArgs[newArgs.length-1] = objStruct.ref_count;
+        		} else {
+        			newArgs[newArgs.length-1] = "<null>";
+        		}
+        		System.err.println(String.format(fmt, newArgs));
+        	}
         }        
-        /* Ok, let's try to find an Initializer constructor
-         */
-        try {
-            Constructor<T> constructor = cls.getDeclaredConstructor(Initializer.class);
-            constructor.setAccessible(true);
-            T retVal = constructor.newInstance(initializer(ptr, ownsRef, ownsHandle));
-            //retVal.initNativeHandle(ptr, refAdjust > 0, ownsHandle);
-            return retVal;
-        } catch (SecurityException ex) {
-            throw new RuntimeException(ex);
-        } catch (IllegalAccessException ex) {
-            throw new RuntimeException(ex);
-        } catch (InstantiationException ex) {
-            throw new RuntimeException(ex);
-        } catch (NoSuchMethodException ex) {
-            throw new RuntimeException(ex);
-        } catch (InvocationTargetException ex) {
-            throw new RuntimeException(ex);
-        }
+    	
+		protected static NativeObject instanceFor(Pointer ptr) {
+		    WeakReference<NativeObject> ref = NativeObject.instanceMap.get(ptr);
+		    
+		    //
+		    // If the reference was there, but the object it pointed to had been collected, remove it from the map
+		    //
+		    if (ref != null && ref.get() == null) {
+		        NativeObject.instanceMap.remove(ptr);
+		    }
+		    return ref != null ? ref.get() : null;
+		}
 
+		private static Class<?> getStubClassFor(Class<?> proxyClass) {
+			Class<?>[] declared = proxyClass.getDeclaredClasses();
+			for (Class<?> c: declared) {
+				if (c.getName().endsWith("$AnonStub"))
+					return c;
+			}
+			throw new RuntimeException("Couldn't find Stub for interface: " + proxyClass);
+		}		
+
+	    public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef) {
+			return objectFor(ptr, cls, ownsRef, true);
+		}
+	    
+	    @SuppressWarnings("unchecked")
+		public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean peekGType) {
+	        // Ignore null pointers
+	        if (ptr == null) {
+	            return null;
+	        }
+	        NativeObject obj = null;
+	        if (BaseInfo.class.isAssignableFrom(cls))
+	        	obj = BaseInfo.newInstanceFor(ptr);
+	        else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls))
+	        	obj = Internals.instanceFor(ptr);
+	        if (obj != null && cls.isInstance(obj)) {
+	            if (ownsRef) {
+	                ((RefCountedObject) obj).unref(); // Lose the extra ref that we expect functions to add by default
+	            }
+	            return cls.cast(obj);
+	        }
+	       
+
+	        /* Special-case GObject.GObjectProxy here - these are interface values
+	         * for which we don't know of a current concrete class.
+	         */
+	        if (cls.isInterface() && GObject.GObjectProxy.class.isAssignableFrom(cls)) {
+	    		cls = (Class<T>) Internals.getStubClassFor(cls);        	
+	        }
+	        /* For GObject, read the g_class field to find
+	         * the most exact class match
+	         */        	
+	        else if (peekGType && GObject.class.isAssignableFrom(cls)) {
+	        	cls = classFor(ptr, cls);
+	        	/* If it's abstract, pull out the stub */
+	        	if ((cls.getModifiers() & Modifier.ABSTRACT) != 0)
+	        		cls = (Class<T>) Internals.getStubClassFor(cls);
+	        }        
+	        /* Ok, let's try to find an Initializer constructor
+	         */
+	        try {
+	            Constructor<T> constructor = cls.getDeclaredConstructor(Initializer.class);
+	            constructor.setAccessible(true);
+	            T retVal = constructor.newInstance(initializer(ptr, ownsRef));
+	            //retVal.initNativeHandle(ptr, refAdjust > 0, ownsHandle);
+	            return retVal;
+	        } catch (SecurityException ex) {
+	            throw new RuntimeException(ex);
+	        } catch (IllegalAccessException ex) {
+	            throw new RuntimeException(ex);
+	        } catch (InstantiationException ex) {
+	            throw new RuntimeException(ex);
+	        } catch (NoSuchMethodException ex) {
+	            throw new RuntimeException(ex);
+	        } catch (InvocationTargetException ex) {
+	            throw new RuntimeException(ex);
+	        }
+
+	    }
+	    
+	    @SuppressWarnings("unchecked")
+		protected static Class<?> lookupProxyChain(GType gtype) {
+	    	Class<?> ret = null;
+	    	while (ret == null && !gtype.equals(GType.OBJECT)) {
+	    		ret = GType.lookupProxyClass(gtype);
+	    		gtype = gtype.getParent();
+	    	}
+	    	return ret;
+	    }
+	    
+	    @SuppressWarnings("unchecked")
+		protected static <T extends NativeObject> Class<T> classFor(Pointer ptr, Class<T> defaultClass) {
+	    	GType gtype = GType.objectPeekType(ptr);
+	    	Class<?> cls = lookupProxyChain(gtype);
+	    	return (cls != null && defaultClass.isAssignableFrom(cls)) ? (Class<T>) cls : defaultClass; 
+	    }
     }
     
-    @SuppressWarnings("unchecked")
-	protected static Class<?> lookupProxyChain(GType gtype) {
-    	Class<?> ret = null;
-    	while (ret == null && !gtype.equals(GType.OBJECT)) {
-    		ret = GType.lookupProxyClass(gtype);
-    		gtype = gtype.getParent();
-    	}
-    	return ret;
-    }
-    
-    @SuppressWarnings("unchecked")
-	protected static <T extends NativeObject> Class<T> classFor(Pointer ptr, Class<T> defaultClass) {
-    	GType gtype = GType.objectPeekType(ptr);
-    	Class<?> cls = lookupProxyChain(gtype);
-    	return (cls != null && defaultClass.isAssignableFrom(cls)) ? (Class<T>) cls : defaultClass; 
-    }    
 
     @Override
     public boolean equals(Object o) {
@@ -264,13 +255,6 @@ public abstract class NativeObject extends Handle {
     
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "(" + handle() + ")";
-    }
-    
-    //
-    // No longer want to garbage collect this object
-    //
-    public void disown() {
-        ownsHandle.set(false);
+        return getClass().getSimpleName() + "(" + getNativeAddress() + ")";
     }
 }

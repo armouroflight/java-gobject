@@ -18,7 +18,7 @@ public class BaseInfo extends RefCountedObject {
 			String name = GIntrospectionAPI.gi.g_base_info_get_name(ptr);
 			throw new UnresolvedException(namespace, name);
 		}
-		Initializer init = new Initializer(ptr, false, false);		
+		Initializer init = new Initializer(ptr, true);		
 		if (itype == InfoType.ENUM.ordinal())
 			return new EnumInfo(init);
 		if (itype == InfoType.FLAGS.ordinal())
@@ -43,7 +43,7 @@ public class BaseInfo extends RefCountedObject {
 			return new PropertyInfo(init);
 		if (itype == InfoType.CONSTANT.ordinal())
 			return new ConstantInfo(init);				
-		return new BaseInfo(new Initializer(ptr));
+		return new BaseInfo(init);
 	}
 
 	@Override
@@ -58,18 +58,13 @@ public class BaseInfo extends RefCountedObject {
 	
 	public String getName() {
 		if (cachedName == null)
-			cachedName = Repository.getNativeLibrary().g_base_info_get_name(this.handle());
+			cachedName = Repository.getNativeLibrary().g_base_info_get_name(getNativeAddress());
 		return cachedName;
-	}
-
-	@Override
-	protected void disposeNativeHandle(Pointer ptr) {
-		unref();
 	}
 
 	public String getNamespace() {
 		if (cachedNamespace == null)
-			cachedNamespace = GIntrospectionAPI.gi.g_base_info_get_namespace(this.handle());
+			cachedNamespace = GIntrospectionAPI.gi.g_base_info_get_namespace(getNativeAddress());
 		return cachedNamespace;
 	}
 	

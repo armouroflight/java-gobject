@@ -101,7 +101,7 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
             if (arg == null) {
                 return null;
             }
-            Pointer ptr = ((NativeObject) arg).handle();
+            Pointer ptr = ((NativeObject) arg).getNativeAddress();
             return ptr;
         }
  
@@ -111,10 +111,10 @@ public class GTypeMapper extends com.sun.jna.DefaultTypeMapper {
                 return null;
             }
             if (context instanceof FunctionResultContext) {
-            	return NativeObject.objectFor((Pointer) result, context.getTargetType(), true, true);
+            	return NativeObject.Internals.objectFor((Pointer) result, context.getTargetType(), true);
             }            
             if (context instanceof CallbackParameterContext || context instanceof StructureReadContext) {
-                return NativeObject.objectFor((Pointer) result, context.getTargetType(), false, true);
+                return NativeObject.Internals.objectFor((Pointer) result, context.getTargetType(), false);
             }
             if (context instanceof MethodResultContext) {
             	throw new RuntimeException("Got illegal MethodResultContext in GTypeMapper");
