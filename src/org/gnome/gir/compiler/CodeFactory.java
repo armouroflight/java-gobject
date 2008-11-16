@@ -1581,16 +1581,10 @@ public class CodeFactory {
 			return;
 		}
 		String fieldName = NameMap.fixIdentifier("n", info.getName());
+		Object value = info.getValue();		
 		FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_STATIC + ACC_FINAL,
-				fieldName, type.getDescriptor(), null, null);
+				fieldName, type.getDescriptor(), null, value);
 		fv.visitEnd();
-		
-		Object value = info.getValue();
-		
-		MethodVisitor clinit = compilation.getClinit();
-		
-		clinit.visitLdcInsn(value);
-		clinit.visitFieldInsn(PUTSTATIC, compilation.internalName, fieldName, type.getDescriptor());
 	}	
 	
 	private void writeJnaCallbackTypeMapper(ClassCompilation compilation) {

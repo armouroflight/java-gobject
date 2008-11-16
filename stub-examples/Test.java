@@ -23,6 +23,20 @@ import com.sun.jna.ptr.PointerByReference;
 
 public class Test extends GObject implements TestIface {
 
+	
+	public static final int Foo = 10;
+	public static final int Bar = 20;
+	
+	public static void main(int x) {
+		
+		switch (x) {
+		case Foo:
+			break;
+		case Bar:
+			break;
+		}
+	}
+	
 	@Deprecated
 	public String getFoo() {
 		return (String) get("foo");
