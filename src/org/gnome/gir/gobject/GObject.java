@@ -69,7 +69,11 @@ public abstract class GObject extends RefCountedObject {
 
     private final IntPtr objectID = new IntPtr(System.identityHashCode(this));
     
-    private static final boolean debugMemory = false;
+    private static final boolean debugMemory;
+    
+    static {
+    	debugMemory = System.getProperty("jgir.debugMemory") != null;
+    }
     
     private static final void debugMemory(String fmt, Object... args) {
     	if (debugMemory)
@@ -112,7 +116,10 @@ public abstract class GObject extends RefCountedObject {
              */
             boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
             if (wasFloating) {
+            	debugMemory("SINK AND TOGGLE %s", this);
             	GObjectAPI.gobj.g_object_ref_sink(this);
+            } else {
+            	debugMemory("TOGGLE %s", this);            	
             }
             
             /* The toggle reference is our primary means of memory management between
