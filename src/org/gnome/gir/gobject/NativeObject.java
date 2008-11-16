@@ -175,8 +175,12 @@ public abstract class NativeObject extends Handle {
     	throw new RuntimeException("Couldn't find Stub for interface: " + proxyClass);
     }
     
-    @SuppressWarnings("unchecked")
 	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean ownsHandle) {
+		return objectFor(ptr, cls, ownsRef, ownsHandle, true);
+	}
+    
+    @SuppressWarnings("unchecked")
+	public static <T extends NativeObject> T objectFor(Pointer ptr, Class<T> cls, boolean ownsRef, boolean ownsHandle, boolean peekGType) {
         // Ignore null pointers
         if (ptr == null) {
             return null;
@@ -203,7 +207,7 @@ public abstract class NativeObject extends Handle {
         /* For GObject, read the g_class field to find
          * the most exact class match
          */        	
-        else if (GObject.class.isAssignableFrom(cls)) {
+        else if (peekGType && GObject.class.isAssignableFrom(cls)) {
         	cls = classFor(ptr, cls);
         	/* If it's abstract, pull out the stub */
         	if ((cls.getModifiers() & Modifier.ABSTRACT) != 0)

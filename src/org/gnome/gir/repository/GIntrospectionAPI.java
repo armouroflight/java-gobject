@@ -44,7 +44,8 @@ interface GIntrospectionAPI extends Library {
 		}
 	});	
 	
-	Repository g_irepository_get_default();
+	GType g_irepostiory_get_type();
+	Pointer g_irepository_get_default();
 	void g_irepository_prepend_search_path(String path);
 	int g_irepository_get_n_infos(Repository repo, String namespace);
 	boolean g_irepository_is_registered (Repository repository, String namespace);

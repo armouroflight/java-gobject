@@ -2,13 +2,18 @@ package org.gnome.gir.repository;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
+import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GObjectGlobals;
+import org.gnome.gir.gobject.NativeObject;
 
 import com.sun.jna.NativeLong;
-import com.sun.jna.PointerType;
 import com.sun.jna.ptr.PointerByReference;
 
-public class Repository extends PointerType {
+public class Repository extends GObject {
+
+	public Repository(Initializer init) {
+		super(init);
+	}
 
 	private boolean disableRequires = false;
 	
@@ -82,7 +87,8 @@ public class Repository extends PointerType {
 	
 	public static synchronized Repository getDefault() {
 		GObjectGlobals.init();
-		return getNativeLibrary().g_irepository_get_default();
+		return (Repository) NativeObject.objectFor(getNativeLibrary().g_irepository_get_default(),
+									  Repository.class, false, true, false);
 	}
 	
 	public void unloadAll() {
