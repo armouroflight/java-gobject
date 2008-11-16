@@ -1169,9 +1169,6 @@ public class CodeFactory {
 		LocalVariableTable locals = ctx.allocLocals();
 		int functionOffset = locals.allocTmp("function", Type.getType(Function.class));
 		int argsOffset = locals.allocTmp("args", Type.getType(Object[].class));
-		int resultOffset = 0;
-		if (!ctx.returnType.equals(Type.VOID_TYPE))
-			resultOffset = locals.allocTmp("result", returnTypeBox);
 		int errorOffset = 0;
 		int nInvokeArgs = ctx.args.length;
 		if (ctx.isMethod)
@@ -1257,27 +1254,17 @@ public class CodeFactory {
 		mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(Function.class), "invoke", 
 				Type.getMethodDescriptor(getType(Object.class), new Type[] { getType(Class.class), getType(Object[].class), getType(Map.class) }));
 		Label l3 = new Label();
-		mv.visitLabel(l3);		
-		if (!ctx.throwsGError) {
-			if (ctx.returnType.equals(Type.VOID_TYPE)) {
-				mv.visitInsn(POP);
-				mv.visitInsn(RETURN);
-			} else {
-				mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
-				if (returnBox != null)
-					mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
-							ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());
-				mv.visitInsn(ctx.returnType.getOpcode(IRETURN));
-			}
+		mv.visitLabel(l3);	
+		if (ctx.returnType.equals(Type.VOID_TYPE)) {
+			mv.visitInsn(POP);
 		} else {
+			mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
+			if (returnBox != null)
+				mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
+						ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());
+		}
+		if (ctx.throwsGError) {
 			jtarget = new Label();
-			if (ctx.returnType.equals(Type.VOID_TYPE)) {
-				mv.visitInsn(POP);
-			} else {
-				mv.visitTypeInsn(CHECKCAST, returnTypeBox.getInternalName());
-				mv.visitInsn(DUP);
-				mv.visitVarInsn(ASTORE, resultOffset);
-			}
 			mv.visitVarInsn(ALOAD, errorOffset);
 			mv.visitMethodInsn(INVOKEVIRTUAL, Type.getInternalName(PointerByReference.class), 
 					"getValue", Type.getMethodDescriptor(getType(Pointer.class), new Type[] {}));	
@@ -1295,16 +1282,8 @@ public class CodeFactory {
 					Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(GErrorStruct.class) }));
 			mv.visitInsn(ATHROW);
 			mv.visitLabel(jtarget);
-			if (ctx.returnType.equals(Type.VOID_TYPE)) {
-				mv.visitInsn(RETURN);
-			} else {
-				mv.visitVarInsn(ALOAD, resultOffset);
-				if (returnBox != null)
-					mv.visitMethodInsn(INVOKEVIRTUAL, returnTypeBox.getInternalName(), 
-							ctx.returnType.getClassName() + "Value", "()" + ctx.returnType.getDescriptor());				
-				mv.visitInsn(ctx.returnType.getOpcode(IRETURN));
-			}
 		}
+		mv.visitInsn(ctx.returnType.getOpcode(IRETURN));
 		Label l4 = new Label();
 		mv.visitLabel(l4);
 		locals.writeLocals(mv, l0, l4);
