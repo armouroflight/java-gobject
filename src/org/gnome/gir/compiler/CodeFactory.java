@@ -1803,9 +1803,6 @@ public class CodeFactory {
 		}
 		if (shlib == null)
 			shlib = namespaceShlibMapping.get(globals.namespace);
-		/* The JNA NativeLibrary expects it without the .so */		
-		if (shlib.endsWith(".so"))
-			shlib = shlib.substring(0, shlib.length()-3);
 		mv.visitLdcInsn(shlib);
 		mv.visitMethodInsn(INVOKESTATIC, "com/sun/jna/NativeLibrary", "getInstance", "(Ljava/lang/String;)Lcom/sun/jna/NativeLibrary;");
 		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "library", "Lcom/sun/jna/NativeLibrary;");
