@@ -142,18 +142,20 @@ public class CodeFactory {
 	}
 	
 
-	public StubClassCompilation getCompilation(String namespace, String name) {
+	public StubClassCompilation getCompilation(String namespace, String version, String name) {
 		String peerInternalName = GType.getInternalName(namespace, name);
 		StubClassCompilation ret = writers.get(peerInternalName);
 		if (ret == null) {
-			ret = new StubClassCompilation(namespace, name);
+			ret = new StubClassCompilation(namespace, version, name);
 			writers.put(peerInternalName, ret);
 		}
 		return ret;
 	}	
 	
 	public StubClassCompilation getCompilation(BaseInfo info) {
-		return getCompilation(info.getNamespace(), info.getName());
+		String namespace = info.getNamespace();
+		String version = repo.getNamespaceVersion(namespace);
+		return getCompilation(info.getNamespace(), version, info.getName());
 	}
 	
 	public String getGlobalsName(String namespace) {
@@ -1845,7 +1847,7 @@ public class CodeFactory {
 		
 		String globalName = namespace + "Globals";
 		String peerInternalName = GType.getInternalName(namespace, globalName);
-		GlobalsCompilation global = new GlobalsCompilation(namespace, globalName);
+		GlobalsCompilation global = new GlobalsCompilation(namespace, version, globalName);
 		writers.put(peerInternalName, global);		
 		globals.put(namespace, global);
 		global.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER, global.internalName, null, "java/lang/Object", null);
@@ -1933,7 +1935,7 @@ public class CodeFactory {
 	}
 
 	public static File compile(String namespace, String version) throws GErrorException, IOException {
-		Repository repo = Repository.getDefault();
+		Repository repo = new Repository();
 		File destFile = null;		
 		
 		repo.require(namespace, version);
@@ -1942,7 +1944,7 @@ public class CodeFactory {
 		long typelibLastModified = typelibPath.lastModified();
 		
 		if (destFile == null) {
-			destFile = getJarPath(namespace);
+			destFile = getJarPath(repo, namespace);
 			if (destFile == null)
 				return null;
 			logger.info("Will install to: " + destFile);
@@ -1962,8 +1964,6 @@ public class CodeFactory {
 			return null;
 		}
 		
-		repo.unloadAll();
-
 		Set<String> classNames = new HashSet<String>();
 		ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(destFile));
 		for (ClassCompilation stub : stubs) {
@@ -2029,12 +2029,12 @@ public class CodeFactory {
 		logger.info(String.format("Verified %d classes", nClasses));
 	}
 	
-	public static File getJarPath(String namespace) {
-		String path = Repository.getDefault().getTypelibPath(namespace);
+	public static File getJarPath(Repository repo, String namespace) {
+		String path = repo.getTypelibPath(namespace);
 		if (path == null)
 			return null;
 		File typelibPath = new File(path);
-		String version = Repository.getDefault().getNamespaceVersion(namespace);
+		String version = repo.getNamespaceVersion(namespace);
 		return new File(typelibPath.getParent(), String.format("%s-%s.jar", namespace, version));		
 	}
 	

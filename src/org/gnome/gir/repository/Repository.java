@@ -91,7 +91,7 @@ public class Repository extends GObject {
 									  Repository.class, false, false);
 	}
 	
-	public void unloadAll() {
-		GIntrospectionAPI.gi.g_irepository_unload_all(this);
+	public Repository() {
+		super(GIntrospectionAPI.gi.g_irepository_get_type(), new Object[] {});
 	}
 }

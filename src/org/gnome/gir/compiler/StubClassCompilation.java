@@ -13,9 +13,9 @@ class StubClassCompilation extends ClassCompilation {
 	String publicName;
 
 	
-	public StubClassCompilation(String namespace,
+	public StubClassCompilation(String namespace, String version,
 			String name) {
-		super(namespace, name);
+		super(namespace, version, name);
 		this.innerClasses = new HashSet<InnerClassCompilation>();
 		this.baseName = name.substring(0, 1).toUpperCase() + name.substring(1);
 		this.publicName = GType.getPublicNameMapped(namespace, name);
@@ -23,13 +23,13 @@ class StubClassCompilation extends ClassCompilation {
 	
 	public ClassCompilation newInner() {
 		int size = innerClasses.size();
-		InnerClassCompilation cw = new InnerClassCompilation(namespace, baseName + "$" + size+1);
+		InnerClassCompilation cw = new InnerClassCompilation(namespace, nsversion, baseName + "$" + size+1);
 		innerClasses.add(cw);
 		return cw;
 	}
 	
 	public InnerClassCompilation newInner(String name) {
-		InnerClassCompilation cw = new InnerClassCompilation(namespace, baseName + "$" + name);
+		InnerClassCompilation cw = new InnerClassCompilation(namespace, nsversion, baseName + "$" + name);
 		innerClasses.add(cw);
 		return cw;
 	}

@@ -44,7 +44,7 @@ interface GIntrospectionAPI extends Library {
 		}
 	});	
 	
-	GType g_irepostiory_get_type();
+	GType g_irepository_get_type();
 	Pointer g_irepository_get_default();
 	void g_irepository_prepend_search_path(String path);
 	int g_irepository_get_n_infos(Repository repo, String namespace);
@@ -58,7 +58,6 @@ interface GIntrospectionAPI extends Library {
 	BaseInfo g_irepository_get_info(Repository repo, String namespace, int idx);
 	String g_irepository_get_shared_library(Repository repository, String namespace);
 	String g_irepository_get_typelib_path(Repository repository, String namespace);
-	void g_irepository_unload_all(Repository repo);
 	
 	void g_base_info_ref(BaseInfo info);
 	void g_base_info_unref(BaseInfo info);		

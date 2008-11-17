@@ -22,9 +22,9 @@ abstract class ClassCompilation {
 	MethodVisitor clinit;
 	private ClassWriter realWriter;
 	boolean closed = false;		
-	public ClassCompilation(String namespace, String baseName) {
+	public ClassCompilation(String namespace, String version, String baseName) {
 		this.namespace = namespace;
-		this.nsversion = Repository.getDefault().getNamespaceVersion(namespace);
+		this.nsversion = version;
 		this.baseName = baseName;
 		this.internalName = GType.getInternalName(namespace, baseName);
 		this.realWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);

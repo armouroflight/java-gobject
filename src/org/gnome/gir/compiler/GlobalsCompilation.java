@@ -14,8 +14,8 @@ import java.util.Map;
 public final class GlobalsCompilation extends StubClassCompilation {
 	Map<String,String> interfaceTypes = new HashMap<String,String>();
 	public InnerClassCompilation constants;
-	public GlobalsCompilation(String namespace, String name) {
-		super(namespace, name);
+	public GlobalsCompilation(String namespace, String version, String name) {
+		super(namespace, version, name);
 	}
 	
 	public InnerClassCompilation getConstants() {
