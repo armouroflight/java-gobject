@@ -51,9 +51,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.gnome.gir.gobject.GObjectAPI.GObjectStruct;
 import org.gnome.gir.repository.BaseInfo;
 
 import com.sun.jna.Pointer;
@@ -166,18 +164,21 @@ public abstract class NativeObject extends Handle {
 	            return null;
 	        }
 	        NativeObject obj = null;
-	        if (BaseInfo.class.isAssignableFrom(cls))
+	        if (BaseInfo.class.isAssignableFrom(cls)) {
 	        	obj = BaseInfo.newInstanceFor(ptr);
-	        else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls))
+	        	if (obj != null && ownsRef)
+	        		((RefCountedObject) obj).unref();
+	        } else if (GObject.class.isAssignableFrom(cls) || GObject.GObjectProxy.class.isAssignableFrom(cls)) {
 	        	obj = Internals.instanceFor(ptr);
-	        if (obj != null && cls.isInstance(obj)) {
-	            if (ownsRef) {
-	                ((RefCountedObject) obj).unref(); // Lose the extra ref that we expect functions to add by default
-	            }
+	        	if (obj != null && ownsRef)
+	        		GObjectAPI.gobj.g_object_unref((GObject)obj);
+	        }
+	        if (obj != null) {
+	        	if (!cls.isInstance(obj))
+	        		throw new RuntimeException(String.format("returned obj %s (%s) not instanceof %s", obj, obj.getClass(), cls));	        	
 	            return cls.cast(obj);
 	        }
 	       
-
 	        /* Special-case GObject.GObjectProxy here - these are interface values
 	         * for which we don't know of a current concrete class.
 	         */

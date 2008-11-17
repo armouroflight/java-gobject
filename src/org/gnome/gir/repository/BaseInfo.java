@@ -27,6 +27,12 @@ public class BaseInfo extends RefCountedObject {
 			return new FieldInfo(init);		
 		if (itype == InfoType.OBJECT.ordinal())
 			return new ObjectInfo(init);
+		if (itype == InfoType.ARG.ordinal())
+			return new ArgInfo(init);
+		if (itype == InfoType.VALUE.ordinal())
+			return new ValueInfo(init);
+		if (itype == InfoType.SIGNAL.ordinal())
+			return new SignalInfo(init);			
 		if (itype == InfoType.FUNCTION.ordinal())
 			return new FunctionInfo(init);
 		if (itype == InfoType.STRUCT.ordinal())
