@@ -128,20 +128,11 @@ public abstract class NativeObject extends Handle {
         	debugMemory = System.getProperty("jgir.debugMemory") != null;
         }
         
-        public static final void debugMemory(GObject obj, String fmt, Object... args) {
-        	if (debugMemory) {
-        		Object[] newArgs = new Object[args.length+2];
-        		System.arraycopy(args, 0, newArgs, 1, args.length);
-        		newArgs[0] = obj;
-        		if (obj != null) {
-        			GObjectStruct objStruct = new GObjectAPI.GObjectStruct(obj);    		
-        			newArgs[newArgs.length-1] = objStruct.ref_count;
-        		} else {
-        			newArgs[newArgs.length-1] = "<null>";
-        		}
-        		System.err.println(String.format(fmt, newArgs));
-        	}
-        }        
+        public static void debugMemory(String fmt, Object...args) {
+        	if (!debugMemory)
+        		return;
+        	System.err.printf(fmt, args);
+        }
     	
 		protected static NativeObject instanceFor(Pointer ptr) {
 		    WeakReference<NativeObject> ref = NativeObject.instanceMap.get(ptr);

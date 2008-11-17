@@ -51,6 +51,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.gnome.gir.gobject.GObjectAPI.GObjectStruct;
 import org.gnome.gir.gobject.GObjectAPI.GParamSpec;
 import org.gnome.gir.gobject.GObjectAPI.GToggleNotify;
 import org.gnome.gir.gobject.GObjectAPI.GWeakNotify;
@@ -75,6 +76,21 @@ public abstract class GObject extends NativeObject {
      * be elgible for GC.
      */
     private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
+    
+    private static final void debugMemory(GObject obj, String fmt, Object... args) {
+    	if (NativeObject.Internals.debugMemory) {
+    		Object[] newArgs = new Object[args.length+2];
+    		System.arraycopy(args, 0, newArgs, 1, args.length);
+    		newArgs[0] = obj;
+    		if (obj != null) {
+    			GObjectStruct objStruct = new GObjectAPI.GObjectStruct(obj);    		
+    			newArgs[newArgs.length-1] = objStruct.ref_count;
+    		} else {
+    			newArgs[newArgs.length-1] = "<null>";
+    		}
+    		NativeObject.Internals.debugMemory(fmt, newArgs);
+    	}
+    }          
     
     /**
      * A tagging interface to mark classes which are GObject property bags.
@@ -106,10 +122,10 @@ public abstract class GObject extends NativeObject {
 		 */
 		boolean wasFloating = GObjectAPI.gobj.g_object_is_floating(this);
 		if (wasFloating) {
-			NativeObject.Internals.debugMemory(this, "SINK AND TOGGLE %s %s");
+			debugMemory(this, "SINK AND TOGGLE %s %s%n");
 			GObjectAPI.gobj.g_object_ref_sink(this);
 		} else {
-			NativeObject.Internals.debugMemory(this, "TOGGLE %s %s");
+			debugMemory(this, "INIT TOGGLE %s %s%n");
 		}
 
 		/*
@@ -222,7 +238,7 @@ public abstract class GObject extends NativeObject {
     
     @Override
     protected void finalize() throws Throwable {  	
-        NativeObject.Internals.debugMemory(this, "REMOVING TOGGLE %s %s");
+        debugMemory(this, "REMOVING TOGGLE %s %s%n");
         /* Take away the toggle reference */
         GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);
     }
@@ -294,7 +310,7 @@ public abstract class GObject extends NativeObject {
             if (o == null) {
                 return;
             }
-            NativeObject.Internals.debugMemory(o, "TOGGLE %s %d %s", is_last_ref);	            
+            debugMemory(o, "TOGGLE NOTIFY %s %s %s%n", is_last_ref);	            
             if (is_last_ref) {
                 strongReferences.remove(o);
             } else {
@@ -307,7 +323,7 @@ public abstract class GObject extends NativeObject {
 		@Override
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) Internals.instanceFor(obj);
-            NativeObject.Internals.debugMemory(o, "WEAK %s %s obj=%s", o, obj);			
+            debugMemory(o, "WEAK %s %s obj=%s%n", o, obj);			
 			// Clear out the signal handler references
 			if (o == null)
 				return;

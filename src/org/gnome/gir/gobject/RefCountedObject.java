@@ -63,6 +63,7 @@ abstract public class RefCountedObject extends NativeObject {
     
     @Override
     protected void finalize() throws Throwable {
+    	NativeObject.Internals.debugMemory("UNREF %s%n", this);
     	unref();
     	super.finalize();
     }
