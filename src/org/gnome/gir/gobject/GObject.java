@@ -69,11 +69,12 @@ public abstract class GObject extends NativeObject {
     private static final Map<GObject, Boolean> strongReferences = new ConcurrentHashMap<GObject, Boolean>();
 
     private final IntPtr objectID = new IntPtr(System.identityHashCode(this));
+    private boolean disposed = false;
     
     /* Hold a strong Java reference between this proxy object and any signal
      * handlers installed.  Often this would be done anyways, but if you're
      * just calling System.out.println in a callback, it would otherwise
-     * be elgible for GC.
+     * be eligible for GC.
      */
     private Map<Long,Callback> signalHandlers = new HashMap<Long, Callback>();
     
@@ -136,7 +137,7 @@ public abstract class GObject extends NativeObject {
 
 		/*
 		 * The weak notify is just a convenient hook into object destruction so
-		 * we can clear out our signal handlers hash.
+		 * we can clear out our signal handlers and strong ref; see below.
 		 */
 		GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
 
@@ -236,10 +237,24 @@ public abstract class GObject extends NativeObject {
         return propValue.unboxAndUnset();
     }
     
+    private static void handleDispose(GObject object) {
+    	if (object.disposed)
+    		return;
+        /* Make sure we're not holding a hidden strong ref anymore */
+        strongReferences.remove(object);
+        /* Clear out our signal handler references */
+		object.signalHandlers = null;
+        object.disposed = true;
+    }
+    
     @Override
-    protected void finalize() throws Throwable {  	
-        debugMemory(this, "REMOVING TOGGLE %s %s%n");
+    protected void finalize() throws Throwable {
+    	super.finalize();
+    	/* If the native object already went away, we have nothing to do here. */
+    	if (disposed)
+    		return;
         /* Take away the toggle reference */
+        debugMemory(this, "REMOVING TOGGLE %s %s%n");    	
         GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);
     }
  
@@ -294,8 +309,10 @@ public abstract class GObject extends NativeObject {
     private GObjectAPI.GParamSpec findProperty(String propertyName) {
         return GObjectAPI.gobj.g_object_class_find_property(getNativeAddress().getPointer(0), propertyName);
     }
+    
     /*
-     * Hooks to/from native disposal
+     * Hooks to/from native disposal.  These callbacks are global statics, and should
+     * never themselves be GC'd.
      */
     private static final GToggleNotify toggle = new GToggleNotify() {
         public void callback(Pointer data, Pointer ptr, boolean is_last_ref) {            
@@ -323,12 +340,11 @@ public abstract class GObject extends NativeObject {
 		@Override
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) Internals.instanceFor(obj);
-            debugMemory(o, "WEAK %s %s obj=%s%n", o, obj);			
-			// Clear out the signal handler references
+            NativeObject.Internals.debugMemory("WEAK %s target=%s%n", obj, o);
 			if (o == null)
 				return;
 			synchronized (o) {
-				o.signalHandlers = null;
+				handleDispose(o);
 			}
 		}
     };    
