@@ -1036,6 +1036,10 @@ public class CodeFactory {
 		CallableCompilationContext ctx = new CallableCompilationContext();
 		if (si instanceof FunctionInfo) {
 			FunctionInfo fi = (FunctionInfo) si;
+			
+			if (fi.isDeprecated())
+				return null;
+			
 			int flags = fi.getFlags();
 			ctx.isConstructor = !isStaticCtor && (flags & FunctionInfoFlags.IS_CONSTRUCTOR) != 0;
 			ctx.isMethod = !ctx.isConstructor && (flags & FunctionInfoFlags.IS_METHOD) != 0;
