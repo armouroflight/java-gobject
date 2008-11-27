@@ -69,7 +69,6 @@ import java.util.zip.ZipOutputStream;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GObjectAPI;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GlibAPI;
@@ -355,7 +354,7 @@ public class CodeFactory {
 		compilation.close();
 	}	
 	
-	private void compileDefaultConstructor(ObjectInfo info, ClassCompilation compilation) {		
+	private void compileDefaultConstructors(ObjectInfo info, ClassCompilation compilation) {		
 		BaseInfo parent = info.getParent(); 
 		String parentInternalType = getInternalNameMapped(parent);
 		
@@ -819,11 +818,14 @@ public class CodeFactory {
 		
 		writeHandleInitializer(compilation, parentInternalName);
 		
-		compileDefaultConstructor(info, compilation);
+		compileDefaultConstructors(info, compilation);
 		
-		Map<String,Set<FunctionInfo>> ctors = new HashMap<String, Set<FunctionInfo>>();
+		FunctionInfo baseNewCtor = null;
+		Set<FunctionInfo> extraCtors = new HashSet<FunctionInfo>();
 		
-		// First gather the set of all constructors; we need to avoid name clashes
+		/* Our strategy with constructors is that we only treat "new" as special.
+		 * Everything else gets turned into a static method.
+		 */
 		for (FunctionInfo fi : info.getMethods()) {
 			CallableCompilationContext ctx = tryCompileCallable(fi);
 			if (ctx == null || !ctx.isConstructor)
@@ -833,34 +835,19 @@ public class CodeFactory {
 				logger.fine("Skipping 0-args constructor: " + fi.getName());
 				continue;
 			}
-			String descriptor = ctx.getDescriptor();
-			if (!ctors.containsKey(descriptor)) {
-				ctors.put(descriptor, new HashSet<FunctionInfo>());
-			}
-			Set<FunctionInfo> set = ctors.get(descriptor);
-			set.add(fi);
+			
+			if (fi.getName().equals("new") && baseNewCtor == null)
+				baseNewCtor = fi;
+			else
+				extraCtors.add(fi);
 		}
 		
-		for (Set<FunctionInfo> ctorGroup : ctors.values()) {
-			FunctionInfo first = ctorGroup.iterator().next();			
-			if (ctorGroup.size() == 1) {
-				writeConstructor(info, compilation, first);
-			} else {
-				logger.info("Constructor name " + first.getSymbol() + " clashes");
-				FunctionInfo defaultCtor = null;
-				for (FunctionInfo ctor : ctorGroup) {
-					if (ctor.getName().equals("new"))
-						defaultCtor = ctor;
-				}
-				if (defaultCtor != null) {
-					writeConstructor(info, compilation, defaultCtor);
-				}
-				for (FunctionInfo ctor : ctorGroup) {
-					if (ctor != defaultCtor) {
-						writeStaticConstructor(info, compilation, ctor);
-					}
-				}
-			}
+		if (baseNewCtor != null) {
+			writeConstructor(info, compilation, baseNewCtor);
+		}		
+			
+		for (FunctionInfo ctor : extraCtors) {
+			writeStaticConstructor(info, compilation, ctor);
 		}
 		
 		Set<String> sigs = new HashSet<String>();
@@ -878,7 +865,10 @@ public class CodeFactory {
 			CallableCompilationContext ctx = tryCompileCallable(fi, info, true, false, sigs);
 			if (ctx == null || ctx.isConstructor)
 				continue;
-			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
+			int callableFlags = ACC_PUBLIC;
+			if (!ctx.isMethod)
+				callableFlags |= ACC_STATIC;
+			writeCallable(callableFlags, compilation, fi, ctx);
 		}
 		for (InterfaceInfo iface : giInterfaces) {
 			if (TypeMap.introspectionImplements(info.getParent(), iface))
