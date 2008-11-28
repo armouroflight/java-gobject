@@ -284,10 +284,10 @@ public class TypeMap {
 			return false;
 		BaseInfo iface = type.getInterface();
 		String ns = iface.getNamespace();
+		if (ns.equals("GLib") && iface.getName().equals("FreeFunc"))
+			return true;		
 		if (ns.equals("GLib") || ns.equals("Gtk"))
 			return iface.getName().equals("DestroyNotify");
-		if (ns.equals("GLib") && iface.getName().equals("FreeFunc"))
-			return true;
 		return false;
 	}
 
