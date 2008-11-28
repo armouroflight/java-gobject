@@ -1080,7 +1080,9 @@ public class CodeFactory {
 					info.getTag().equals(TypeTag.INTERFACE) &&
 					info.getInterface() instanceof CallbackInfo) {
 				if (firstSeenCallback >= 0) {
-					logger.warning("Skipping callable with unpaired multiple callbacks: " + si.getIdentifier());
+					int off = ctx.isMethod ? firstSeenCallback - 1 : firstSeenCallback;
+					logger.warning("Skipping callable with multiple callbacks: " + si.getIdentifier() +
+							" first:" + args[off] + " second:" + arg);
 					return null;					
 				}			
 				firstSeenCallback = argOffset;

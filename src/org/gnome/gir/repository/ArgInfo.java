@@ -27,4 +27,9 @@ public class ArgInfo extends BaseInfo {
 	public TypeInfo getType() {
 		return Repository.getNativeLibrary().g_arg_info_get_type(this);
 	}
+	
+	@Override
+	public String toString() {
+		return "<" + getClass().getSimpleName() + " ns=" + getNamespace() + " name=" + getName() + " tag=" + getType().getTag() + ">";
+	}	
 }
