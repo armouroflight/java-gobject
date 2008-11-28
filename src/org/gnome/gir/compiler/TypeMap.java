@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.Iterator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -227,24 +227,7 @@ public class TypeMap {
 	}
 
 	public static List<InterfaceInfo> getUniqueInterfaces(List<InterfaceInfo> ifaces) {
-		boolean hit = true;
-		ifaces = new ArrayList<InterfaceInfo>(ifaces);
-		while (hit) {
-			hit = false;
-			for (Iterator<InterfaceInfo> it = ifaces.iterator(); it.hasNext();) {
-				InterfaceInfo possible = it.next();
-				for (InterfaceInfo iface : ifaces) {
-					if (iface == possible)
-						continue;
-					if (TypeMap.isAssignableFrom(possible, iface)) {
-						it.remove();
-						hit = true;
-						break;
-					}
-				}
-			}
-		}
-		return ifaces;
+		return new ArrayList<InterfaceInfo>(new HashSet<InterfaceInfo>(ifaces));
 	}
 
 	public static List<InterfaceInfo> getUniqueInterfaces(ObjectInfo obj) {
