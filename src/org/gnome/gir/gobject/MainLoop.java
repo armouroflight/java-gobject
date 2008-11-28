@@ -324,7 +324,8 @@ public class MainLoop extends RefCountedObject {
 				synchronized (handle) {
 					int idleId = rawInvokeLater(new Runnable() {
 						@Override
-						public void run() {	
+						public void run() {
+							handle.srcId = 0;
 							handler.handle(proxy);
 						}
 					});
