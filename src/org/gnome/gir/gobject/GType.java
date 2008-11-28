@@ -45,6 +45,7 @@
 
 package org.gnome.gir.gobject;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -249,6 +250,14 @@ public class GType extends NativeLong {
         return new GType(value);
     }
     
+    private static GType invokeGetGType(Class<?> klass) {
+    	try {
+			return (GType) klass.getDeclaredMethod("getGType", new Class<?>[] {}).invoke(null, new Object[] {});
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+    }
+    
     public static GType fromInstance(Object obj) {
         if (obj instanceof Integer) {
             return INT;
@@ -265,10 +274,16 @@ public class GType extends NativeLong {
         	return objectPeekType(((GObject) obj).getNativeAddress());
         } else if (obj instanceof GBoxed) {
         	return ((GBoxed) obj).getGType();
-        } else if (obj instanceof BoxedStructure) {
-        	return ((BoxedStructure) obj).getGType();
-        } else if (obj instanceof BoxedUnion) {
-        	return ((BoxedUnion) obj).getGType();
+        } else if (obj instanceof BoxedStructure || obj instanceof BoxedUnion) {
+        	GType type;
+        	if (obj instanceof BoxedStructure)
+        	    type = ((BoxedStructure) obj).getGType();
+        	else
+        		type = ((BoxedUnion) obj).getGType();
+        	if (type.equals(GType.INVALID)) {
+        		type = invokeGetGType(obj.getClass());
+        	}
+        	return type;
         } else {
         	throw new IllegalArgumentException(String.format("Unhandled GType lookup for object %s", obj));
         }

@@ -70,6 +70,7 @@ public class GValue extends com.sun.jna.Structure {
 			throw new NullPointerException();
 		g_type = GType.INVALID;
         GValueAPI.gvalue.g_value_init(this, type);
+        read();
 	}
 	
 	public GValue(GType expected, Object object) {

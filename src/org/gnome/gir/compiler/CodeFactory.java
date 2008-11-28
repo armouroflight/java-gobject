@@ -1435,7 +1435,8 @@ public class CodeFactory {
 			mv.visitLocalVariable("mapper", Type.getDescriptor(TypeMapper.class), null, l0, l1, 0);		
 			mv.visitMaxs(0, 0);
 			mv.visitEnd();			
-						
+			
+			writeGetGType(info, compilation);
 		}
 		
 		if (hasFields) {
