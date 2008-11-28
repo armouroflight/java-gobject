@@ -903,8 +903,18 @@ public class CodeFactory {
 		
 		String internalName = getInternalName(info);
 		
+		List<String> extendsList = new ArrayList<String>();
+		extendsList.add("org/gnome/gir/gobject/GObject$GObjectProxy");
+		
+		for (BaseInfo prereq : info.getPrerequisites()) {
+			if (!(prereq instanceof InterfaceInfo))
+				continue;
+			InterfaceInfo prereqIface = (InterfaceInfo) prereq;
+			Type prereqType = TypeMap.typeFromInfo(prereqIface);
+			extendsList.add(prereqType.getInternalName());
+		}
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, internalName, null, "java/lang/Object", 
-				new String[] { "org/gnome/gir/gobject/GObject$GObjectProxy" });
+				extendsList.toArray(new String[]{}));
 		globals.interfaceTypes.put(internalName, info.getTypeInit());
 		
 		Type ifaceType = TypeMap.typeFromInfo(info);
