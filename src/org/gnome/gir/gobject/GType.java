@@ -70,8 +70,6 @@ public class GType extends NativeLong {
 
 		{
 			put("GLib.Value", "org/gnome/gir/gobject/GValue");
-			put("GLib.List", "org/gnome/gir/gobject/GList");
-			put("GLib.SList", "org/gnome/gir/gobject/GSList");
 
 			put("GLib.MainContext", "org/gnome/gir/gobject/GMainContext");
 			put("GLib.Closure", "org/gnome/gir/gobject/GClosure");
@@ -94,7 +92,7 @@ public class GType extends NativeLong {
 					"MappedFile" };
 			for (String unmapped : glibPointerUnmapped)
 				put("GLib." + unmapped, "com/sun/jna/Pointer");
-			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", "IOCondition", "RegexMatchFlags" };
+			String[] glibIntegerUnmapped = new String[] { "GList", "GSList", "SpawnFlags", "SeekType", "IOCondition", "RegexMatchFlags" };
 			for (String unmapped : glibIntegerUnmapped)
 				put("GLib." + unmapped, "java/lang/Integer");			
 			

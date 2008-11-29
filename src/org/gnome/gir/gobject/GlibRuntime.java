@@ -22,9 +22,13 @@
 
 package org.gnome.gir.gobject;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import org.gnome.gir.repository.Transfer;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Pointer;
@@ -63,4 +67,35 @@ public class GlibRuntime {
 		outstandingCallbacks.add(data);
 		return destroy;
 	}
+	
+	public static List<String> convertListUtf8(GenericGList glist, Transfer transfer) {
+		List<String> ret = new ArrayList<String>();
+		GenericGList origList = glist;
+		boolean stringFree = transfer.equals(Transfer.EVERYTHING);
+		while (glist != null) {
+			Pointer data = glist.getData();
+			String p = data.getString(0);
+			if (stringFree)
+				GlibAPI.glib.g_free(data);
+			ret.add(p);
+			glist = glist.getNext();
+		}
+		if (!transfer.equals(Transfer.NOTHING))
+			origList.free();
+		return ret;
+	}
+	
+	public static List<GObject> convertListGObject(GenericGList glist, Transfer transfer, Class<? extends NativeObject> klass) {
+		List<GObject> ret = new ArrayList<GObject>();
+		GenericGList origList = glist;		
+		boolean objTransfer = transfer.equals(Transfer.EVERYTHING);
+		while (glist != null) {
+			GObject obj = (GObject) NativeObject.Internals.objectFor(glist.getData(), klass, objTransfer);
+			ret.add(obj);
+			glist = glist.getNext();
+		}
+		if (!transfer.equals(Transfer.NOTHING))
+			origList.free();		
+		return ret;
+	}		
 }

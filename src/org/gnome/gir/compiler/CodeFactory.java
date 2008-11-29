@@ -69,8 +69,11 @@ import java.util.zip.ZipOutputStream;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
+import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObjectAPI;
+import org.gnome.gir.gobject.GSList;
 import org.gnome.gir.gobject.GType;
+import org.gnome.gir.gobject.GenericGList;
 import org.gnome.gir.gobject.GlibAPI;
 import org.gnome.gir.gobject.GlibRuntime;
 import org.gnome.gir.gobject.NativeObject;
@@ -106,6 +109,8 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.signature.SignatureVisitor;
+import org.objectweb.asm.signature.SignatureWriter;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import com.sun.jna.Callback;
@@ -183,6 +188,37 @@ public class CodeFactory {
 	static String getInternalNameMapped(BaseInfo info) {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
 	}	
+	
+	static boolean writeConversionToJava(MethodVisitor mv, TypeInfo info, Transfer transfer) {
+		TypeTag infoTag = info.getTag();
+		if (infoTag.equals(TypeTag.GLIST) || infoTag.equals(TypeTag.GSLIST)) {
+			if (infoTag.equals(TypeTag.GLIST)) {			
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GList.class), "fromNative",
+						Type.getMethodDescriptor(getType(GList.class), new Type[] { getType(Pointer.class) }));
+			} else {
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GSList.class), "fromNative",
+						Type.getMethodDescriptor(getType(GSList.class), new Type[] { getType(Pointer.class) }));				
+			}
+			mv.visitFieldInsn(GETSTATIC, getType(Transfer.class).getInternalName(), 
+					transfer.name(), getType(Transfer.class).getDescriptor());
+			TypeInfo param = info.getParamType(0);
+			TypeTag paramTag = param.getTag();
+			if (paramTag.equals(TypeTag.UTF8)) {
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "convertListUtf8",
+						Type.getMethodDescriptor(getType(List.class), new Type[] { getType(GenericGList.class), getType(Transfer.class) }));
+				return true;
+			} else if (paramTag.equals(TypeTag.INTERFACE)) {
+				BaseInfo paramInfo = param.getInterface();
+				Type eltClass = TypeMap.typeFromInfo(paramInfo);
+				mv.visitLdcInsn(eltClass);
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "convertListGObject",
+						Type.getMethodDescriptor(getType(List.class), new Type[] { getType(GenericGList.class), getType(Transfer.class), getType(Class.class) }));				
+				return true;
+			}
+		}
+
+		return false;		
+	}
 
 	private void compile(EnumInfo info) {
 		ClassCompilation compilation = getCompilation(info);
@@ -970,6 +1006,7 @@ public class CodeFactory {
 		ArgInfo[] args;
 		Type thisType;
 		List<Type> argTypes;
+		String argSignature;
 		List<String> argNames = new ArrayList<String>();
 		boolean throwsGError;
 		boolean isInterfaceMethod = false;
@@ -1053,7 +1090,16 @@ public class CodeFactory {
 		} else {
 			if (ctx.isMethod && thisType != null)
 				ctx.thisType = Type.getObjectType(getInternalNameMapped(thisType));
-			ctx.returnType = TypeMap.getCallableReturn(si);
+			ctx.returnType = TypeMap.getCallableReturn(si);		
+			if (ctx.returnType != null && TypeMap.visitCallableReturnSignature(si, null)) {
+				SignatureVisitor visitor = new SignatureWriter();
+				SignatureVisitor returnVisitor = visitor.visitReturnType();
+				returnVisitor.visitClassType(ctx.returnType.getInternalName());
+				if (TypeMap.visitCallableReturnSignature(si, returnVisitor)) {
+					visitor.visitEnd();
+					ctx.argSignature = visitor.toString();
+				}
+			}
 		}
 		if (ctx.returnType == null) {
 			logger.warning("Skipping callable with unhandled return signature: "+ si.getIdentifier());
@@ -1150,9 +1196,9 @@ public class CodeFactory {
 		
 		if (fi.isDeprecated()) {
 			accessFlags += ACC_DEPRECATED;
-		}		
+		}
 		MethodVisitor mv = compilation.writer.visitMethod(accessFlags, 
-				name, descriptor, null, exceptions);
+				name, descriptor, ctx.argSignature, exceptions);
 		if (fi.isDeprecated()) {
 			AnnotationVisitor av = mv.visitAnnotation(Type.getType(Deprecated.class).getDescriptor(), true);
 			av.visitEnd();
@@ -1172,7 +1218,9 @@ public class CodeFactory {
 			((returnTransfer.equals(Transfer.NOTHING) &&
 				 (returnTypeTag.equals(TypeTag.INTERFACE))) ||
 				(returnTransfer.equals(Transfer.EVERYTHING) && 
-				 returnTypeTag.equals(TypeTag.UTF8))) {
+				 returnTypeTag.equals(TypeTag.UTF8)) || 
+			 returnTypeTag.equals(TypeTag.GLIST) ||
+			 returnTypeTag.equals(TypeTag.GSLIST)) {
 			nativeReturnType = Type.getType(Pointer.class);
 		} else { 
 			nativeReturnType = ctx.returnType;
@@ -1295,6 +1343,8 @@ public class CodeFactory {
 					/* Strings which are *not* const and must be g_free'd */
 					mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "toStringAndGFree", 
 							Type.getMethodDescriptor(getType(String.class), new Type[] { getType(Pointer.class) }));
+				} else if (returnTypeTag.equals(TypeTag.GLIST) || returnTypeTag.equals(TypeTag.GSLIST)) {
+					writeConversionToJava(mv, returnGIType, returnTransfer);
 				} else {
 					throw new IllegalArgumentException(String.format("Unhandled nativeReturn %s vs public %s", nativeReturnType, ctx.returnType));
 				}

@@ -26,6 +26,7 @@ import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.signature.SignatureVisitor;
 
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -135,10 +136,50 @@ public class TypeMap {
 
 	static Type getCallableReturn(CallableInfo callable) {
 		TypeInfo info = callable.getReturnType();
-		if (info.getTag().equals(TypeTag.INTERFACE)) {
+		TypeTag tag = info.getTag();
+		if (tag.equals(TypeTag.INTERFACE)) {
 			return TypeMap.typeFromInfo(info);
+		} else if (tag.equals(TypeTag.GLIST) || tag.equals(TypeTag.GSLIST)) {
+			if (!isCallableReturnSignatureSupported(callable))
+				return null;
+			return Type.getType(List.class);
 		}
 		return toJava(info.getTag());
+	}
+	
+	private static boolean isCallableReturnSignatureSupported(CallableInfo callable) {
+		TypeInfo info = callable.getReturnType();
+		TypeTag tag = info.getTag();		
+		if (!(tag.equals(TypeTag.GLIST) || tag.equals(TypeTag.GSLIST)))
+			return true;
+		TypeInfo param = info.getParamType(0);
+		TypeTag paramTag = param.getTag();
+		if (!(paramTag.equals(TypeTag.UTF8) || paramTag.equals(TypeTag.INTERFACE)))
+			return false;
+		if (paramTag.equals(TypeTag.INTERFACE)) {
+			BaseInfo paramInfo = param.getInterface();
+			if (!(paramInfo instanceof ObjectInfo || paramInfo instanceof InterfaceInfo))
+				return false;
+		}
+		Type containedType = toJava(param);
+		if (containedType == null)
+			return false;
+		return true;
+	}
+	
+	public static boolean visitCallableReturnSignature(CallableInfo callable, SignatureVisitor visitor) {
+		TypeInfo info = callable.getReturnType();
+		TypeTag tag = info.getTag();
+		if (!(tag.equals(TypeTag.GLIST) || tag.equals(TypeTag.GSLIST)))
+			return false;
+		TypeInfo param = info.getParamType(0);
+		Type containedType = toJava(param);
+		if (visitor == null)
+			return true;
+		SignatureVisitor paramVisitor = visitor.visitTypeArgument('=');
+		paramVisitor.visitClassType(containedType.getInternalName());
+		paramVisitor.visitEnd();
+		return true;
 	}
 
 	public static Type toJava(ArgInfo arg) {

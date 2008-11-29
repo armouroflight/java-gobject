@@ -1,13 +1,17 @@
 
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
+import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
+import org.gnome.gir.gobject.GlibRuntime;
 import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.Direction;
@@ -178,6 +182,14 @@ public class Test extends GObject implements TestIface {
 		Function f = Internals.library.getFunction("gtk_propagate_event");
 		Object[] args = new Object[] { this, widget, event };
 		f.invoke(Void.class, args, Internals.invocationOptions);		
+	}
+	
+	public List<GObject> cow() {
+		Function f = Internals.library.getFunction("gtk_cow");
+		Object[] args = new Object[] { this };
+		Pointer p = (Pointer) f.invoke(Pointer.class, args, Internals.invocationOptions);
+		GList list = GList.fromNative(p);
+		return GlibRuntime.convertListGObject(list, Transfer.EVERYTHING, GObject.class);
 	}
 	
 	public void ifaceFoo(String blah) {
