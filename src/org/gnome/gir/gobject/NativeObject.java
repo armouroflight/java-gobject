@@ -121,9 +121,12 @@ public abstract class NativeObject extends Handle {
     public static class Internals {
 
         public static final boolean debugMemory;
+        public static final boolean debugMemoryFinalization;        
         
         static {
-        	debugMemory = System.getProperty("jgir.debugMemory") != null;
+        	String debug = System.getProperty("jgir.debugMemory");
+        	debugMemoryFinalization = debug != null ? debug.equals("final") : false; 
+        	debugMemory = debug != null ? debug.equals("all") : false;
         }
         
         public static void debugMemory(String fmt, Object...args) {
@@ -131,6 +134,12 @@ public abstract class NativeObject extends Handle {
         		return;
         	System.err.printf(fmt, args);
         }
+        
+        public static void debugMemoryFinal(String fmt, Object...args) {
+        	if (!(debugMemoryFinalization || debugMemory))
+        		return;
+        	System.err.printf(fmt, args);
+        }        
     	
 		protected static NativeObject instanceFor(Pointer ptr) {
 		    WeakReference<NativeObject> ref = NativeObject.instanceMap.get(ptr);

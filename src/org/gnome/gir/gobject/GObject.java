@@ -91,7 +91,13 @@ public abstract class GObject extends NativeObject {
     		}
     		NativeObject.Internals.debugMemory(fmt, newArgs);
     	}
-    }          
+    }
+    
+    private static final void debugMemoryFinal(GObject obj, String fmt, Object... args) {
+    	if (!NativeObject.Internals.debugMemoryFinalization)
+    		return;
+    	debugMemory(obj, fmt, args);
+    }
     
     /**
      * A tagging interface to mark classes which are GObject property bags.
@@ -254,7 +260,7 @@ public abstract class GObject extends NativeObject {
     	if (disposed)
     		return;
         /* Take away the toggle reference */
-        debugMemory(this, "REMOVING TOGGLE %s %s%n");    	
+        debugMemoryFinal(this, "REMOVING TOGGLE %s %s%n");    	
         GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);
     }
  
@@ -340,7 +346,7 @@ public abstract class GObject extends NativeObject {
 		@Override
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) Internals.instanceFor(obj);
-            NativeObject.Internals.debugMemory("WEAK %s target=%s%n", obj, o);
+            NativeObject.Internals.debugMemoryFinal("WEAK %s target=%s%n", obj, o);
 			if (o == null)
 				return;
 			synchronized (o) {
