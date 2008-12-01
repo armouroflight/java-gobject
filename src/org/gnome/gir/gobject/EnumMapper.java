@@ -47,6 +47,8 @@ package org.gnome.gir.gobject;
 
 import java.util.EnumSet;
 
+import com.sun.jna.NativeMapped;
+
 /**
  * Maps to and from native int and an Enum value.
  * @author wayne
@@ -58,7 +60,7 @@ public class EnumMapper {
     }
     
     public int intValue(Enum<?> value) {
-        return value instanceof IntegerEnum ? ((IntegerEnum) value).intValue() : value.ordinal();
+        return value instanceof NativeEnum ? ((NativeEnum) value).getNative() : value.ordinal();
     }
     public <E extends Enum<E>> E valueOf(int value, Class<E> enumClass) {
         //
@@ -66,17 +68,9 @@ public class EnumMapper {
         // Storing the values in a Map might be faster, but by the time you deal
         // with locking overhead, its hardly worth it for small enums.
         // 
-        if (IntegerEnum.class.isAssignableFrom(enumClass)) {
-            for (E e : EnumSet.allOf(enumClass)) {
-                if (((IntegerEnum) e).intValue() == value) {
-                    return e;
-                }
-            }
-        } else {
-            for (E e : EnumSet.allOf(enumClass)) {
-                if (e.ordinal() == value) {
-                    return e;
-                }
+        for (E e : EnumSet.allOf(enumClass)) {
+            if (e.ordinal() == value) {
+                return e;
             }
         }
         //

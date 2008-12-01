@@ -27,6 +27,7 @@ import static org.objectweb.asm.Opcodes.GETSTATIC;
 import static org.objectweb.asm.Opcodes.ICONST_0;
 import static org.objectweb.asm.Opcodes.IFNULL;
 import static org.objectweb.asm.Opcodes.ILOAD;
+import static org.objectweb.asm.Opcodes.IADD;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 import static org.objectweb.asm.Opcodes.INVOKEVIRTUAL;
@@ -76,6 +77,7 @@ import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GenericGList;
 import org.gnome.gir.gobject.GlibAPI;
 import org.gnome.gir.gobject.GlibRuntime;
+import org.gnome.gir.gobject.NativeEnum;
 import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.ArgInfo;
@@ -116,6 +118,7 @@ import org.objectweb.asm.util.CheckClassAdapter;
 import com.sun.jna.Callback;
 import com.sun.jna.Function;
 import com.sun.jna.NativeLibrary;
+import com.sun.jna.NativeMapped;
 import com.sun.jna.Pointer;
 import com.sun.jna.TypeMapper;
 import com.sun.jna.ptr.PointerByReference;
@@ -224,7 +227,7 @@ public class CodeFactory {
 		ClassCompilation compilation = getCompilation(info);
 		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_FINAL + ACC_SUPER + ACC_ENUM, compilation.internalName, 
 				"Ljava/lang/Enum<L" + compilation.internalName + ";>;", "java/lang/Enum", 
-				null);
+				new String[] { Type.getInternalName(NativeEnum.class) });
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
 			String name = NameMap.enumNameToUpper(info.getName(), valueInfo.getName());			
@@ -260,8 +263,17 @@ public class CodeFactory {
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
+		int offset = 0;
 		int i = 0;
 		for (ValueInfo valueInfo : values) {
+			/* This hack is for enums which start from a nonzero offset, say 1.
+			 * Really, we should support arbitrary values for enums.
+			 */
+			if (i == 0) {
+				offset = (int) valueInfo.getValue();
+				if (offset != 0)
+					logger.info("Nonzero enum offset " + offset + " for " + info);
+			}
 			String name = NameMap.enumNameToUpper(info.getName(), valueInfo.getName());
 			mv.visitTypeInsn(NEW, compilation.internalName);
 			mv.visitInsn(DUP);
@@ -349,26 +361,15 @@ public class CodeFactory {
 		mv.visitMaxs(0, 0);
 		mv.visitEnd();		
 		
-		mv = compilation.writer.visitMethod(ACC_PUBLIC, "nativeType", "()Ljava/lang/Class;", "()Ljava/lang/Class<*>;", null);
-		mv.visitCode();
-		l0 = new Label();
-		mv.visitLabel(l0);
-		mv.visitLdcInsn(Type.getType("Ljava/lang/Integer;"));
-		mv.visitInsn(ARETURN);
-		l1 = new Label();
-		mv.visitLabel(l1);
-		mv.visitLocalVariable("this", "Lorg/gnome/gir/compiler/TestEnum;", null, l0, l1, 0);
-		mv.visitMaxs(0, 0);
-		mv.visitEnd();
-		
-		mv = compilation.writer.visitMethod(ACC_PUBLIC, "toNative", "()Ljava/lang/Object;", null, null);
+		mv = compilation.writer.visitMethod(ACC_PUBLIC, "getNative", "()I", null, null);
 		mv.visitCode();
 		l0 = new Label();
 		mv.visitLabel(l0);
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitMethodInsn(INVOKEVIRTUAL, compilation.internalName, "ordinal", "()I");
-		mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
-		mv.visitInsn(ARETURN);
+		mv.visitLdcInsn(offset);
+		mv.visitInsn(IADD);
+		mv.visitInsn(IRETURN);
 		l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);

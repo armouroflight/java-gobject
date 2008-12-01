@@ -7,6 +7,8 @@ public enum TestEnum implements NativeMapped {
 	FOO,
 	BAR;
 
+	private static int offset = 1;
+	
 	private TestEnum() {}
 	
 	@Override
@@ -22,6 +24,6 @@ public enum TestEnum implements NativeMapped {
 
 	@Override
 	public Object toNative() {
-		return Integer.valueOf(ordinal());
+		return Integer.valueOf(ordinal()+offset);
 	}
 }
