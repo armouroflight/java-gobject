@@ -1,5 +1,7 @@
 package org.gnome.gir.gobject;
 
+import java.util.Map;
+
 
 public abstract class GInitiallyUnowned extends GObject {
 	/*
@@ -13,4 +15,8 @@ public abstract class GInitiallyUnowned extends GObject {
 	protected GInitiallyUnowned(GType gtype, Object[] args) {
 		super(gtype, args);
 	}
+	
+	protected GInitiallyUnowned(GType gtype, Map<String,Object> args) {
+		super(gtype, args);
+	}	
 }
