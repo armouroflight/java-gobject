@@ -81,7 +81,7 @@ public class GlibRuntime {
 			ret.add(p);
 			glist = glist.getNext();
 		}
-		if (!transfer.equals(Transfer.NOTHING))
+		if (!transfer.equals(Transfer.NOTHING) && origList != null)
 			origList.free();
 		return ret;
 	}
@@ -95,7 +95,7 @@ public class GlibRuntime {
 			ret.add(obj);
 			glist = glist.getNext();
 		}
-		if (!transfer.equals(Transfer.NOTHING))
+		if (!transfer.equals(Transfer.NOTHING) && origList != null)
 			origList.free();		
 		return ret;
 	}		
