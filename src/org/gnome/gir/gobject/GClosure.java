@@ -1,5 +1,7 @@
 package org.gnome.gir.gobject;
 
+import org.gnome.gir.runtime.GBoxed;
+
 import com.sun.jna.Pointer;
 
 

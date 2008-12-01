@@ -1,4 +1,4 @@
-package org.gnome.gir.gobject;
+package org.gnome.gir.runtime;
 
 import java.util.Map;
 

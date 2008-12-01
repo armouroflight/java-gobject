@@ -6,7 +6,7 @@ package org.gnome.gir.compiler;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.gnome.gir.gobject.GType;
+import org.gnome.gir.runtime.GType;
 
 class StubClassCompilation extends ClassCompilation {
 	Set<InnerClassCompilation> innerClasses;

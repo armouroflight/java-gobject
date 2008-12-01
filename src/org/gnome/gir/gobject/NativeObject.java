@@ -53,6 +53,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.gnome.gir.repository.BaseInfo;
+import org.gnome.gir.runtime.GObject;
+import org.gnome.gir.runtime.GType;
 
 import com.sun.jna.Pointer;
 
@@ -141,7 +143,7 @@ public abstract class NativeObject extends Handle {
         	System.err.printf(fmt, args);
         }        
     	
-		protected static NativeObject instanceFor(Pointer ptr) {
+		public static NativeObject instanceFor(Pointer ptr) {
 		    WeakReference<NativeObject> ref = NativeObject.instanceMap.get(ptr);
 		    
 		    //

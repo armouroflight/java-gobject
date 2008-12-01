@@ -1,4 +1,8 @@
-package org.gnome.gir.gobject;
+package org.gnome.gir.runtime;
+
+import org.gnome.gir.gobject.GBoxedAPI;
+import org.gnome.gir.gobject.GObjectAPI;
+import org.gnome.gir.gobject.RegisteredType;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.TypeMapper;
@@ -26,7 +30,7 @@ public abstract class BoxedUnion extends Union implements RegisteredType {
 	/**
 	 * Return the GType associated with this boxed.  Not intended for public use.
 	 */
-	GType getGType() {
+	public GType getGType() {
 		return gtype;
 	}	
 

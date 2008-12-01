@@ -43,7 +43,7 @@
  * Boston, MA  02111-1307  USA. 
  */
 
-package org.gnome.gir.gobject;
+package org.gnome.gir.runtime;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -54,6 +54,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.gnome.gir.gobject.GMainContext;
+import org.gnome.gir.gobject.GSourceFunc;
+import org.gnome.gir.gobject.GlibAPI;
+import org.gnome.gir.gobject.GlibRuntime;
+import org.gnome.gir.gobject.RefCountedObject;
 
 import com.sun.jna.Pointer;
 

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.gnome.gir.repository.Transfer;
+import org.gnome.gir.runtime.GObject;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Pointer;

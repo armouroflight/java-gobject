@@ -47,8 +47,6 @@ package org.gnome.gir.gobject;
 
 import java.util.EnumSet;
 
-import com.sun.jna.NativeMapped;
-
 /**
  * Maps to and from native int and an Enum value.
  * @author wayne

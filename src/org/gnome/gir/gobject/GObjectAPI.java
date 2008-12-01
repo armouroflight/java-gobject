@@ -47,6 +47,10 @@ package org.gnome.gir.gobject;
 
 import java.util.HashMap;
 
+import org.gnome.gir.runtime.GObject;
+import org.gnome.gir.runtime.GType;
+import org.gnome.gir.runtime.GValue;
+
 import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;

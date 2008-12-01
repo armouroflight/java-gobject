@@ -6,8 +6,8 @@ package org.gnome.gir.compiler;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 
-import org.gnome.gir.gobject.GType;
 import org.gnome.gir.repository.Repository;
+import org.gnome.gir.runtime.GType;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;

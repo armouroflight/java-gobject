@@ -1,10 +1,5 @@
 package org.gnome.gir.gobject;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.gnome.gir.repository.Transfer;
-
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 

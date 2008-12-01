@@ -1,6 +1,5 @@
 
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,15 +7,14 @@ import java.util.Map;
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
 import org.gnome.gir.gobject.GList;
-import org.gnome.gir.gobject.GObject;
-import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.GTypeMapper;
 import org.gnome.gir.gobject.GlibRuntime;
 import org.gnome.gir.gobject.NativeObject;
-import org.gnome.gir.gobject.annotation.Return;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
 import org.gnome.gir.repository.Transfer;
+import org.gnome.gir.runtime.GObject;
+import org.gnome.gir.runtime.GType;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Function;
@@ -173,7 +171,6 @@ public class Test extends GObject implements TestIface {
 		f.invoke(Void.class, args, Internals.invocationOptions);
 	}	
 	
-	@Return(transfer=Transfer.NOTHING)
 	public static GObject getStage() {
 		return null;
 	}

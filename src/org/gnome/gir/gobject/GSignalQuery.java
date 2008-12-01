@@ -25,6 +25,8 @@
  */
 package org.gnome.gir.gobject;
 
+import org.gnome.gir.runtime.GType;
+
 import com.sun.jna.Pointer;
 
 public final class GSignalQuery extends com.sun.jna.Structure {

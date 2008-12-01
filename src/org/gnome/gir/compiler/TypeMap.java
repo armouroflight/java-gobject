@@ -10,7 +10,6 @@ import java.util.Map;
 
 import org.gnome.gir.gobject.GList;
 import org.gnome.gir.gobject.GSList;
-import org.gnome.gir.gobject.GType;
 import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
@@ -25,6 +24,7 @@ import org.gnome.gir.repository.StructInfo;
 import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
+import org.gnome.gir.runtime.GType;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureVisitor;
 

@@ -2,9 +2,9 @@ package org.gnome.gir.repository;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GObject;
 import org.gnome.gir.gobject.GObjectGlobals;
 import org.gnome.gir.gobject.NativeObject;
+import org.gnome.gir.runtime.GObject;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.PointerByReference;

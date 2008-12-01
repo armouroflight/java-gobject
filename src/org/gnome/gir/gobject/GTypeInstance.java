@@ -45,6 +45,8 @@
 
 package org.gnome.gir.gobject;
 
+import org.gnome.gir.runtime.GType;
+
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 

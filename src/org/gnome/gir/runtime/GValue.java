@@ -43,11 +43,18 @@
  * Boston, MA  02111-1307  USA. 
  */
 
-package org.gnome.gir.gobject;
+package org.gnome.gir.runtime;
+
+import org.gnome.gir.gobject.EnumMapper;
+import org.gnome.gir.gobject.GValueAPI;
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
+/**
+ * GValue is a the native GObject concept of a "boxed" value; i.e. a pair of data
+ * with metadata about its type.
+ */
 public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;

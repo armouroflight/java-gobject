@@ -49,7 +49,7 @@ import com.sun.jna.Pointer;
 
 abstract public class Handle extends NativeValue {
     // Use this to propagate low level pointer arguments up the constructor chain
-    protected static class Initializer {
+    public static class Initializer {
         public final Pointer ptr;
         public final boolean ownsRef;
         

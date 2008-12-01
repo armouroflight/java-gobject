@@ -47,8 +47,9 @@ package org.gnome.gir.gobject;
 
 import java.util.HashMap;
 
-import org.gnome.gir.gobject.annotation.Invalidate;
-import org.gnome.gir.gobject.annotation.Return;
+import org.gnome.gir.runtime.GObject;
+import org.gnome.gir.runtime.GType;
+import org.gnome.gir.runtime.GValue;
 
 import com.sun.jna.Library;
 import com.sun.jna.NativeLong;
@@ -101,7 +102,6 @@ public interface GValueAPI extends Library {
     boolean g_value_transform(GValue src_value, GValue dest_value);
     
     void g_value_set_object(GValue value, GObject v_object);
-    void g_value_take_object(GValue value, @Invalidate GObject v_object);
     /* Should not use this one - _dup_object will be handled correctly, just use that */
     /* GObject g_value_get_object(GValue value); */
     GObject g_value_dup_object(GValue value);

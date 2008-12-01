@@ -23,6 +23,9 @@
 
 package org.gnome.gir.gobject;
 
+import org.gnome.gir.runtime.GObject;
+import org.gnome.gir.runtime.GType;
+
 public class GTypeModule extends GObject {
 	protected GTypeModule(GType gtype, Object[] args) {
 		super(gtype, args);

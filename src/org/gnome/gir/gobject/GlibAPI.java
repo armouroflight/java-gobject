@@ -46,7 +46,7 @@
 package org.gnome.gir.gobject;
 import java.util.HashMap;
 
-import org.gnome.gir.gobject.annotation.Return;
+import org.gnome.gir.runtime.MainLoop;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Library;
@@ -69,7 +69,7 @@ public interface GlibAPI extends Library {
     Pointer g_main_loop_new(GMainContext context, boolean running);
     void g_main_loop_run(MainLoop loop);
     boolean g_main_loop_is_running(MainLoop loop);
-    @Return GMainContext g_main_loop_get_context(MainLoop loop);
+    GMainContext g_main_loop_get_context(MainLoop loop);
     void g_main_loop_quit(MainLoop loop);
     void g_main_loop_ref(MainLoop ptr);
     void g_main_loop_unref(MainLoop ptr);
@@ -89,9 +89,9 @@ public interface GlibAPI extends Library {
     boolean g_main_context_is_owner(GMainContext ctx);
     boolean g_main_context_wait(GMainContext ctx);
     
-    @Return GSource g_idle_source_new();
-    @Return GSource g_timeout_source_new(int interval);
-    @Return GSource g_timeout_source_new_seconds(int interval);
+    GSource g_idle_source_new();
+    GSource g_timeout_source_new(int interval);
+    GSource g_timeout_source_new_seconds(int interval);
     int g_source_attach(GSource source, GMainContext context);
     void g_source_destroy(Pointer source);
     void g_source_destroy(GSource source);

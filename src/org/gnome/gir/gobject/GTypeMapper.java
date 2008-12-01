@@ -45,22 +45,15 @@
 
 package org.gnome.gir.gobject;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Date;
 
-import org.gnome.gir.gobject.annotation.ConstField;
-import org.gnome.gir.gobject.annotation.IncRef;
-import org.gnome.gir.gobject.annotation.Invalidate;
-import org.gnome.gir.gobject.annotation.Return;
-import org.gnome.gir.repository.Transfer;
+import org.gnome.gir.runtime.GObject;
 
 import com.sun.jna.CallbackParameterContext;
 import com.sun.jna.FromNativeContext;
 import com.sun.jna.FromNativeConverter;
 import com.sun.jna.FunctionResultContext;
-import com.sun.jna.MethodParameterContext;
 import com.sun.jna.MethodResultContext;
 import com.sun.jna.Pointer;
 import com.sun.jna.StructureReadContext;

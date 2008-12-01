@@ -1,6 +1,10 @@
-package org.gnome.gir.gobject;
+package org.gnome.gir.runtime;
 
 import java.lang.reflect.Constructor;
+
+import org.gnome.gir.gobject.GBoxedAPI;
+import org.gnome.gir.gobject.GTypeMapper;
+import org.gnome.gir.gobject.RegisteredType;
 
 import com.sun.jna.Pointer;
 import com.sun.jna.PointerType;
@@ -23,7 +27,7 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	/**
 	 * Return the GType associated with this boxed.  Not intended for public use.
 	 */
-	GType getGType() {
+	public GType getGType() {
 		return gtype;
 	}
 	

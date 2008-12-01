@@ -45,7 +45,6 @@
 
 package org.gnome.gir.gobject;
 
-import com.sun.jna.Pointer;
 
 /**
  *
