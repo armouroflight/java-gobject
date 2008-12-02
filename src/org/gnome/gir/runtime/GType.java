@@ -263,7 +263,7 @@ public class GType extends NativeLong {
 		return new GType(value);
 	}
 
-	private static GType invokeGetGType(Class<?> klass) {
+	public static GType fromClass(Class<?> klass) {
 		try {
 			return (GType) klass.getDeclaredMethod("getGType", new Class<?>[] {}).invoke(null, new Object[] {});
 		} catch (Exception e) {
@@ -293,7 +293,7 @@ public class GType extends NativeLong {
 			else
 				type = ((BoxedUnion) obj).getGType();
 			if (type.equals(GType.INVALID)) {
-				type = invokeGetGType(obj.getClass());
+				type = fromClass(obj.getClass());
 			}
 			return type;
 		} else {

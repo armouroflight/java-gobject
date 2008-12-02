@@ -15,13 +15,22 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	
 	protected GType gtype = GType.INVALID;
 	
+	/* Should not use this constructor */
+	public GBoxed() {
+	}
+	
 	public GBoxed(GType gtype, Pointer ptr) {
 		super(ptr);
 		this.gtype = gtype;
 	}
 	
+	public GBoxed(GType gtype, Pointer ptr, TypeMapper typeMapper) {
+		this(gtype, ptr);
+	}
+	
 	protected void free() {
-		GBoxedAPI.gboxed.g_boxed_free(gtype, this.getPointer());
+		if (gtype != GType.INVALID)
+			GBoxedAPI.gboxed.g_boxed_free(gtype, this.getPointer());
 	}
 	
 	/**
@@ -70,16 +79,25 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 		((Structure) data).read();
 	}
 	
-	public static Object boxedFor(GType gtype, Pointer ptr) {
+	private static RegisteredType boxedFor(Pointer ptr, Class<?> klass, GType gtype) {
+		try {
+			Constructor<?> ctor = klass.getDeclaredConstructor(new Class<?>[] { GType.class, Pointer.class, TypeMapper.class });
+			ctor.setAccessible(true);
+			return (RegisteredType) ctor.newInstance(new Object[] { gtype, ptr, GTypeMapper.getInstance() });
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}		
+	}
+	
+	// Called from the compiler
+	public static RegisteredType boxedFor(Pointer ptr, Class<?> klass) {
+		return boxedFor(ptr, klass, GType.fromClass(klass));
+	}
+	
+	public static RegisteredType boxedFor(GType gtype, Pointer ptr) {
 		Class<?> boxedKlass = GType.lookupProxyClass(gtype);
 		if (boxedKlass != null && Structure.class.isAssignableFrom(boxedKlass)) {
-			try {
-				Constructor<?> ctor = boxedKlass.getDeclaredConstructor(new Class<?>[] { GType.class, Pointer.class, TypeMapper.class });
-				ctor.setAccessible(true);
-				return ctor.newInstance(new Object[] { gtype, ptr, GTypeMapper.getInstance() });
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
+			return boxedFor(ptr, boxedKlass, gtype);
 		} else {
 			return new AnonBoxed(gtype, ptr);
 		}
