@@ -17,7 +17,6 @@ import org.gnome.gir.repository.BoxedInfo;
 import org.gnome.gir.repository.CallableInfo;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.FieldInfo;
-import org.gnome.gir.repository.FlagsInfo;
 import org.gnome.gir.repository.InterfaceInfo;
 import org.gnome.gir.repository.ObjectInfo;
 import org.gnome.gir.repository.StructInfo;
@@ -253,9 +252,6 @@ public class TypeMap {
 	}
 
 	static Type typeFromInfo(BaseInfo info) {
-		/* Unfortunately, flags are best mapped as plain Integer  for now */
-		if (info instanceof FlagsInfo)
-			return Type.getObjectType("java/lang/Integer");
 		String internalName = GType.getInternalNameMapped(info.getNamespace(), info.getName());
 		if (internalName != null)
 			return Type.getObjectType(internalName);

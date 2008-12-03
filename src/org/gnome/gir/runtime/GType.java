@@ -142,7 +142,7 @@ public class GType extends NativeLong {
 			for (String unmapped : gobjectUnmapped)
 				put("GObject." + unmapped, "org/gnome/gir/gobject/UnmappedPointer");
 			String[] gobjectIntegerUnmapped = new String[] { "SignalFlags", "ConnectFlags", "SignalMatchType",
-					"TypeFlags", "ParamFlags" };
+					"TypeFlags", "ParamFlags", "IOCondition" };
 			for (String unmapped : gobjectIntegerUnmapped)
 				put("GObject." + unmapped, "java/lang/Integer");
 

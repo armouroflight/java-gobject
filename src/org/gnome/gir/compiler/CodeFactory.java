@@ -13,6 +13,7 @@ import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
 import static org.objectweb.asm.Opcodes.ACC_SUPER;
 import static org.objectweb.asm.Opcodes.ACC_SYNTHETIC;
+import static org.objectweb.asm.Opcodes.ACC_VARARGS;
 import static org.objectweb.asm.Opcodes.ACONST_NULL;
 import static org.objectweb.asm.Opcodes.ALOAD;
 import static org.objectweb.asm.Opcodes.ANEWARRAY;
@@ -106,6 +107,7 @@ import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
 import org.gnome.gir.runtime.GBoxed;
+import org.gnome.gir.runtime.GFlags;
 import org.gnome.gir.runtime.GObject;
 import org.gnome.gir.runtime.GType;
 import org.objectweb.asm.AnnotationVisitor;
@@ -431,12 +433,52 @@ public class CodeFactory {
 
 	private void compile(FlagsInfo info) {
 		ClassCompilation compilation = getCompilation(info);
-		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_ABSTRACT + ACC_INTERFACE, compilation.internalName, null,
-				"java/lang/Object", null);
+		compilation.writer.visit(V1_6, ACC_PUBLIC + ACC_SUPER + ACC_FINAL, compilation.internalName, null,
+				Type.getInternalName(GFlags.class), null);
+		
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", 
+				Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { }), null, null);
+		mv.visitCode();
+		Label l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);	
+		mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(GFlags.class), "<init>", Type.getMethodDescriptor(Type.VOID_TYPE,
+				new Type[] { }));
+		Label l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		Label l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);	
+		mv.visitMaxs(0, 0);
+		mv.visitEnd();		
+		
+		mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_VARARGS, "<init>", 
+				Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(int[].class) }), null, null);
+		mv.visitCode();
+		l0 = new Label();
+		mv.visitLabel(l0);
+		mv.visitVarInsn(ALOAD, 0);
+		mv.visitVarInsn(ALOAD, 1);		
+		mv.visitMethodInsn(INVOKESPECIAL, Type.getInternalName(GFlags.class), "<init>", Type.getMethodDescriptor(Type.VOID_TYPE,
+				new Type[] { getType(int[].class) }));
+		l1 = new Label();
+		mv.visitLabel(l1);
+		mv.visitInsn(RETURN);
+		l2 = new Label();
+		mv.visitLabel(l2);
+		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
+		mv.visitLocalVariable("initFlags", Type.getDescriptor(int[].class), null, l0, l2, 1);		
+		mv.visitMaxs(0, 0);
+		mv.visitEnd();
+		
 		ValueInfo[] values = info.getValueInfo();
 		for (ValueInfo valueInfo : values) {
+			long value = valueInfo.getValue();
+			if (value > Integer.MAX_VALUE || value < Integer.MIN_VALUE)
+				logger.warning("Enum value " + value + " of " + info + " exceeds integer size");
 			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, NameMap
-					.enumNameToUpper(info.getName(), valueInfo.getName()), "J", null, valueInfo.getValue());
+					.enumNameToUpper(info.getName(), valueInfo.getName()), "I", null, (int) value);
 			fv.visitEnd();
 		}
 		compilation.close();
