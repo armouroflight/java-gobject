@@ -90,8 +90,8 @@ public interface GObjectAPI extends Library {
     interface GWeakNotify extends Callback {
         void callback(Pointer data, Pointer obj);
     }
-    void g_object_weak_ref(GObject object, GWeakNotify notify, Pointer data);
-    void g_object_weak_unref(GObject object, GWeakNotify notify, Pointer data);
+    void g_object_weak_ref(Pointer object, GWeakNotify notify, Pointer data);
+    void g_object_weak_unref(Pointer object, GWeakNotify notify, Pointer data);
     Pointer g_object_ref(GObject object);
     void g_object_ref_sink(GObject object);
     void g_object_unref(GObject object);

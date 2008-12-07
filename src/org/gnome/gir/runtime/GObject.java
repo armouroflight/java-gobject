@@ -162,7 +162,7 @@ public abstract class GObject extends NativeObject {
 		 * The weak notify is just a convenient hook into object destruction so
 		 * we can clear out our signal handlers and strong ref; see below.
 		 */
-		GObjectAPI.gobj.g_object_weak_ref(this, weakNotify, null);
+		GObjectAPI.gobj.g_object_weak_ref(init.ptr, weakNotify, null);
 
 		/*
 		 * Normally we have a strong reference given to us by constructors,
@@ -280,8 +280,9 @@ public abstract class GObject extends NativeObject {
 		if (disposed)
 			return;
 		/* Take away the toggle reference */
-		debugMemoryFinal(this, "REMOVING TOGGLE %s %s%n");
-		GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);
+		debugMemoryFinal(this, "REMOVING TOGGLE AND WEAK %s %s%n");
+		GObjectAPI.gobj.g_object_weak_unref(getNativeAddress(), weakNotify, null);		
+		GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);		
 	}
 
 	public synchronized long connect(String signal, Callback closure) {
