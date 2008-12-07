@@ -279,9 +279,17 @@ public abstract class GObject extends NativeObject {
 		/* If the native object already went away, we have nothing to do here. */
 		if (disposed)
 			return;
-		/* Take away the toggle reference */
 		debugMemoryFinal(this, "REMOVING TOGGLE AND WEAK %s %s%n");
-		GObjectAPI.gobj.g_object_weak_unref(getNativeAddress(), weakNotify, null);		
+		/*
+		 * Remove the weak ref notifier. We no longer care about this native
+		 * object (for now). If we see a pointer from it again, we'll create a
+		 * new proxy at that time.
+		 */
+		GObjectAPI.gobj.g_object_weak_unref(getNativeAddress(), weakNotify, null);
+		/*
+		 * Take away the toggle reference; this may or may not cause destruction
+		 * of the native object.
+		 */		
 		GObjectAPI.gobj.g_object_remove_toggle_ref(getNativeAddress(), toggle, objectID);		
 	}
 
