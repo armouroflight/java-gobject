@@ -2,7 +2,7 @@ package org.gnome.gir.repository;
 
 import org.gnome.gir.gobject.GErrorException;
 import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GObjectGlobals;
+import org.gnome.gir.gobject.GlibRuntime;
 import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.runtime.GObject;
 
@@ -86,7 +86,7 @@ public class Repository extends GObject {
 	}
 	
 	public static synchronized Repository getDefault() {
-		GObjectGlobals.init();
+		GlibRuntime.init();
 		return (Repository) NativeObject.Internals.objectFor(getNativeLibrary().g_irepository_get_default(),
 									  Repository.class, false, false);
 	}

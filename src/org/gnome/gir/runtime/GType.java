@@ -48,12 +48,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.gnome.gir.gobject.GObjectAPI;
-import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.Repository;
-import org.objectweb.asm.Type;
 
-import com.sun.jna.Callback;
 import com.sun.jna.FromNativeContext;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;

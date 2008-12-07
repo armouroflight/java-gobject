@@ -227,7 +227,6 @@ public abstract class NativeObject extends Handle {
 
 	    }
 	    
-	    @SuppressWarnings("unchecked")
 		protected static Class<?> lookupProxyChain(GType gtype) {
 	    	Class<?> ret = null;
 	    	while (ret == null && !gtype.equals(GType.OBJECT)) {

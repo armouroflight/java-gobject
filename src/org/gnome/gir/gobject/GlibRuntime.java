@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.gnome.gir.repository.Transfer;
 import org.gnome.gir.runtime.GObject;
@@ -46,6 +47,31 @@ public class GlibRuntime {
 	private static final Set<CallbackData> outstandingCallbacks 
 		= Collections.synchronizedSet(new HashSet<CallbackData>());
 
+	
+	private static AtomicBoolean initialized = new AtomicBoolean(false);
+	
+	public static void init() {
+		if (initialized.getAndSet(true))
+			return;
+		final GlibAPI.GLogFunc handler = new GlibAPI.GLogFunc() {
+			@Override
+			public void callback(String log_domain, int log_level,
+					String message, Pointer data) {
+				if (((log_level & GlibAPI.GLogLevelFlags.CRITICAL) > 0) || 
+						((log_level & GlibAPI.GLogLevelFlags.ERROR) > 0) ||
+						((log_level & GlibAPI.GLogLevelFlags.WARNING) > 0)) {
+					String msg = "GLib Failure: " + log_domain + " " + message;
+					System.err.println(msg);				
+					throw new RuntimeException(msg);
+				}
+			}
+		};
+		
+		GlibAPI.glib.g_log_set_default_handler(handler, null);
+		GThreadAPI.gthread.g_thread_init(null);
+		GObjectAPI.gobj.g_type_init();
+	}	
+	
 	public static final String toStringAndGFree(Pointer ptr) {
 		String result = ptr.getString(0);
 		GlibAPI.glib.g_free(ptr);
