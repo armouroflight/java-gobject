@@ -609,7 +609,7 @@ public class CodeFactory {
 		String name = ctx.name;
 		if (name.equals("new"))
 			name = "newDefault";
-		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, null,
+		MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_STATIC + ACC_FINAL, name, descriptor, ctx.argSignature,
 				null);
 		mv.visitCode();
 		Label l0 = new Label();
@@ -1093,7 +1093,7 @@ public class CodeFactory {
 				continue;
 			String name = NameMap.ucaseToCamel(fi.getName());
 			String descriptor = Type.getMethodDescriptor(ctx.returnType, ctx.argTypes.toArray(new Type[0]));
-			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, null, null);
+			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC + ACC_ABSTRACT, name, descriptor, ctx.argSignature, null);
 			mv.visitEnd();
 		}
 
