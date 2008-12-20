@@ -53,6 +53,8 @@ public class GlibRuntime {
 	public static void init() {
 		if (initialized.getAndSet(true))
 			return;
+		/* Skip this - we were segfaulting here, and it's not really worth it */
+		/*
 		final GlibAPI.GLogFunc handler = new GlibAPI.GLogFunc() {
 			@Override
 			public void callback(String log_domain, int log_level,
@@ -66,8 +68,8 @@ public class GlibRuntime {
 				}
 			}
 		};
-		
 		GlibAPI.glib.g_log_set_default_handler(handler, null);
+		*/
 		GThreadAPI.gthread.g_thread_init(null);
 		GObjectAPI.gobj.g_type_init();
 	}	
