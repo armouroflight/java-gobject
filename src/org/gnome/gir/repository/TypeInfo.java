@@ -41,6 +41,9 @@ public class TypeInfo extends PointerType {
 	public int getArrayLength() {
 		return Repository.getNativeLibrary().g_type_info_get_array_length(this);		
 	}
+	public int getArrayFixedSize() {
+		return Repository.getNativeLibrary().g_type_info_get_array_fixed_size(this);		
+	}	
 	public boolean isZeroTerminated() {
 		return Repository.getNativeLibrary().g_type_info_is_zero_terminated(this);		
 	}

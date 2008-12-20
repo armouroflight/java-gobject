@@ -1692,14 +1692,30 @@ public class CodeFactory {
 				continue;
 			writeCallable(ACC_PUBLIC, compilation, fi, ctx);
 		}
+		Type pointerType = getType(Pointer.class);
 		for (FieldInfo fi : fields) {
 			String name = NameMap.ucaseToCamel(fi.getName());
 			Type fieldType = TypeMap.toJava(fi);
 			if (fieldType.equals(Type.VOID_TYPE)) // FIXME Temporary hack for
 													// GdkAtom
-				fieldType = Type.getType(Pointer.class);
-			FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, fieldType.getDescriptor(), null, null);
-			fv.visitEnd();
+				fieldType = pointerType;
+			// This occurs for arrays that act as padding; expand into a list of
+			// pointers.
+			if (fi.getType().getTag().equals(TypeTag.ARRAY) &&
+					fi.getType().getParamType(0).getTag().equals(TypeTag.VOID)) {
+				int fixed = fi.getType().getArrayFixedSize();
+				if (fixed > 0) {
+					for (int i = 0; i < fixed; i++) {
+						String nameN = name + i;
+						FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, nameN, getType(Pointer.class).getDescriptor(), null, null);
+						fv.visitEnd();						
+					}
+				}
+			} else {
+				// A regular field.
+				FieldVisitor fv = compilation.writer.visitField(ACC_PUBLIC, name, fieldType.getDescriptor(), null, null);
+				fv.visitEnd();
+			}
 		}
 	}
 

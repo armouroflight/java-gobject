@@ -98,6 +98,7 @@ interface GIntrospectionAPI extends Library {
 						                                  int       n);
 	BaseInfo            g_type_info_get_interface       (TypeInfo info);
 	int                  g_type_info_get_array_length    (TypeInfo info);
+	int                  g_type_info_get_array_fixed_size    (TypeInfo info);	
 	boolean              g_type_info_is_zero_terminated  (TypeInfo info);
 
 	int                  g_type_info_get_n_error_domains (TypeInfo info);
