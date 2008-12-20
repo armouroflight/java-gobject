@@ -1,6 +1,6 @@
 
 
-import org.gnome.gir.runtime.GObject.GObjectProxy;
+import gobject.runtime.GObject.GObjectProxy;
 
 public interface TestAbs extends GObjectProxy {
 

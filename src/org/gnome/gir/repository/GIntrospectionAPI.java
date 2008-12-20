@@ -25,10 +25,11 @@
  */
 package org.gnome.gir.repository;
 
+import gobject.internals.GTypeMapper;
+import gobject.runtime.GType;
+
 import java.util.HashMap;
 
-import org.gnome.gir.gobject.GTypeMapper;
-import org.gnome.gir.runtime.GType;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;

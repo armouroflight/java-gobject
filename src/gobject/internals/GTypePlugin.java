@@ -20,20 +20,9 @@
  * Boston, MA  02111-1307  USA.
  *
  */
-/**
- * 
- */
-package org.gnome.gir.repository;
 
-import gobject.internals.NativeEnum;
+package gobject.internals;
 
-public enum VFuncInfoFlags implements NativeEnum {
-	MUST_CHAIN_UP,
-	MUST_OVERRIDE,
-	MUST_NOT_OVERRIDE;
+public interface GTypePlugin {
 
-	@Override
-	public int getNative() {
-		return 1 << ordinal();
-	}
 }

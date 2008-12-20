@@ -20,20 +20,35 @@
  * Boston, MA  02111-1307  USA.
  *
  */
-/**
- * 
- */
-package org.gnome.gir.repository;
 
-import gobject.internals.NativeEnum;
+package gobject.runtime;
 
-public enum VFuncInfoFlags implements NativeEnum {
-	MUST_CHAIN_UP,
-	MUST_OVERRIDE,
-	MUST_NOT_OVERRIDE;
+import gobject.internals.GErrorStruct;
 
+public class GErrorException extends Exception {
+	private static final long serialVersionUID = 1L;
+	private int domain;
+	private int code;
+	private String message;
+	public GErrorException() {
+	}
+	public GErrorException(GErrorStruct error) {
+		super(error.message);
+		this.domain = error.getDomain();
+		this.code = error.getCode();
+		this.message = error.getMessage();
+	}
+	
+	public int getDomain() {
+		return domain;
+	}
+	
+	public int getCode() {
+		return code;
+	}
+	
 	@Override
-	public int getNative() {
-		return 1 << ordinal();
+	public String getMessage() {
+		return message;
 	}
 }

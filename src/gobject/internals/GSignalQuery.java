@@ -23,17 +23,18 @@
 /**
  * 
  */
-package org.gnome.gir.repository;
+package gobject.internals;
 
-import gobject.internals.NativeEnum;
+import gobject.runtime.GType;
 
-public enum VFuncInfoFlags implements NativeEnum {
-	MUST_CHAIN_UP,
-	MUST_OVERRIDE,
-	MUST_NOT_OVERRIDE;
+import com.sun.jna.Pointer;
 
-	@Override
-	public int getNative() {
-		return 1 << ordinal();
-	}
+public final class GSignalQuery extends com.sun.jna.Structure {
+    public int signal_id;
+    public String signal_name;
+    public GType itype;
+    public int /* GSignalFlags */ signal_flags;
+    public GType return_type; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
+    public int n_params;
+    public Pointer param_types; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
 }

@@ -1,5 +1,10 @@
 package org.gnome.gir.compiler;
 
+import gobject.internals.GList;
+import gobject.internals.GSList;
+import gobject.internals.UnmappedPointer;
+import gobject.runtime.GType;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,9 +13,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
-import org.gnome.gir.gobject.GList;
-import org.gnome.gir.gobject.GSList;
-import org.gnome.gir.gobject.UnmappedPointer;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
@@ -23,7 +25,6 @@ import org.gnome.gir.repository.StructInfo;
 import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
-import org.gnome.gir.runtime.GType;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.signature.SignatureVisitor;
 

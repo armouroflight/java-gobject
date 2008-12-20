@@ -1,6 +1,6 @@
 package org.gnome.gir.repository;
 
-import org.gnome.gir.gobject.RefCountedObject;
+import gobject.internals.RefCountedObject;
 
 import com.sun.jna.Pointer;
 

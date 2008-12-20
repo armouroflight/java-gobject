@@ -1,20 +1,21 @@
 
 
+import gobject.internals.GErrorStruct;
+import gobject.internals.GList;
+import gobject.internals.GTypeMapper;
+import gobject.internals.GlibRuntime;
+import gobject.internals.NativeObject;
+import gobject.runtime.GErrorException;
+import gobject.runtime.GObject;
+import gobject.runtime.GType;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.gnome.gir.gobject.GErrorException;
-import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GList;
-import org.gnome.gir.gobject.GTypeMapper;
-import org.gnome.gir.gobject.GlibRuntime;
-import org.gnome.gir.gobject.NativeObject;
 import org.gnome.gir.repository.Direction;
 import org.gnome.gir.repository.Repository;
 import org.gnome.gir.repository.Transfer;
-import org.gnome.gir.runtime.GObject;
-import org.gnome.gir.runtime.GType;
 
 import com.sun.jna.Callback;
 import com.sun.jna.Function;

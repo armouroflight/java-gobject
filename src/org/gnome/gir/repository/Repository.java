@@ -1,10 +1,11 @@
 package org.gnome.gir.repository;
 
-import org.gnome.gir.gobject.GErrorException;
-import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GlibRuntime;
-import org.gnome.gir.gobject.NativeObject;
-import org.gnome.gir.runtime.GObject;
+import gobject.internals.GErrorStruct;
+import gobject.internals.GlibRuntime;
+import gobject.internals.NativeObject;
+import gobject.runtime.GErrorException;
+import gobject.runtime.GObject;
+
 
 import com.sun.jna.NativeLong;
 import com.sun.jna.ptr.PointerByReference;

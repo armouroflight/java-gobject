@@ -1,6 +1,6 @@
 
 
-import org.gnome.gir.gobject.GTypeMapper;
+import gobject.internals.GTypeMapper;
 
 import com.sun.jna.Callback;
 import com.sun.jna.TypeMapper;

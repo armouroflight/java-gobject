@@ -20,20 +20,15 @@
  * Boston, MA  02111-1307  USA.
  *
  */
+package gobject.internals;
+
+import com.sun.jna.PointerType;
+
 /**
+ * Class used for a type which is not yet bound to Java.
  * 
+ * @author walters
  */
-package org.gnome.gir.repository;
+public class UnmappedPointer extends PointerType {
 
-import gobject.internals.NativeEnum;
-
-public enum VFuncInfoFlags implements NativeEnum {
-	MUST_CHAIN_UP,
-	MUST_OVERRIDE,
-	MUST_NOT_OVERRIDE;
-
-	@Override
-	public int getNative() {
-		return 1 << ordinal();
-	}
 }

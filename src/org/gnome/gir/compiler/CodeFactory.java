@@ -43,6 +43,23 @@ import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V1_6;
 import static org.objectweb.asm.Type.getType;
 
+import gobject.internals.GErrorStruct;
+import gobject.internals.GList;
+import gobject.internals.GObjectAPI;
+import gobject.internals.GSList;
+import gobject.internals.GTypeMapper;
+import gobject.internals.GenericGList;
+import gobject.internals.GlibAPI;
+import gobject.internals.GlibRuntime;
+import gobject.internals.NativeEnum;
+import gobject.internals.NativeObject;
+import gobject.internals.RegisteredType;
+import gobject.runtime.GBoxed;
+import gobject.runtime.GErrorException;
+import gobject.runtime.GFlags;
+import gobject.runtime.GObject;
+import gobject.runtime.GType;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
@@ -69,18 +86,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-import org.gnome.gir.gobject.GErrorException;
-import org.gnome.gir.gobject.GErrorStruct;
-import org.gnome.gir.gobject.GList;
-import org.gnome.gir.gobject.GObjectAPI;
-import org.gnome.gir.gobject.GSList;
-import org.gnome.gir.gobject.GTypeMapper;
-import org.gnome.gir.gobject.GenericGList;
-import org.gnome.gir.gobject.GlibAPI;
-import org.gnome.gir.gobject.GlibRuntime;
-import org.gnome.gir.gobject.NativeEnum;
-import org.gnome.gir.gobject.NativeObject;
-import org.gnome.gir.gobject.RegisteredType;
 import org.gnome.gir.repository.ArgInfo;
 import org.gnome.gir.repository.BaseInfo;
 import org.gnome.gir.repository.BoxedInfo;
@@ -106,10 +111,6 @@ import org.gnome.gir.repository.TypeInfo;
 import org.gnome.gir.repository.TypeTag;
 import org.gnome.gir.repository.UnionInfo;
 import org.gnome.gir.repository.ValueInfo;
-import org.gnome.gir.runtime.GBoxed;
-import org.gnome.gir.runtime.GFlags;
-import org.gnome.gir.runtime.GObject;
-import org.gnome.gir.runtime.GType;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.FieldVisitor;
@@ -637,9 +638,9 @@ public class CodeFactory {
 				"(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		mv.visitTypeInsn(CHECKCAST, "com/sun/jna/Pointer");
 		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "initializer",
-				"(Lcom/sun/jna/Pointer;)Lorg/gnome/gir/gobject/Handle$Initializer;");
+				"(Lcom/sun/jna/Pointer;)Lgobject/internals/Handle$Initializer;");
 		mv.visitMethodInsn(INVOKESPECIAL, compilation.internalName, "<init>",
-				"(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
+				"(Lgobject/internals/Handle$Initializer;)V");
 		mv.visitInsn(ARETURN);
 		Label l4 = new Label();
 		mv.visitLabel(l4);
@@ -692,10 +693,10 @@ public class CodeFactory {
 				"(Ljava/lang/Class;[Ljava/lang/Object;Ljava/util/Map;)Ljava/lang/Object;");
 		mv.visitTypeInsn(CHECKCAST, "com/sun/jna/Pointer");
 		mv.visitMethodInsn(INVOKESTATIC, compilation.internalName, "initializer",
-				"(Lcom/sun/jna/Pointer;)Lorg/gnome/gir/gobject/Handle$Initializer;");
+				"(Lcom/sun/jna/Pointer;)Lgobject/internals/Handle$Initializer;");
 		mv
 				.visitMethodInsn(INVOKESPECIAL, parentInternalType, "<init>",
-						"(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
+						"(Lgobject/internals/Handle$Initializer;)V");
 		Label l3 = new Label();
 		mv.visitLabel(l3);
 		mv.visitInsn(RETURN);
@@ -759,7 +760,7 @@ public class CodeFactory {
 
 	private void writeHandleInitializer(ClassCompilation compilation, String parentInternalName) {
 		MethodVisitor mv = compilation.writer.visitMethod(ACC_PROTECTED, "<init>",
-				"(Lorg/gnome/gir/gobject/Handle$Initializer;)V", null, null);
+				"(Lgobject/internals/Handle$Initializer;)V", null, null);
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
@@ -767,14 +768,14 @@ public class CodeFactory {
 		mv.visitVarInsn(ALOAD, 1);
 		mv
 				.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>",
-						"(Lorg/gnome/gir/gobject/Handle$Initializer;)V");
+						"(Lgobject/internals/Handle$Initializer;)V");
 		Label l1 = new Label();
 		mv.visitLabel(l1);
 		mv.visitInsn(RETURN);
 		Label l2 = new Label();
 		mv.visitLabel(l2);
 		mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l2, 0);
-		mv.visitLocalVariable("init", "Lorg/gnome/gir/gobject/Handle$Initializer;", null, l0, l2, 1);
+		mv.visitLocalVariable("init", "Lgobject/internals/Handle$Initializer;", null, l0, l2, 1);
 		mv.visitMaxs(0, 0);
 		mv.visitEnd();
 	}
@@ -1531,7 +1532,7 @@ public class CodeFactory {
 		boolean hasFields = fields.length > 0;
 		if (isRegistered) {
 			if (hasFields)
-				parentInternalName = "org/gnome/gir/runtime/Boxed" + type;
+				parentInternalName = "gobject/runtime/Boxed" + type;
 			else
 				parentInternalName = Type.getInternalName(GBoxed.class);
 		} else {
@@ -1765,8 +1766,8 @@ public class CodeFactory {
 		mv.visitCode();
 		Label l0 = new Label();
 		mv.visitLabel(l0);
-		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/gobject/GTypeMapper", "getInstance",
-				"()Lorg/gnome/gir/gobject/GTypeMapper;");
+		mv.visitMethodInsn(INVOKESTATIC, "gobject/internals/GTypeMapper", "getInstance",
+				"()Lgobject/internals/GTypeMapper;");
 		mv.visitFieldInsn(PUTSTATIC, compilation.internalName, "TYPE_MAPPER", "Lcom/sun/jna/TypeMapper;");
 		Label l1 = new Label();
 		mv.visitLabel(l1);
@@ -1902,7 +1903,7 @@ public class CodeFactory {
 		fv.visitEnd();
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "repo",
-				"Lorg/gnome/gir/repository/Repository;", null, null);
+				getType(Repository.class).getDescriptor(), null, null);
 		fv.visitEnd();
 
 		fv = internals.writer.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, "namespace", "Ljava/lang/String;", null,
@@ -1927,9 +1928,9 @@ public class CodeFactory {
 		mv.visitLabel(l1);
 		mv.visitVarInsn(ALOAD, 0);
 		mv.visitLdcInsn("type-mapper");
-		mv.visitTypeInsn(NEW, "org/gnome/gir/gobject/GTypeMapper");
+		mv.visitTypeInsn(NEW, "gobject/internals/GTypeMapper");
 		mv.visitInsn(DUP);
-		mv.visitMethodInsn(INVOKESPECIAL, "org/gnome/gir/gobject/GTypeMapper", "<init>", "()V");
+		mv.visitMethodInsn(INVOKESPECIAL, "gobject/internals/GTypeMapper", "<init>", "()V");
 		mv.visitMethodInsn(INVOKEVIRTUAL, internalsInner.internalName, "put",
 				"(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
 		mv.visitInsn(POP);
@@ -1975,14 +1976,15 @@ public class CodeFactory {
 		if (shlib == null)
 			shlib = namespaceShlibMapping.get(globals.namespace);
 		mv.visitLdcInsn(shlib);
-		mv.visitMethodInsn(INVOKESTATIC, "com/sun/jna/NativeLibrary", "getInstance",
-				"(Ljava/lang/String;)Lcom/sun/jna/NativeLibrary;");
+		mv.visitMethodInsn(INVOKESTATIC,  getType(NativeLibrary.class).getInternalName(), "getInstance",
+				Type.getMethodDescriptor(getType(NativeLibrary.class), new Type[] { getType(String.class)}));
 		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "library", "Lcom/sun/jna/NativeLibrary;");
 		l1 = new Label();
 		mv.visitLabel(l1);
-		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault",
-				"()Lorg/gnome/gir/repository/Repository;");
-		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "repo", "Lorg/gnome/gir/repository/Repository;");
+		mv.visitMethodInsn(INVOKESTATIC, getType(Repository.class).getInternalName(), "getDefault",
+				Type.getMethodDescriptor(getType(Repository.class), new Type[] {}));
+		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "repo", 
+				getType(Repository.class).getDescriptor());
 		l2 = new Label();
 		mv.visitLabel(l2);
 		mv.visitTypeInsn(NEW, internalsInner.internalName);
@@ -1990,11 +1992,11 @@ public class CodeFactory {
 		mv.visitMethodInsn(INVOKESPECIAL, internalsInner.internalName, "<init>", "()V");
 		mv.visitFieldInsn(PUTSTATIC, internals.internalName, "invocationOptions", "Ljava/util/Map;");
 
-		mv.visitMethodInsn(INVOKESTATIC, "org/gnome/gir/repository/Repository", "getDefault",
-				"()Lorg/gnome/gir/repository/Repository;");
+		mv.visitMethodInsn(INVOKESTATIC,  getType(Repository.class).getInternalName(), "getDefault",
+				Type.getMethodDescriptor(getType(Repository.class), new Type[] {}));
 		mv.visitLdcInsn(globals.namespace);
 		mv.visitLdcInsn(globals.nsversion);
-		mv.visitMethodInsn(INVOKEVIRTUAL, "org/gnome/gir/repository/Repository", "requireNoFail", Type
+		mv.visitMethodInsn(INVOKEVIRTUAL,  getType(Repository.class).getInternalName(), "requireNoFail", Type
 				.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(String.class), getType(String.class) }));
 
 		globals.clinit = mv;
