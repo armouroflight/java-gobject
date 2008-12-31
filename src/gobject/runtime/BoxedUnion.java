@@ -20,6 +20,13 @@ public abstract class BoxedUnion extends Union implements RegisteredType {
 		isNative = false;
 	}
 	
+	protected BoxedUnion(Pointer pointer, TypeMapper mapper) {
+		super(mapper);
+		useMemory(pointer);
+		this.gtype = GType.fromClass(getClass());
+		isNative = true;
+	}	
+	
 	protected BoxedUnion(GType gtype, Pointer pointer, TypeMapper mapper) {
 		super(mapper);
 		useMemory(pointer);		

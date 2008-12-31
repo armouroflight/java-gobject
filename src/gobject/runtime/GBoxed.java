@@ -25,6 +25,11 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 		this.gtype = gtype;
 	}
 	
+	public GBoxed(Pointer ptr, TypeMapper typeMapper) {
+		super(ptr);
+		this.gtype = GType.fromClass(getClass());
+	}	
+	
 	public GBoxed(GType gtype, Pointer ptr, TypeMapper typeMapper) {
 		this(gtype, ptr);
 	}
@@ -82,7 +87,7 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	
 	private static RegisteredType boxedFor(Pointer ptr, Class<?> klass, GType gtype) {
 		try {
-			Constructor<?> ctor = klass.getDeclaredConstructor(new Class<?>[] { GType.class, Pointer.class, TypeMapper.class });
+			Constructor<?> ctor = klass.getConstructor(new Class<?>[] { GType.class, Pointer.class, TypeMapper.class });
 			ctor.setAccessible(true);
 			return (RegisteredType) ctor.newInstance(new Object[] { gtype, ptr, GTypeMapper.getInstance() });
 		} catch (Exception e) {
@@ -96,8 +101,10 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	}
 	
 	public static RegisteredType boxedFor(GType gtype, Pointer ptr) {
+		if (ptr == null)
+			return null;
 		Class<?> boxedKlass = GType.lookupProxyClass(gtype);
-		if (boxedKlass != null && Structure.class.isAssignableFrom(boxedKlass)) {
+		if (boxedKlass != null) {
 			return boxedFor(ptr, boxedKlass, gtype);
 		} else {
 			return new AnonBoxed(gtype, ptr);
