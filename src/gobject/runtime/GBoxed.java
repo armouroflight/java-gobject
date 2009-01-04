@@ -20,6 +20,12 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	public GBoxed() {
 	}
 	
+	/* This one matches the TypeMapper ctors on Struct/Union, otherwise the
+	 * same as the no-arg ctor. */
+	public GBoxed(TypeMapper mapper) {
+		this();
+	}
+	
 	public GBoxed(GType gtype, Pointer ptr) {
 		super(ptr);
 		this.gtype = gtype;
@@ -97,6 +103,8 @@ public abstract class GBoxed extends PointerType implements RegisteredType {
 	
 	// Called from the compiler
 	public static RegisteredType boxedFor(Pointer ptr, Class<?> klass) {
+		if (ptr == null)
+			return null;
 		return boxedFor(ptr, klass, GType.fromClass(klass));
 	}
 	
