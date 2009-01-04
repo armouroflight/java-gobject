@@ -146,7 +146,6 @@ public class CodeFactory {
 	private final Set<String> pendingCompilation = new HashSet<String>();
 	private final Map<String, StubClassCompilation> writers = new HashMap<String, StubClassCompilation>();
 	private final Map<String, GlobalsCompilation> globals = new HashMap<String, GlobalsCompilation>();
-	private final Map<String, String> namespaceShlibMapping = new HashMap<String, String>();
 
 	private CodeFactory(Repository repo) {
 		this.repo = repo;
