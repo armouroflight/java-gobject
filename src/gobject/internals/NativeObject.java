@@ -190,20 +190,15 @@ public abstract class NativeObject extends Handle {
 	        		throw new RuntimeException(String.format("returned obj %s (%s) not instanceof %s", obj, obj.getClass(), cls));	        	
 	            return cls.cast(obj);
 	        }
-	       
-	        /* Special-case GObject.GObjectProxy here - these are interface values
-	         * for which we don't know of a current concrete class.
-	         */
-	        if (cls.isInterface() && GObject.GObjectProxy.class.isAssignableFrom(cls)) {
-	    		cls = (Class<T>) Internals.getStubClassFor(cls);        	
-	        }
-	        /* For GObject, read the g_class field to find
-	         * the most exact class match
-	         */        	
-	        else if (peekGType && GObject.class.isAssignableFrom(cls)) {
+	        
+	        boolean expectedGObject = GObject.class.isAssignableFrom(cls);
+	        boolean expectedGInterface = GObject.GObjectProxy.class.isAssignableFrom(cls);
+	         	
+	        if (peekGType && (expectedGObject || expectedGInterface)) {
+		        /* Read the g_class field to find the most exact class match */	
 	        	cls = classFor(ptr, cls);
-	        	/* If it's abstract, pull out the stub */
-	        	if ((cls.getModifiers() & Modifier.ABSTRACT) != 0)
+	        	/* If it's abstract or an interface, pull out the stub. */
+	        	if (cls.isInterface() || ((cls.getModifiers() & Modifier.ABSTRACT) != 0))
 	        		cls = (Class<T>) Internals.getStubClassFor(cls);
 	        }        
 	        /* Ok, let's try to find an Initializer constructor
