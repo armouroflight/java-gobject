@@ -22,6 +22,8 @@
 
 package gobject.internals;
 
+import gobject.runtime.AsyncReadyCallback;
+import gobject.runtime.AsyncResult;
 import gobject.runtime.GObject;
 
 import java.util.ArrayList;
@@ -47,7 +49,10 @@ public class GlibRuntime {
 	 */
 	private static final Set<CallbackData> outstandingCallbacks 
 		= Collections.synchronizedSet(new HashSet<CallbackData>());
-
+	
+	/* This one holds async callbacks, which are just called once */
+	private static final Set<AsyncReadyCallback> outstandingAsync 
+		= Collections.synchronizedSet(new HashSet<AsyncReadyCallback>());
 	
 	private static AtomicBoolean initialized = new AtomicBoolean(false);
 	
@@ -96,6 +101,21 @@ public class GlibRuntime {
 		data.destroy = destroy;
 		outstandingCallbacks.add(data);
 		return destroy;
+	}
+	
+	public static final AsyncReadyCallback createAsyncReadyProxy(final AsyncReadyCallback callback) {
+		if (callback == null)
+			return null;
+		
+		AsyncReadyCallback proxy = new AsyncReadyCallback() {
+			@Override
+			public void callback(GObject object, AsyncResult result) {
+				outstandingAsync.remove(callback);
+				callback.callback(object, result);
+			}
+		};
+		outstandingAsync.add(proxy);
+		return proxy;
 	}
 	
 	public static List<String> convertListUtf8(GenericGList glist, Transfer transfer) {

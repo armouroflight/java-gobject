@@ -53,6 +53,7 @@ import gobject.internals.GlibRuntime;
 import gobject.internals.NativeEnum;
 import gobject.internals.NativeObject;
 import gobject.internals.RegisteredType;
+import gobject.runtime.AsyncReadyCallback;
 import gobject.runtime.GBoxed;
 import gobject.runtime.GErrorException;
 import gobject.runtime.GFlags;
@@ -192,6 +193,10 @@ public class CodeFactory {
 
 	static String getInternalNameMapped(BaseInfo info) {
 		return GType.getInternalNameMapped(info.getNamespace(), info.getName());
+	}
+	
+	private static boolean isMapped(BaseInfo info) {
+		return GType.isMapped(info.getNamespace(), info.getName());
 	}
 
 	private static boolean requiresConversion(TypeInfo info, Transfer transfer) {
@@ -1132,6 +1137,7 @@ public class CodeFactory {
 		Map<Integer, Integer> lengthOfArrayIndices = new HashMap<Integer, Integer>();
 		Map<Integer, Integer> arrayToLengthIndices = new HashMap<Integer, Integer>();
 		Set<Integer> userDataIndices = new HashSet<Integer>();
+		Set<Integer> asyncReadyCallbackIndices = new HashSet<Integer>();
 		Map<Integer, Integer> destroyNotifyIndices = new HashMap<Integer, Integer>();
 
 		public CallableCompilationContext() {
@@ -1249,6 +1255,8 @@ public class CodeFactory {
 				}
 				ctx.destroyNotifyIndices.put(argOffset, firstSeenCallback);
 				continue;
+			} else if (TypeMap.isAsyncReadyCallback(arg)) {
+				ctx.asyncReadyCallbackIndices.add(argOffset);
 			} else if (arg.getDirection() == Direction.IN && info.getTag().equals(TypeTag.INTERFACE)
 					&& info.getInterface() instanceof CallbackInfo) {
 				if (firstSeenCallback >= 0) {
@@ -1372,7 +1380,14 @@ public class CodeFactory {
 			Integer arraySource = ctx.lengthOfArrayIndices.get(i);
 			Integer lengthOfArray = ctx.arrayToLengthIndices.get(i);
 			Integer callbackIdx = ctx.destroyNotifyIndices.get(i);
-			if (arraySource != null) {
+			if (ctx.asyncReadyCallbackIndices.contains(i)) {
+				int offset = ctx.argOffsetToApi(i);
+				LocalVariable var = locals.get(offset);
+				var.writeLoadArgument(mv);
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GlibRuntime.class), "createAsyncReadyProxy", Type
+						.getMethodDescriptor(getType(AsyncReadyCallback.class),
+								new Type[] { getType(AsyncReadyCallback.class) }));				
+			} else if (arraySource != null) {
 				ArgInfo source = ctx.args[arraySource - (ctx.isMethod ? 1 : 0)];
 				assert source.getType().getTag().equals(TypeTag.ARRAY);
 				int offset = ctx.argOffsetToApi(arraySource);
@@ -1871,6 +1886,8 @@ public class CodeFactory {
 		BaseInfo[] infos = repo.getInfos(namespace);
 		Set<String> globalSigs = new HashSet<String>();
 		for (BaseInfo baseInfo : infos) {
+			if (isMapped(baseInfo))
+				continue;
 			logger.fine("Compiling " + baseInfo);
 			if (baseInfo instanceof EnumInfo) {
 				compile((EnumInfo) baseInfo);

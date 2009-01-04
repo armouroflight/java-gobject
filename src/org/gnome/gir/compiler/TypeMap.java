@@ -311,6 +311,14 @@ public class TypeMap {
 			return iface.getName().equals("DestroyNotify");
 		return false;
 	}
+	
+	public static boolean isAsyncReadyCallback(ArgInfo arg) {
+		TypeInfo type = arg.getType();
+		if (!type.getTag().equals(TypeTag.INTERFACE))
+			return false;
+		BaseInfo iface = type.getInterface();
+		return iface.getNamespace().equals("Gio") && iface.getName().equals("AsyncReadyCallback");
+	}
 
 	static String getUniqueSignature(String name, Type returnType, List<Type> args) {
 		StringBuilder builder = new StringBuilder(name);

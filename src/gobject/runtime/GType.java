@@ -149,11 +149,20 @@ public class GType extends NativeLong {
 			for (String unmapped : gobjectIntegerUnmapped)
 				put("GObject." + unmapped, "java/lang/Integer");
 
+			put("Gio.AsyncReadyCallback", runtimeNamespace + "AsyncReadyCallback");
+			put("Gio.AsyncResult", runtimeNamespace + "AsyncResult");			
+			
 			for (String name : new String[] { "Context" }) {
 				put("Cairo." + name, internalsNamespace + "UnmappedPointer");
 			}
 		}
 	};
+	
+	public static boolean isMapped(String namespace, String name) {
+		String key = namespace + "." + name;
+		String val = GType.overrides.get(key);
+		return val != null;
+	}
 
 	public static String getInternalNameMapped(String namespace, String name) {
 		String key = namespace + "." + name;
