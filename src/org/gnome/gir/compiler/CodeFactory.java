@@ -1667,21 +1667,40 @@ public class CodeFactory {
 		 * callbacks and other situations where a structure instance will be created behind
 		 * the scenes. */
 		if (!foundNamedNew) {
-			/* constructor; public no-args */
-			MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
-			mv.visitCode();
-			Label l0 = new Label();
-			mv.visitLabel(l0);
-			mv.visitVarInsn(ALOAD, 0);
-			mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GTypeMapper.class), "getInstance", Type
-					.getMethodDescriptor(getType(GTypeMapper.class), new Type[] {}));
-			mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", "(Lcom/sun/jna/TypeMapper;)V");
-			mv.visitInsn(RETURN);
-			Label l1 = new Label();
-			mv.visitLabel(l1);
-			mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
-			mv.visitMaxs(0, 0);
-			mv.visitEnd();
+			if (hasFields) {
+				/* Structure/Union constructor; public no-args */
+				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+				mv.visitCode();
+				Label l0 = new Label();
+				mv.visitLabel(l0);
+				mv.visitVarInsn(ALOAD, 0);
+				mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(GTypeMapper.class), "getInstance", Type
+						.getMethodDescriptor(getType(GTypeMapper.class), new Type[] {}));
+				mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", 
+						Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { getType(TypeMapper.class) } ));
+				mv.visitInsn(RETURN);
+				Label l1 = new Label();
+				mv.visitLabel(l1);
+				mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+				mv.visitMaxs(0, 0);
+				mv.visitEnd();
+			} else {
+				/* Opaque constructor; public no-args */
+				MethodVisitor mv = compilation.writer.visitMethod(ACC_PUBLIC, "<init>", 
+						Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { }), null, null);
+				mv.visitCode();
+				Label l0 = new Label();
+				mv.visitLabel(l0);
+				mv.visitVarInsn(ALOAD, 0);
+				mv.visitMethodInsn(INVOKESPECIAL, parentInternalName, "<init>", 
+						Type.getMethodDescriptor(Type.VOID_TYPE, new Type[] { }));
+				mv.visitInsn(RETURN);
+				Label l1 = new Label();
+				mv.visitLabel(l1);
+				mv.visitLocalVariable("this", "L" + compilation.internalName + ";", null, l0, l1, 0);
+				mv.visitMaxs(0, 0);
+				mv.visitEnd();				
+			}
 		}
 		
 		/* If all fields are primitive types, create a constructor using those.  This
