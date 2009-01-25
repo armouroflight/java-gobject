@@ -80,8 +80,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.logging.Formatter;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -133,6 +136,15 @@ import com.sun.jna.ptr.PointerByReference;
 public class CodeFactory {
 
 	static final Logger logger = Logger.getLogger("org.gnome.gir.Compiler");
+	static {
+		logger.addHandler(new StreamHandler(System.err, new Formatter() {
+			@Override
+			public String format(LogRecord record) {
+				return String.format("%s%n", record.getMessage());
+			}
+		}));
+		logger.setUseParentHandlers(false);
+	}
 
 	private static final Set<String> GOBJECT_METHOD_BLACKLIST = new HashSet<String>() {
 		{
