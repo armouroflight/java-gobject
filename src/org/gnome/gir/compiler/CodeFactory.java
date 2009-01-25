@@ -1176,7 +1176,7 @@ public class CodeFactory {
 			/* Calculate how many arguments we deleted */
 			int nEliminated = 0;
 			for (Integer i : getAllEliminiated()) {
-				if (offset >= i)
+				if (offset > i)
 					nEliminated++;
 			}
 
@@ -1278,6 +1278,15 @@ public class CodeFactory {
 					return null;
 				}
 				firstSeenCallback = argOffset;
+				if (ctx.userDataIndices.size() > 0) {
+					/* This is really a bug in the code generator we should fix; but the offset
+					 * computation code is quite fragile, and there's only one function which
+					 * trips this in all of the public GObject stack right now.  So in the interest
+					 * of expediency for a release, just skip it. 
+					 */
+					logger.warning("Skipping callable with irregularly-placed user data: " + si.getIdentifier());
+					return null;
+				}
 			} else if (tag.equals(TypeTag.ARRAY) && arg.getDirection().equals(Direction.IN)) {
 				int lenIdx = arg.getType().getArrayLength();
 				if (lenIdx >= 0) {
@@ -1295,11 +1304,12 @@ public class CodeFactory {
 		}
 
 		/* Now go through and remove array length indices */
+		int off = (ctx.isMethod ? 1 : 0);		
 		List<Type> filteredTypes = new ArrayList<Type>();
-		for (int i = 1; i < types.size() + 1; i++) {
+		for (int i = off; i < types.size() + off; i++) {
 			Integer index = ctx.lengthOfArrayIndices.get(i);
 			if (index == null) {
-				filteredTypes.add(types.get(i - 1));
+				filteredTypes.add(types.get(i - off));
 			}
 		}
 
