@@ -2210,7 +2210,7 @@ public class CodeFactory {
 			destFile = getJarPath(repo, namespace);
 			if (destFile == null)
 				return null;
-			logger.info("Will install to: " + destFile);
+			logger.info("=== Compiling " + destFile + " ===");
 		}
 
 		if (destFile.exists() && destFile.lastModified() > typelibLastModified) {
