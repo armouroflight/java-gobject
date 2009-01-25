@@ -38,7 +38,7 @@ import com.sun.jna.Pointer;
 import com.sun.jna.ptr.PointerByReference;
 
 interface GIntrospectionAPI extends Library {
-	public static final GIntrospectionAPI gi = (GIntrospectionAPI) Native.loadLibrary("girepository", GIntrospectionAPI.class, new HashMap<String, Object>() {
+	public static final GIntrospectionAPI gi = (GIntrospectionAPI) Native.loadLibrary("girepository-1.0", GIntrospectionAPI.class, new HashMap<String, Object>() {
 		private static final long serialVersionUID = 1L;
 		{
 			put(Library.OPTION_TYPE_MAPPER, new GTypeMapper());
