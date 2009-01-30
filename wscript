@@ -67,7 +67,7 @@ def configure(conf):
 def build(bld):
   jsrc = bld.new_task_gen('java')
   jsrc.install_path = '${PREFIX}/share/java'
-  jsrc.source = '.*java$'
+  jsrc.source = '/[A-Za-z]+\.java$'
   jsrc.jarname = 'jgir.jar'
   jsrc.source_root = 'src'
 

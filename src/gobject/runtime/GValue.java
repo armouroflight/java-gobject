@@ -61,7 +61,10 @@ public class GValue extends com.sun.jna.Structure {
 	/*< private >*/
 	public volatile GType g_type;
 	
-	/* public for GTypeValueTable methods */
+	/**
+	 * Native container for <tt>GValue</tt> data.
+	 */
+	// Public simply to pacify JNA Structure
 	public static class GValueData extends com.sun.jna.Union {
 		public volatile int v_int;
 		public volatile long v_long;

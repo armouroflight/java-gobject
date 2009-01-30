@@ -154,16 +154,7 @@ public abstract class GObject extends NativeObject {
 	}
 
 	/**
-	 * A tagging interface to mark classes which are GObject property bags.
-	 * 
-	 * @author walters
-	 * 
-	 */
-	public static interface GProperties {
-	};
-
-	/**
-	 * A tagging interface for a native GInterface, which is exposed by JGIR as a
+	 * Tagging interface for a native GInterface, which is exposed by JGIR as a
 	 * Java interface.
 	 * 
 	 * @see <a href="../../gtk-doc/html/gobject/gtype-non-instantiable-classed.html">native GInterface</a>
@@ -345,7 +336,7 @@ public abstract class GObject extends NativeObject {
 		return id;
 	}
 
-	public interface NotifyCallback extends Callback {
+	private interface NotifyCallback extends Callback {
 		public final TypeMapper TYPE_MAPPER = GTypeMapper.getInstance();
 
 		public void onNotify(GObject object, GParamSpec param, Pointer data);
