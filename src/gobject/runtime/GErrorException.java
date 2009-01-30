@@ -25,6 +25,11 @@ package gobject.runtime;
 
 import gobject.internals.GErrorStruct;
 
+/**
+ * Exception thrown by native methods which use the {@code GError} mechanism.
+ * 
+ * @see <a href="../../gtk-doc/html/glib/glib-Error-Reporting.html">GError</a>
+ */
 public class GErrorException extends Exception {
 	private static final long serialVersionUID = 1L;
 	private int domain;

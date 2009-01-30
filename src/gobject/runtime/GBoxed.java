@@ -12,6 +12,15 @@ import com.sun.jna.PointerType;
 import com.sun.jna.Structure;
 import com.sun.jna.TypeMapper;
 
+/**
+ * Peer object for an <i>opaque</i> native "boxed" type.  This class is used
+ * when the boxed type is not known to be a structure or union.
+ * 
+ * Typically an instance of {@code GBoxed} is just passed between native functions
+ * without manipulation from managed code.
+ * 
+ * @see <a href="../../gtk-doc/html/gobject/gobject-Boxed-Types.html">Boxed Types</a>
+ */
 public abstract class GBoxed extends PointerType implements RegisteredType {
 	
 	protected GType gtype = GType.INVALID;

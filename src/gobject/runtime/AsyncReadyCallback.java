@@ -6,8 +6,10 @@ import com.sun.jna.Callback;
 import com.sun.jna.TypeMapper;
 
 /**
- * Type definition for a function that will be called back 
- * when an asynchronous operation within GIO has been completed.
+ * A callback that will be invoked when an asynchronous operation
+ * within Gio has been completed.
+ * 
+ * @see <a href="../../gtk-doc/gio/GAsyncResult.html#GAsyncReadyCallback">native GAsyncResult</a>
  */
 public interface AsyncReadyCallback extends Callback {
 	final TypeMapper TYPE_MAPPER = GTypeMapper.getInstance();

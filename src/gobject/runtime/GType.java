@@ -57,15 +57,14 @@ import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
 /**
- * GType is the fundamental building block of GObject. It provides
- * runtime-accessible type information. GTypes can be full GObjects, or just
- * boxed integers or structures.
- * 
+ * The fundamental runtime type information of the <tt>GObject</tt> library. In native code,
+ * a GType is an opaque integral type.  All subclasses of {@link GObject} and {@link GBoxed} have associated
+ * native GTypes.
+ * <p>
  * This class provides an API for accessing fundamental GTypes, as well as
  * looking up the GType associated with a mapped GObject.
- * 
- * @author walters
- * 
+ * <p>
+ * @see <a href="../../gtk-doc/html/gobject/gobject-Type-Information.html">native GType</a>
  */
 public class GType extends NativeLong {
 	private static final long serialVersionUID = 1L;

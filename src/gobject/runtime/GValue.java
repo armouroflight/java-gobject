@@ -52,8 +52,10 @@ import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
 /**
- * GValue is a the native GObject concept of a "boxed" value; i.e. a pair of data
- * with metadata about its type.
+ * Managed peer representing a native {@code GValue} structure.  A GValue is the pair of
+ * a value with its {@link GType}.  
+ * 
+ * @see <a href="../../gtk-doc/html/gobject/gobject-Generic-values.html">native GValue</a> 
  */
 public class GValue extends com.sun.jna.Structure {
 	/*< private >*/

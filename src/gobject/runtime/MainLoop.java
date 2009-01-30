@@ -64,7 +64,46 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.sun.jna.Pointer;
 
 /**
- * The GLib main loop.
+ * Managed peer for a native {@code GMainLoop} structure.  There is typically one
+ * main loop associated with a program, which reacts to events.
+ * <p>
+ * This class includes custom methods and interfaces for event scheduling, making use of
+ * {@link java.util.concurrent} classes.  This methods are crucial for bridging between
+ * asynchronous worker threads and the main event (UI) thread.
+ * <p>
+ * Scheduling code to run in the future:
+ * <pre>
+ * MainLoop loop = MainLoop.getDefault();
+ * 
+ * loop.invokeLater(5, TimeUnit.SECONDS, new Runnable() {
+ *     public void run() {
+ *         System.err.println("Hello 5 seconds later");    
+ *     }
+ * });
+ * </pre>
+ * <p>
+ * Creating a worker thread for an expensive task, and then passing the result
+ * to the main thread to update the GUI:
+ * <pre>
+ * MainLoop loop = MainLoop.getDefault();
+ * 
+ * loop.threadInvoke(new Callable<String>() {
+ *     public String call() throws Exception {
+ *         HttpURLConnection conn = (HttpURLConnection) new URL("http://www.example.com")).openConnection();
+ *         return conn.getContentType();
+ *     },
+ *     new MainLoop.Handler() {
+ *         public void handle(Future<String> result) {
+ *             try {
+ *                 contentTextArea.setText(result.get());
+ *             } catch(Exception e) {
+ *                 showErrorDialog(e);
+ *             }
+ *         }
+ *     });
+ * </pre> 
+ * 
+ * @see <a href="../../gtk-doc/html/glib/glib-The-Main-Event-Loop.html">native GMainLoop</a> 
  */
 public class MainLoop extends RefCountedObject {
     private static MainLoop defaultLoop;
@@ -273,8 +312,8 @@ public class MainLoop extends RefCountedObject {
     }
     
     /**
-     * Stub interface for {@code queue}.
-     * @author walters
+     * A callback which is invoked when the result of a threaded invocation
+     * is complete.
      *
      * @param <T> Type of object passed to queue
      */

@@ -5,7 +5,9 @@ import gobject.runtime.GObject.GObjectProxy;
 
 
 /**
- * Provides a base class for implementing asynchronous function results. 
+ * Holds the result of an asynchronous computation.
+ * 
+ * @see <a href="../../gtk-doc/gio/GAsyncResult.html">native GAsyncResult</a>
  */
 public interface AsyncResult extends GObjectProxy {
 	public GObject getSourceObject();

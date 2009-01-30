@@ -5,8 +5,6 @@ import com.sun.jna.ptr.ByReference;
 /**
  * A simple class for passing Boolean values by reference,
  * similar to the other JNA classes.
- * 
- * @author walters
  */
 public class BooleanByReference extends ByReference {
 

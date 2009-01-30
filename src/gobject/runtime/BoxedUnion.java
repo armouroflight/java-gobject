@@ -8,7 +8,14 @@ import com.sun.jna.Pointer;
 import com.sun.jna.TypeMapper;
 import com.sun.jna.Union;
 
-
+/**
+ * Peer object for a native "boxed" union type. This class extends the 
+ * JNA {@link com.sun.jna.Union} class, and may be manipulated using methods
+ * associated with that class.
+ * 
+ * @see com.sun.jna.Union 
+ * @see <a href="../../gtk-doc/html/gobject/gobject-Boxed-Types.html">Boxed Types</a>
+ */
 public abstract class BoxedUnion extends Union implements RegisteredType {
 	
 	private final GType gtype;

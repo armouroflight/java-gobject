@@ -8,7 +8,14 @@ import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 import com.sun.jna.TypeMapper;
 
-
+/**
+ * Peer object for a native "boxed" structure type. This class extends the 
+ * JNA {@link com.sun.jna.Structure} class, and may be manipulated using methods
+ * associated with that class.
+ * 
+ * @see com.sun.jna.Structure
+ * @see <a href="../../gtk-doc/html/gobject/gobject-Boxed-Types.html">Boxed Types</a>
+ */
 public abstract class BoxedStructure extends Structure implements RegisteredType {
 
 	private final GType gtype;
