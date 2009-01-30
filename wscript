@@ -5,6 +5,7 @@ import os
 
 import Task,TaskGen,Node
 from TaskGen import *
+from Configure import conf
 import pproc
 
 # the following two variables are used by the target "waf dist"
@@ -15,61 +16,68 @@ APPNAME='jgir'
 srcdir = '.'
 blddir = 'build'
 
-@taskgen
-def add_gir_file(self, filename):
-	if not hasattr(self, 'gir_lst'): self.gir_lst = []
-	self.meths.add('process_gir')
-	self.gir_lst.append([filename])
+def with_check_msg(msg, func):
+    sys.stdout.write("Checking for " + msg)
+    try:
+        func()
+        sys.stdout.write('...ok\n')
+    except:
+        sys.stdout.write('\n')
+        raise
 
-@taskgen
-@before('apply_core')
-def process_gir(self):
-	for i in getattr(self, 'gir_lst', []):
-		env = self.env.copy()
-		node = self.path.find_resource(i[0])
+def search_xdg_datadirs(path):
+    datadirs = os.environ.get('XDG_DATA_DIRS', '/usr/share').split(':')
+    for dirpath in datadirs:
+        target = os.path.join(dirpath, path)
+        if os.path.exists(target):
+            return target
 
-		if not node:
-			raise Utils.WafError('file not found on gir obj '+i[0])
+@conf
+def find_xdg_datadir_jar(self, prefix, name):
+    name += '.jar'
+    def _find_jar():
+        jarpath = search_xdg_datadirs(prefix+'/'+name)
+        if jarpath:       
+            if 'CLASSPATH' not in self.env:
+                cp = jarpath
+            else:        
+                cp = self.env['CLASSPATH'] + os.pathsep + jarpath
+            self.env['CLASSPATH'] = cp
+        else:
+            raise KeyError("Failed to find required jar: " + name) 
+    with_check_msg(name, _find_jar)
 
-                tgt_name = os.path.splitext(node.name)[0] + '-metadata.c'
-                tgt_node = self.path.find_or_declare(tgt_name)
-                self.allnodes.append(tgt_node)
-                task = self.create_task('gir_compiler', env)
-                task.set_inputs(node)
-                task.set_outputs(tgt_node)
-
-Task.simple_task_type('gir_scanner', 'g-ir-scanner -v ${INCLUDES} --namespace=${NAMESPACE} --library=${LIB} ${SRC} --output ${TGT}', color='BLUE')
-Task.simple_task_type('gir_compiler', 'g-ir-compiler ${SRC} -o ${TGT}', color='BLUE')
-Task.simple_task_type('jgir_compile', 'jgir-compile ${SHLIB} ${NAMESPACE} ${TGT}', color='BLUE')
+@conf
+def find_jpackage_jar(self, name):
+    self.find_xdg_datadir_jar('java', name)
 
 def set_options(opt):
   pass
 
-def get_pkgconfig_var(conf, module, var):
-  conf.env[var] = pproc.Popen(['pkg-config', '--variable='+var, module],
+@conf
+def get_pkgconfig_var(self, module, var):
+  self.env[var] = pproc.Popen(['pkg-config', '--variable='+var, module],
                               stdout=pproc.PIPE).communicate()[0].strip()
 
 def configure(conf):
   conf.check_tool('gcc gnome java misc')
 
-  conf.check_pkg('gobject-introspection-1.0', destvar='GI', mandatory=True)
-  get_pkgconfig_var(conf, 'gobject-introspection-1.0', 'typelibdir')
+  conf.check_cfg(package='gobject-introspection-1.0', uselib_store='GI', args="--cflags --libs", mandatory=True)
+  conf.get_pkgconfig_var('gobject-introspection-1.0', 'typelibdir')
 
-  conf.require_java_class('java.lang.Object')
   asm_deps = ['asm', 'asm-util', 'asm-tree', 'asm-commons', 'asm-analysis']
   for dep in asm_deps:
-    conf.require_jpackage_module('objectweb-asm/%s' % (dep,))
-  conf.require_jpackage_module('jna')
-  conf.require_jpackage_module('junit')
-  conf.require_jpackage_module('gnu.getopt')
+    conf.find_jpackage_jar('objectweb-asm/%s' % (dep,))
+  conf.find_jpackage_jar('jna')
+  conf.find_jpackage_jar('junit')
+  conf.find_jpackage_jar('gnu.getopt')
   print "Using CLASSPATH: %r" % (conf.env['CLASSPATH'],)
 
 def build(bld):
-  jsrc = bld.new_task_gen('java')
-  jsrc.install_path = '${PREFIX}/share/java'
-  jsrc.source = '/[A-Za-z]+\.java$'
-  jsrc.jarname = 'jgir.jar'
-  jsrc.source_root = 'src'
+  jsrc = bld.new_task_gen(features='java',
+                          install_path = '${PREFIX}/share/java',
+                          source_root = 'src',
+                          jarname = 'jgir.jar')
 
   full_cp = bld.env['CLASSPATH'] + ':' + bld.env['PREFIX'] + '/share/java/jgir.jar'
   compscript = bld.new_task_gen('subst')
