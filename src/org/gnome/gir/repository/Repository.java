@@ -12,6 +12,10 @@ import com.sun.jna.ptr.PointerByReference;
 
 public class Repository extends GObject {
 
+	static {
+		GlibRuntime.init();		
+	}
+	
 	public Repository(Initializer init) {
 		super(init);
 	}
@@ -87,7 +91,6 @@ public class Repository extends GObject {
 	}
 	
 	public static synchronized Repository getDefault() {
-		GlibRuntime.init();
 		return (Repository) NativeObject.Internals.objectFor(getNativeLibrary().g_irepository_get_default(),
 									  Repository.class, false, false);
 	}

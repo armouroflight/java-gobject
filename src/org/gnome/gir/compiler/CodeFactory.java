@@ -2311,11 +2311,11 @@ public class CodeFactory {
 		return new File(typelibPath.getParent(), String.format("%s-%s.jar", namespace, version));
 	}
 
-	private static boolean namespaceIsExcluded(String namespace) {
+	public static boolean namespaceIsExcluded(String namespace) {
 		return namespace.equals("GLib") || namespace.equals("GObject");
 	}
 
-	private static File getTypelibDir() {
+	public static File getTypelibDir() {
 		return new File(System.getenv("TYPELIBDIR"));
 	}
 
@@ -2330,7 +2330,7 @@ public class CodeFactory {
 		verifyJarFiles(Arrays.asList(jars));
 	}
 
-	private static final class NsVer {
+	public static final class NsVer {
 		public String namespace;
 		public String version;
 

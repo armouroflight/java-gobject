@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8; indent-tabs-mode: nil; python-indent: 2 -*-
 
-import os
+import os, glob, shutil
 
 import Task,TaskGen,Node
 from TaskGen import *
@@ -64,6 +64,7 @@ def configure(conf):
 
   conf.check_cfg(package='gobject-introspection-1.0', uselib_store='GI', args="--cflags --libs", mandatory=True)
   conf.get_pkgconfig_var('gobject-introspection-1.0', 'typelibdir')
+  conf.get_pkgconfig_var('gobject-introspection-1.0', 'girdir')
 
   asm_deps = ['asm', 'asm-util', 'asm-tree', 'asm-commons', 'asm-analysis']
   for dep in asm_deps:
@@ -75,9 +76,11 @@ def configure(conf):
 
 def build(bld):
   jsrc = bld.new_task_gen(features='java',
+                          name='jsrc',
                           install_path = '${PREFIX}/share/java',
                           source_root = 'src',
                           jarname = 'jgir.jar')
+  bld.install_files('${PREFIX}/share/java', 'jgir.jar')
 
   full_cp = bld.env['CLASSPATH'] + ':' + bld.env['PREFIX'] + '/share/java/jgir.jar'
   compscript = bld.new_task_gen('subst')
@@ -86,7 +89,7 @@ def build(bld):
   compscript.source = 'src/jgir-compile-all.in'
   compscript.target = 'jgir-compile-all'
   compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX'],
-                     'TYPELIBDIR': bld.env['typelibdir']}
+                     'TYPELIBDIR': bld.env['typelibdir'], 'GIRDIR': bld.env['girdir']}
 
   compscript = bld.new_task_gen('subst')
   compscript.install_path = "${PREFIX}/bin"
@@ -94,6 +97,21 @@ def build(bld):
   compscript.source = 'src/jgir-compile.in'
   compscript.target = 'jgir-compile'
   compscript.dict = {'CLASSPATH': full_cp, 'TYPELIBDIR': bld.env['typelibdir']}
+  
+  compscript = bld.new_task_gen('subst')
+  compscript.install_path = "${PREFIX}/bin"
+  compscript.chmod = 0755
+  compscript.source = 'src/jgir-docgen.in'
+  compscript.target = 'jgir-docgen'
+  compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX'],
+                     'TYPELIBDIR': bld.env['typelibdir'], 'GIRDIR': bld.env['girdir']}  
+
+  #openjdkdir = glob.glob('/usr/share/javadoc/java-1.6*openjdk/api')[0]
+  #jnadir = glob.glob('/usr/share/javadoc/jna-*')[0]
+  #bld.new_task_gen(name='javadoc',
+  #                 sources = jsrc.
+  #                 rule='javadoc -d javadoc -sourcepath ../src -classpath ' + bld.env['CLASSPATH'] + ':.' \
+  #                       + ' -link ' + openjdkdir + ' -link ' + jnadir + ' gobject.runtime')
 
   #libinvoke = bld.new_task_gen('cc', 'shlib')
   #libinvoke.packages = ['gobject-introspection-1.0']
@@ -109,4 +127,13 @@ def build(bld):
   #testinvoke.unit_test = 1
 
 def shutdown():
-  pass
+#  if Options.is_install:
+#    destdir = Build.bld.get_install_path('${PREFIX}/share/javadoc')
+#    try:
+#      os.makedirs(destdir)
+#    except OSError, e:
+#      pass
+#    target = os.path.join(destdir, 'jgir')
+#    shutil.rmtree(target)
+#    print "Installing javadoc to " + target
+#    shutil.copytree('build/javadoc', target)

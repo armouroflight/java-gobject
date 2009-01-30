@@ -1,0 +1,20 @@
+#!/usr/bin/python
+import os,sys,subprocess
+
+classpath="@CLASSPATH@"
+# Just put this one in the env
+os.environ['TYPELIBDIR'] = "@TYPELIBDIR@"
+os.environ['GIRDIR'] = "@GIRDIR@"
+java_opts=os.environ.get('JAVA_OPTS', None)
+if java_opts:
+    java_opts = java_opts.split(' ')
+else:
+    java_opts = []
+args = ['java']
+args.extend(java_opts)
+args.extend(['-cp', classpath, 'org.gnome.gir.compiler.DocFactory'])
+args.extend(sys.argv[1:])
+subprocess.check_call(args,
+                      stdout=sys.stdout,
+                      stderr=sys.stderr,
+                      close_fds=True)
