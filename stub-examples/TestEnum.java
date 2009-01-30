@@ -1,9 +1,8 @@
 
 
 import com.sun.jna.FromNativeContext;
-import com.sun.jna.NativeMapped;
 
-public enum TestEnum implements NativeMapped {
+public enum TestEnum implements com.sun.jna.NativeMapped {
 	FOO,
 	BAR;
 

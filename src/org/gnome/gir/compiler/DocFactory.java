@@ -74,15 +74,16 @@ public class DocFactory {
 		if ((access & Opcodes.ACC_PROTECTED) != 0) {
 			modifiers.add("protected");
 		}
-		if ((access & Opcodes.ACC_FINAL) != 0) {
+		if ((access & Opcodes.ACC_FINAL) != 0 &&
+			(access & Opcodes.ACC_ENUM) == 0) {
 			modifiers.add("final");
 		}
 		if ((access & Opcodes.ACC_STATIC) != 0) {
 			modifiers.add("static");
-		}
+		}/* far too much stuff has synchronized - why? 
 		if ((access & Opcodes.ACC_SYNCHRONIZED) != 0) {
 			modifiers.add("synchronized");
-		}
+		}*/
 		if ((access & Opcodes.ACC_VOLATILE) != 0) {
 			modifiers.add("volatile");
 		}
@@ -101,6 +102,9 @@ public class DocFactory {
  
     private class ClassJavafier implements ClassVisitor {
     	Writer out;
+    	boolean isInterface;
+    	boolean isEnum;
+    	boolean isInner;
     	String clsName;
     	
 		public ClassJavafier(Writer out) {
@@ -109,12 +113,18 @@ public class DocFactory {
 
 		@Override
 		public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-			clsName = name;
+			isInner = name.contains("$");
+			isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
+			isEnum = (access & Opcodes.ACC_ENUM) != 0;
+			clsName = stripInternals(name);
 			try {
-				out.write(strAccess(access));
-				if ((access & Opcodes.ACC_INTERFACE) != 0)
+				out.write("package ");
+				out.write(getPackage(name));
+				out.write(";\n\n");
+				out.write(strAccess(access)); 
+				if (isInterface)
 					out.write(" interface ");
-				else if ((access & Opcodes.ACC_ENUM) != 0)
+				else if (isEnum)
 					out.write(" enum ");
 				else
 					out.write(" class ");
@@ -123,10 +133,15 @@ public class DocFactory {
 				if (innerIdx > 0)
 					iname = iname.substring(innerIdx + 1);
 				out.write(iname);
-				out.write(" extends ");
-				out.write(replaceInternals(superName));
+				if (!isInterface && !isEnum) {
+					out.write(" extends ");
+					out.write(replaceInternals(superName));
+				}
 				if (interfaces != null && interfaces.length > 0) {
-					out.write(" implements ");
+					if (!isInterface)
+						out.write(" implements ");
+					else
+						out.write(" extends ");
 					List<String> ifaces = new ArrayList<String>();
 					for (String iface : Arrays.asList(interfaces)) {
 						ifaces.add(replaceInternals(iface));
@@ -134,6 +149,10 @@ public class DocFactory {
 					out.write(join(",", ifaces));
 				}
 				out.write(" {\n");
+				
+				if (isEnum) {
+					out.write("FOO;\n\n");
+				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -171,19 +190,25 @@ public class DocFactory {
 
 		@Override
 		public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-			if (name.equals("<clinit>"))
+			if (name.equals("<clinit>") || (access & Opcodes.ACC_PRIVATE) != 0)
 				return null;
 			Type[] args = Type.getArgumentTypes(descriptor);
 			Type retType = Type.getReturnType(descriptor);
 			try {
-				out.write(strAccess(access));			
-				out.write(" " + toJava(retType));
+				out.write(strAccess(access));	
 				if (name.equals("<init>"))
 					name = clsName; 
+				else {
+					if (!isInterface && !isInner)
+						out.write(" native ");
+					out.write(" " + toJava(retType));
+				}
+
 				out.write(" " + name + " (");
 				
 				for (int i = 0; i < args.length; i++) {
 					out.write(toJava(args[i]));
+					out.write(" arg" + i);
 					if (i < args.length - 1)
 						out.write(", ");
 				}
@@ -232,13 +257,23 @@ public class DocFactory {
     	}
     }
     
+    private static final String getPackage(String path) {
+    	int idx = path.lastIndexOf('/');
+    	return path.substring(0, idx).replace('/', '.');    	
+    }
+    
     private static final String stripInternals(String path) {
     	int idx = path.lastIndexOf('/');
-    	return path.substring(idx+1);
+    	String name = path.substring(idx+1);
+    	idx = name.indexOf('$');
+    	if (idx < 0)
+    		return name;
+    	
+    	return name.substring(idx+1);
     }
     
     private static final String replaceInternals(String path) {
-    	return path.replace('/', '.');
+    	return path.replace('$', '.').replace('/', '.');
     }
 	
 	private void generateOne(File jarpath, File girpath, File outpath) throws Exception {
@@ -248,9 +283,9 @@ public class DocFactory {
 		List<? extends ZipEntry> entries = Collections.list(zf.entries());
 		
 		for (ZipEntry entry : entries) {
-			String name = stripInternals(entry.getName().replace(".class", ""));
-			if (name.contains("$"))
+			if (entry.getName().contains("$"))
 				continue;
+			String name = stripInternals(entry.getName().replace(".class", ""));			
 			
 			File javaOutPath = new File(outpath, entry.getName().replace(".class", ".java"));
 			javaOutPath.getParentFile().mkdirs();

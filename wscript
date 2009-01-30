@@ -127,6 +127,7 @@ def build(bld):
   #testinvoke.unit_test = 1
 
 def shutdown():
+  pass
 #  if Options.is_install:
 #    destdir = Build.bld.get_install_path('${PREFIX}/share/javadoc')
 #    try:
