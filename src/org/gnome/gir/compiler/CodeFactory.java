@@ -152,6 +152,14 @@ public class CodeFactory {
 			add("unref");
 		}
 	};
+	
+	// http://java.sun.com/docs/books/tutorial/java/nutsandbolts/_keywords.html
+	private static final Set<String> javaIdentifierBlacklist = new HashSet<String>(Arrays.asList(new String[] { "abstract", "continue", "for", "new", "switch", "assert",
+			"default", "goto", "package", "synchronized", "boolean", "do", "if", "private", "this", "break", "double",
+			"implements", "protected", "throw", "byte", "else", "import", "public", "throws", "case", "enum",
+			"instanceof", "return", "transient", "catch", "extends", "int", "short", "try", "char", "final",
+			"interface", "static", "void", "class", "finally", "long", "strictfp", "volatile", "const", "float",
+			"native", "super", "while", "true", "false", "null" }));
 
 	private final Repository repo;
 	private final Set<String> alreadyCompiled = new HashSet<String>();
@@ -1235,6 +1243,14 @@ public class CodeFactory {
 				}
 			}
 		}
+		
+		ctx.name = NameMap.ucaseToCamel(si.getName());
+		// Callables are allowed to be named "new", we handle that specially
+		if (javaIdentifierBlacklist.contains(ctx.name) && !ctx.name.equals("new")) {
+			logger.warning(String.format("Callable %s has illegal identifer as name", si.getIdentifier()));
+			ctx.name = ctx.name + "_";
+		}
+		
 		if (ctx.returnType == null) {
 			logger.warning("Skipping callable with unhandled return signature: " + si.getIdentifier());
 			return null;
@@ -1327,8 +1343,6 @@ public class CodeFactory {
 		}
 
 		ctx.argTypes = filteredTypes;
-
-		ctx.name = NameMap.ucaseToCamel(si.getName());
 
 		if (seenSignatures != null) {
 			String signature = TypeMap.getUniqueSignature(ctx.name, ctx.returnType, ctx.argTypes);
