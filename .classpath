@@ -12,5 +12,6 @@
 	<classpathentry kind="lib" path="/usr/share/java/gnu-getopt.jar"/>
 	<classpathentry kind="lib" path="/usr/share/java/stringtemplate.jar"/>
 	<classpathentry kind="lib" path="/usr/share/java/antlr.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/commons-io.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

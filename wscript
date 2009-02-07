@@ -74,6 +74,7 @@ def configure(conf):
   conf.find_jpackage_jar('gnu.getopt')
   conf.find_jpackage_jar('stringtemplate')
   conf.find_jpackage_jar('antlr')
+  conf.find_jpackage_jar('commons-io')  
   print "Using CLASSPATH: %r" % (conf.env['CLASSPATH'],)
 
 #@feature('jar')
