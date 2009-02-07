@@ -1293,6 +1293,19 @@ public class CodeFactory {
 					ctx.lengthOfArrayIndices.put(lenIdx, argOffset);
 					ctx.arrayToLengthIndices.put(argOffset, lenIdx);
 				}
+			} else if (tag.equals(TypeTag.INTERFACE)) {
+				BaseInfo iface = info.getInterface();
+				/* gst_class_signal_connect trips us up here; we're not normally exposing class structs
+				 * in public API.  Possibly what we should do is special-case the class struct to be exposed
+				 * (but then the question is open for how you get a reference to it nicely).  Should we
+				 * have a mapping for Class<? extends GObject> to/from class struct?
+				 */
+				if (iface instanceof StructInfo) {
+					if (((StructInfo) iface).isClassStruct()) {
+						logger.warning(String.format("Skipping callable with class structure argument: %s", si.getIdentifier()));
+						return null;
+					}
+				}
 			}
 			t = TypeMap.toJava(arg);
 			if (t == null) {
@@ -1813,6 +1826,10 @@ public class CodeFactory {
 	}
 
 	private void compile(StructInfo info) {
+		/* Skip these, we don't want in the public API */
+		if (info.isClassStruct())
+			return;
+		
 		StubClassCompilation compilation = getCompilation(info);
 
 		writeStructUnion(info, compilation, "Structure", info.getMethods(), info.getFields());
@@ -2111,8 +2128,13 @@ public class CodeFactory {
 			throw new RuntimeException(e);
 		}
 
+		/* We used to throw this, but really we should encourage people not
+		 * to put their private typelibs in the public dir.
+		 */
+		/*
 		if (repo.getSharedLibrary(namespace) == null)
 			throw new PrivateNamespaceException();
+		*/
 
 		String globalName = namespace + "Globals";
 		String peerInternalName = GType.getInternalName(namespace, globalName);
