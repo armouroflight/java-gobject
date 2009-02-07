@@ -20,4 +20,8 @@ public class StructInfo extends RegisteredTypeInfo {
 			ret[i] = GIntrospectionAPI.gi.g_struct_info_get_method(this, i);
 		return ret;
 	}
+	
+	public boolean isClassStruct() {
+		return GIntrospectionAPI.gi.g_struct_info_is_class_struct(this);
+	}
 }

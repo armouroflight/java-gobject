@@ -135,6 +135,7 @@ interface GIntrospectionAPI extends Library {
 						    int         n);
 	FunctionInfo       g_struct_info_find_method   (StructInfo info,
 							    String name);
+	boolean            g_struct_info_is_class_struct (StructInfo info);
 	
 	String          g_registered_type_info_get_type_name (RegisteredTypeInfo info);
 	String          g_registered_type_info_get_type_init (RegisteredTypeInfo info);
