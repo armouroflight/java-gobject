@@ -1360,6 +1360,9 @@ public class CodeFactory {
 			CallableCompilationContext ctx) {
 		String descriptor = ctx.getDescriptor();
 		String name = ctx.name;
+		// This can happen in static global case, handle it specially
+		if (name.equals("new"))
+			name = "new_";
 
 		String[] exceptions = null;
 		if (ctx.throwsGError) {
