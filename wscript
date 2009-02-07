@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8; indent-tabs-mode: nil; python-indent: 2 -*-
 
-import os, glob, shutil
+import os, glob, shutil, re
 
 import Task,TaskGen,Node
 from TaskGen import *
@@ -72,15 +72,33 @@ def configure(conf):
   conf.find_jpackage_jar('jna')
   conf.find_jpackage_jar('junit')
   conf.find_jpackage_jar('gnu.getopt')
+  conf.find_jpackage_jar('stringtemplate')
+  conf.find_jpackage_jar('antlr')
   print "Using CLASSPATH: %r" % (conf.env['CLASSPATH'],)
 
+#@feature('jar')
+#@before('apply_java')
+#def create_jar(self, name, regexp='.*'):
+#  # see wafadmin/Tools/java.py line 81
+#  tsk = self.create_task('jar_create')
+#  r = re.compile(regexp)
+#  def acc(node, name):
+#    return r.search(name) > -1
+#  def prune(node, name):
+#    return False
+#  inputs = self.path.find_dir(self.source_root).find_iter_impl(dir=False, accept_name=acc, is_prune=prune)
+#  tsk.set_inputs(inputs)
+#  tsk.set_outputs(self.path.find_or_declare(name))
+
 def build(bld):
-  jsrc = bld.new_task_gen(features='java',
+  srcroot = bld.path.find_dir('src')
+  templates = ['jclass-toplevel.st', 'jclass-decl-head.st']
+  jsrc = bld.new_task_gen(features='java jar',
                           name='jsrc',
                           install_path = '${PREFIX}/share/java',
-                          source_root = 'src',
-                          jarname = 'jgir.jar')
-  bld.install_files('${PREFIX}/share/java', 'jgir.jar')
+                          jarname = 'jgir.jar',
+                          jaropts = '-C default/src . ' + ''.join([' -C ../src/ org/gnome/gir/compiler/' + x for x in templates]), 
+                          source_root = 'src')
 
   full_cp = bld.env['CLASSPATH'] + ':' + bld.env['PREFIX'] + '/share/java/jgir.jar'
   compscript = bld.new_task_gen('subst')
@@ -104,7 +122,9 @@ def build(bld):
   compscript.source = 'src/jgir-docgen.in'
   compscript.target = 'jgir-docgen'
   compscript.dict = {'CLASSPATH': full_cp, 'PREFIX': bld.env['PREFIX'],
-                     'TYPELIBDIR': bld.env['typelibdir'], 'GIRDIR': bld.env['girdir']}  
+                     'TYPELIBDIR': bld.env['typelibdir'], 'GIRDIR': bld.env['girdir']}
+  
+  bld.install_files('${PREFIX}/share/java', 'jgir.jar')  
 
   #openjdkdir = glob.glob('/usr/share/javadoc/java-1.6*openjdk/api')[0]
   #jnadir = glob.glob('/usr/share/javadoc/jna-*')[0]

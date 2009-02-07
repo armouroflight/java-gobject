@@ -21,6 +21,8 @@ import java.util.logging.StreamHandler;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+import org.antlr.stringtemplate.StringTemplate;
+import org.antlr.stringtemplate.StringTemplateGroup;
 import org.gnome.gir.repository.Repository;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.Attribute;
@@ -45,9 +47,11 @@ public class DocFactory {
 	}
 
 	private final Repository repo;
+	private final StringTemplateGroup templates;
 
 	private DocFactory(Repository repo) {
 		this.repo = repo;
+		this.templates = new StringTemplateGroup("templates");
 	}
 	
 	public static String join(String sep, List<String> components) {
@@ -61,7 +65,11 @@ public class DocFactory {
 				builder.append(sep);
 		}
 		return builder.toString();
-	}	
+	}
+	
+	private StringTemplate getTemplate(String name) {
+		return templates.getInstanceOf("org/gnome/gir/compiler/" + name);		
+	}
 	
     private static String strAccess(final int access) {
     	List<String> modifiers = new ArrayList<String>();
@@ -87,9 +95,6 @@ public class DocFactory {
 		if ((access & Opcodes.ACC_VOLATILE) != 0) {
 			modifiers.add("volatile");
 		}
-		if ((access & Opcodes.ACC_TRANSIENT) != 0) {
-			modifiers.add("transient");
-		}
 		if ((access & Opcodes.ACC_NATIVE) != 0) {
 			modifiers.add("native");
 		}
@@ -105,59 +110,85 @@ public class DocFactory {
     	boolean isInterface;
     	boolean isEnum;
     	boolean isInner;
+    	boolean isAnonStub;
+    	
     	String clsName;
     	
 		public ClassJavafier(Writer out) {
 			this.out = out;
 		}
+		
+		private boolean skip() {
+			return isAnonStub;
+		}
 
 		@Override
 		public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 			isInner = name.contains("$");
+			
+			if (!isInner) {
+				StringTemplate clsToplevel = getTemplate("jclass-toplevel");
+				clsToplevel.setAttribute("package", getPackage(name));
+				try {
+					String value = clsToplevel.toString();
+					out.write(value);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+				isAnonStub = false;
+			} else {
+				isAnonStub = name.contains("AnonStub");
+			}
+			
+			if (skip())
+				return;
+			
 			isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
 			isEnum = (access & Opcodes.ACC_ENUM) != 0;
 			clsName = stripInternals(name);
-			try {
-				out.write("package ");
-				out.write(getPackage(name));
-				out.write(";\n\n");
-				out.write(strAccess(access)); 
-				if (isInterface)
-					out.write(" interface ");
-				else if (isEnum)
-					out.write(" enum ");
+			if (isInner)
+				clsName = inner1(clsName);
+			
+			StringTemplate clsHeader = getTemplate("jclass-decl-head");			
+			clsHeader.setAttribute("access", strAccess(access));
+			String clsType;
+			if (isInterface)
+				clsType = "interface";
+			else if (isEnum)
+				clsType = "enum";
+			else
+				clsType = "class";
+			
+			String iname = stripInternals(name);
+			int innerIdx = iname.indexOf('$');
+			if (innerIdx > 0)
+				iname = iname.substring(innerIdx + 1);			
+			
+			clsHeader.setAttribute("clsType", clsType);
+			clsHeader.setAttribute("clsName", iname);
+
+			if (!isInterface && !isEnum) {
+				clsHeader.setAttribute("extends", replaceInternals(superName));
+			}
+			if (interfaces != null && interfaces.length > 0) {
+				if (!isInterface)
+					clsHeader.setAttribute("implementsType", "implements");
 				else
-					out.write(" class ");
-				String iname = stripInternals(name);
-				int innerIdx = iname.indexOf('$');
-				if (innerIdx > 0)
-					iname = iname.substring(innerIdx + 1);
-				out.write(iname);
-				if (!isInterface && !isEnum) {
-					out.write(" extends ");
-					out.write(replaceInternals(superName));
-				}
-				if (interfaces != null && interfaces.length > 0) {
-					if (!isInterface)
-						out.write(" implements ");
-					else
-						out.write(" extends ");
-					List<String> ifaces = new ArrayList<String>();
-					for (String iface : Arrays.asList(interfaces)) {
-						ifaces.add(replaceInternals(iface));
-					}
-					out.write(join(",", ifaces));
-				}
-				out.write(" {\n");
-				
-				if (isEnum) {
-					out.write("FOO;\n\n");
-				}
+					clsHeader.setAttribute("implementsType", "extends");
+				List<String> ifaces = new ArrayList<String>();
+				for (String iface : Arrays.asList(interfaces)) {
+					ifaces.add(replaceInternals(iface));
+				}				
+				clsHeader.setAttribute("implements", ifaces);
+			}
+			try {
+				String value = clsHeader.toString();
+				out.write(value);
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 		}
-
+		
 		@Override
 		public AnnotationVisitor visitAnnotation(String arg0, boolean arg1) {
 			return null;
@@ -172,6 +203,8 @@ public class DocFactory {
 		}
 		
 		public void close() {
+			if (skip())
+				return;
     		try {
 				out.write("\n}\n\n");
 			} catch (IOException e) {
@@ -191,6 +224,11 @@ public class DocFactory {
 		@Override
 		public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 			if (name.equals("<clinit>") || (access & Opcodes.ACC_PRIVATE) != 0)
+				return null;
+			if (skip())
+				return null;
+			/* Skip enum methods for now, a lot of the stuff is enum internals */
+			if (isEnum)
 				return null;
 			Type[] args = Type.getArgumentTypes(descriptor);
 			Type retType = Type.getReturnType(descriptor);
@@ -262,14 +300,26 @@ public class DocFactory {
     	return path.substring(0, idx).replace('/', '.');    	
     }
     
-    private static final String stripInternals(String path) {
-    	int idx = path.lastIndexOf('/');
-    	String name = path.substring(idx+1);
-    	idx = name.indexOf('$');
+    private static final String outerClass(String name) {
+    	int idx = name.indexOf('$');
     	if (idx < 0)
     		return name;
-    	
-    	return name.substring(idx+1);
+    	return name.substring(0, idx);	
+    }
+    
+    private static final String inner1(String name) {
+    	int idx = name.indexOf('$');
+    	if (idx < 0)
+    		return null;
+    	int nextIdx = name.indexOf('$', idx+1);
+    	if (nextIdx < 0)
+    		return name.substring(idx+1);
+    	return name.substring(idx+1, nextIdx);
+    }
+    
+    private static final String stripInternals(String path) {
+    	int idx = path.lastIndexOf('/');
+    	return path.substring(idx+1);
     }
     
     private static final String replaceInternals(String path) {
@@ -285,7 +335,8 @@ public class DocFactory {
 		for (ZipEntry entry : entries) {
 			if (entry.getName().contains("$"))
 				continue;
-			String name = stripInternals(entry.getName().replace(".class", ""));			
+			String fullName = entry.getName().replace(".class", "");
+			String name = outerClass(stripInternals(fullName));
 			
 			File javaOutPath = new File(outpath, entry.getName().replace(".class", ".java"));
 			javaOutPath.getParentFile().mkdirs();
@@ -298,12 +349,16 @@ public class DocFactory {
 			ClassJavafier visitor = new ClassJavafier(javaOut);
 
 			cv.accept(visitor, 0);
-			
-			String innerPrefix = name + "$";
+
 			/* Load its inner classes */
+			String innerPrefix = fullName + "$";
 			for (ZipEntry subEntry : entries) {
-				String innerName = stripInternals(subEntry.getName().replace(".class", ""));
-				if (!innerName.startsWith(innerPrefix))
+				if (!subEntry.getName().startsWith(innerPrefix))
+					continue;
+				System.err.println("write " + subEntry);
+				String innerStripped = stripInternals(subEntry.getName().replace(".class", ""));
+				String innerStrippedSuffix = innerStripped.substring(name.length()+1);
+				if (innerStrippedSuffix.contains("$"))
 					continue;
 				
 				InputStream innerInput = zf.getInputStream(subEntry);

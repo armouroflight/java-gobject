@@ -10,5 +10,7 @@
 	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-tree.jar"/>
 	<classpathentry kind="lib" path="/usr/share/java/objectweb-asm/asm-util.jar"/>
 	<classpathentry kind="lib" path="/usr/share/java/gnu-getopt.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/stringtemplate.jar"/>
+	<classpathentry kind="lib" path="/usr/share/java/antlr.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

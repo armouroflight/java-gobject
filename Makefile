@@ -3,3 +3,6 @@ all:
 
 install: all
 	python ./waf install --destdir=$(DESTDIR)
+	
+clean:
+	python ./waf clean
