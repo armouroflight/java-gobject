@@ -1317,7 +1317,7 @@ public class CodeFactory {
 				 * have a mapping for Class<? extends GObject> to/from class struct?
 				 */
 				if (iface instanceof StructInfo) {
-					if (((StructInfo) iface).isClassStruct()) {
+					if (((StructInfo) iface).isGTypeStruct()) {
 						logger.warning(String.format("Skipping callable with class structure argument: %s", si.getIdentifier()));
 						return null;
 					}
@@ -1844,7 +1844,7 @@ public class CodeFactory {
 
 	private void compile(StructInfo info) {
 		/* Skip these, we don't want in the public API */
-		if (info.isClassStruct())
+		if (info.isGTypeStruct())
 			return;
 		
 		StubClassCompilation compilation = getCompilation(info);

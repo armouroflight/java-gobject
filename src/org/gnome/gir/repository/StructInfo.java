@@ -21,7 +21,7 @@ public class StructInfo extends RegisteredTypeInfo {
 		return ret;
 	}
 	
-	public boolean isClassStruct() {
-		return GIntrospectionAPI.gi.g_struct_info_is_class_struct(this);
+	public boolean isGTypeStruct() {
+		return GIntrospectionAPI.gi.g_struct_info_is_gtype_struct(this);
 	}
 }
