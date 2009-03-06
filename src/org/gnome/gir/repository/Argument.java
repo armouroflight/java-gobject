@@ -60,6 +60,8 @@ public class Argument extends Union {
 			setType(String.class);
 			read();
 			return v_string;
+		case DOUBLE:
+			return v_double;
 		default:
 			throw new RuntimeException("Unhandled constant with tag " + tag);
 		}
