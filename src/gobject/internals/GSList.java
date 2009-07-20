@@ -31,17 +31,14 @@ public class GSList extends Structure implements GenericGList {
 		return new GSList(p);
 	}	
 	
-	@Override
 	public void free() {
 		GlibAPI.glib.g_slist_free(this);
 	}
 
-	@Override
 	public Pointer getData() {
 		return data;
 	}
 
-	@Override
 	public GenericGList getNext() {
 		return next;
 	}

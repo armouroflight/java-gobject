@@ -92,7 +92,6 @@ public class GlibRuntime {
 		
 		final CallbackData data = new CallbackData();
 		GlibAPI.GDestroyNotify destroy = new GlibAPI.GDestroyNotify() {
-			@Override
 			public void callback(Pointer ignored) {
 				outstandingCallbacks.remove(data);
 			}
@@ -108,7 +107,6 @@ public class GlibRuntime {
 			return null;
 		
 		AsyncReadyCallback proxy = new AsyncReadyCallback() {
-			@Override
 			public void callback(GObject object, AsyncResult result) {
 				outstandingAsync.remove(callback);
 				callback.callback(object, result);

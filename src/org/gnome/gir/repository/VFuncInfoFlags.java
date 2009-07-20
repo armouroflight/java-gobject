@@ -32,7 +32,6 @@ public enum VFuncInfoFlags implements NativeEnum {
 	MUST_OVERRIDE,
 	MUST_NOT_OVERRIDE;
 
-	@Override
 	public int getNative() {
 		return 1 << ordinal();
 	}

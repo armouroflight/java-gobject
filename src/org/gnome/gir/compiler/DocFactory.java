@@ -118,7 +118,7 @@ public class DocFactory {
 			return isAnonStub;
 		}
 
-		@Override
+
 		public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 			isInner = name.contains("$");
 			
@@ -185,16 +185,13 @@ public class DocFactory {
 			}
 		}
 		
-		@Override
 		public AnnotationVisitor visitAnnotation(String arg0, boolean arg1) {
 			return null;
 		}
 
-		@Override
 		public void visitAttribute(Attribute arg0) {
 		}
 
-		@Override
 		public void visitEnd() {			
 		}
 		
@@ -208,16 +205,13 @@ public class DocFactory {
 			}			
 		}
 
-		@Override
 		public FieldVisitor visitField(int arg0, String arg1, String arg2, String arg3, Object arg4) {
 			return null;
 		}
 
-		@Override
 		public void visitInnerClass(String arg0, String arg1, String arg2, int arg3) {
 		}
 
-		@Override
 		public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 			if (name.equals("<clinit>") || (access & Opcodes.ACC_PRIVATE) != 0)
 				return null;
@@ -253,11 +247,9 @@ public class DocFactory {
 			return null;
 		}
 
-		@Override
 		public void visitOuterClass(String arg0, String arg1, String arg2) {
 		}
 
-		@Override
 		public void visitSource(String arg0, String arg1) {
 		}
     }
@@ -417,7 +409,6 @@ public class DocFactory {
 
 	public static void generateAll(File outpath) throws Exception {
 		File[] girs = getGirDir().listFiles(new FilenameFilter() {
-			@Override
 			public boolean accept(File dir, String name) {
 				return name.endsWith(".gir");
 			}

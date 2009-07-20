@@ -65,7 +65,6 @@ public abstract class GFlags implements NativeMapped {
 	}
 
 	@SuppressWarnings("unchecked")
-	@Override
 	public final Object fromNative(Object nativeValue, FromNativeContext context) {
 		try {
 			return context.getTargetType().getConstructor(new Class<?>[] { int[].class })
@@ -75,12 +74,10 @@ public abstract class GFlags implements NativeMapped {
 		}
 	}
 
-	@Override
 	public final Class<?> nativeType() {
 		return Integer.class;
 	}
 
-	@Override
 	public final Object toNative() {
 		return value;
 	}

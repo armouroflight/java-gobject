@@ -2360,7 +2360,6 @@ public class CodeFactory {
 
 	public static void verifyAll() throws Exception {
 		File[] jars = getTypelibDir().listFiles(new FilenameFilter() {
-			@Override
 			public boolean accept(File dir, String name) {
 				return name.endsWith(".jar");
 			}
@@ -2384,7 +2383,6 @@ public class CodeFactory {
 
 	public static void compileAll() throws GErrorException, IOException {
 		File[] typelibs = getTypelibDir().listFiles(new FilenameFilter() {
-			@Override
 			public boolean accept(File dir, String name) {
 				return name.endsWith(".typelib");
 			}

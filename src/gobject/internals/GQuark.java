@@ -20,15 +20,15 @@ public class GQuark implements NativeMapped {
     public String toString() {
         return GObjectAPI.gobj.g_quark_to_string(this);
     }
-	@Override
+
 	public Object fromNative(Object nativeValue, FromNativeContext context) {
 		return new GQuark((Integer) nativeValue);
 	}
-	@Override
+
 	public Class<?> nativeType() {
 		return Integer.class;
 	}
-	@Override
+
 	public Object toNative() {
 		return Integer.valueOf(value);
 	}

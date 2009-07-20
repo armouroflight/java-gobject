@@ -109,7 +109,6 @@ public class MainLoop extends RefCountedObject {
     private static MainLoop defaultLoop;
     private ThreadFactory asyncFactory = new ThreadFactory() {
     	private AtomicLong threadNum = new AtomicLong();
-		@Override
 		public Thread newThread(Runnable r) {
 			Thread t = new Thread(r);
 			long num = threadNum.getAndIncrement();
@@ -208,7 +207,6 @@ public class MainLoop extends RefCountedObject {
     		this.srcId = srcId;
     	}
     	
-		@Override
 		public synchronized boolean cancel(boolean mayInterruptIfRunning) {
 			if (thread != null && mayInterruptIfRunning) {
 				thread.interrupt();
@@ -222,23 +220,19 @@ public class MainLoop extends RefCountedObject {
 			return true;
 		}
 
-		@Override
 		public Object get() throws InterruptedException, ExecutionException {
 			return null;
 		}
 
-		@Override
 		public Object get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException,
 				TimeoutException {
 			return null;
 		}
 
-		@Override
 		public synchronized boolean isCancelled() {
 			return isDone() && cancelled;
 		}
 
-		@Override
 		public synchronized boolean isDone() {
 			return thread == null && srcId == 0;
 		}
@@ -259,7 +253,6 @@ public class MainLoop extends RefCountedObject {
     
     private GSourceFunc sourceFuncForRunnable(final Runnable r, final Runnable finallyHandler) {
     	GSourceFunc func = new GSourceFunc() {
-			@Override
 			public boolean callback(Pointer data) {
 				try {
 					r.run();
@@ -295,7 +288,6 @@ public class MainLoop extends RefCountedObject {
     public Future<?> invokeLater(int timeout, TimeUnit units, final Runnable r) {
     	final AsyncFuture handle = new AsyncFuture();
     	GSourceFunc func = sourceFuncForRunnable(r, new Runnable() {
-			@Override
 			public void run() {
 				handle.setComplete();
 			}
@@ -341,7 +333,6 @@ public class MainLoop extends RefCountedObject {
     public <T> Future<?> threadInvoke(ThreadFactory factory, final Callable<T> callable, final Handler<T> handler) {
     	final AsyncFuture handle = new AsyncFuture();    	
     	Thread taskRunner = factory.newThread(new Runnable() {
-			@Override
 			public void run() {
 				T result = null;
 				Exception e = null;
@@ -354,7 +345,6 @@ public class MainLoop extends RefCountedObject {
 				final T resultCapture = result;
 				final Exception exceptionCapture = e;
 				final FutureTask<T> proxy = new FutureTask<T>(new Callable<T>() {
-					@Override
 					public T call() throws Exception {
 						if (exceptionCapture != null)
 							throw exceptionCapture;
@@ -368,7 +358,6 @@ public class MainLoop extends RefCountedObject {
 				 */
 				synchronized (handle) {
 					int idleId = rawInvokeLater(new Runnable() {
-						@Override
 						public void run() {
 							handle.srcId = 0;
 							handler.handle(proxy);

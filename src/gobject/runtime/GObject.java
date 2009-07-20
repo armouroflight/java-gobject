@@ -348,7 +348,7 @@ public abstract class GObject extends NativeObject {
 		 * connection
 		 */
 		NotifyCallback trampoline = new NotifyCallback() {
-			@Override
+
 			public void onNotify(GObject object, GParamSpec param, Pointer data) {
 				Method[] methods = callback.getClass().getDeclaredMethods();
 				if (methods.length != 1)
@@ -410,7 +410,7 @@ public abstract class GObject extends NativeObject {
 	};
 
 	private static final GWeakNotify weakNotify = new GWeakNotify() {
-		@Override
+
 		public void callback(Pointer data, Pointer obj) {
 			GObject o = (GObject) Internals.instanceFor(obj);
 			NativeObject.Internals.debugMemoryFinal("WEAK %s target=%s%n", obj, o);
