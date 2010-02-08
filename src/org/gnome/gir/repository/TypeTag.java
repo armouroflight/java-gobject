@@ -36,6 +36,8 @@ public enum TypeTag {
 	UINT32, 
 	INT64, 
 	UINT64, 
+	SHORT,
+	USHORT,
 	INT, 
 	UINT, 
 	LONG, 

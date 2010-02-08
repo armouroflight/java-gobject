@@ -85,7 +85,8 @@ public class TypeMap {
 			return Type.BOOLEAN_TYPE;
 		if (tag == TypeTag.INT8 || tag == TypeTag.UINT8)
 			return Type.BYTE_TYPE;
-		if (tag == TypeTag.INT16 || tag == TypeTag.UINT16)
+		if (tag == TypeTag.INT16 || tag == TypeTag.UINT16 ||
+		        tag == TypeTag.SHORT || tag == TypeTag.USHORT)
 			return Type.SHORT_TYPE;
 		if (tag == TypeTag.INT32 || tag == TypeTag.UINT32 ||
 				tag == TypeTag.INT || tag == TypeTag.UINT)
@@ -153,6 +154,8 @@ public class TypeMap {
 		if (!(tag.equals(TypeTag.GLIST) || tag.equals(TypeTag.GSLIST)))
 			return true;
 		TypeInfo param = info.getParamType(0);
+		if (param == null)
+		    return false;
 		TypeTag paramTag = param.getTag();
 		if (!(paramTag.equals(TypeTag.UTF8) || paramTag.equals(TypeTag.INTERFACE)))
 			return false;
