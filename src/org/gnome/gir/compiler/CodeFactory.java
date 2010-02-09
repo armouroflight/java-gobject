@@ -2400,24 +2400,37 @@ public class CodeFactory {
 
 	public static void main(String[] args) throws Exception {
 		GObjectAPI.gobj.g_type_init();
-		if (args[0].equals("--compileall"))
-			compileAll();
-		else if (args[0].equals("--verifyall"))
-			verifyAll();
-		else if (args[0].endsWith(".typelib")) {
-			File typelib = new File(args[0]);
-			String base = typelib.getName();
-			NsVer nsver = NsVer.parse(base);
-			String parent = typelib.getParent();
-			if (parent == null)
-				parent = System.getProperty("user.dir");
-			Repository.getDefault().prependSearchPath(parent);
-			compile(nsver.namespace, nsver.version);
+		if (args.length > 0) {
+			if (args[0].equals("--compileall"))
+				compileAll();
+			else if (args[0].equals("--verifyall"))
+				verifyAll();
+			else if (args[0].endsWith(".typelib")) {
+				File typelib = new File(args[0]);
+				String base = typelib.getName();
+				NsVer nsver = NsVer.parse(base);
+				String parent = typelib.getParent();
+				if (parent == null)
+					parent = System.getProperty("user.dir");
+				Repository.getDefault().prependSearchPath(parent);
+				compile(nsver.namespace, nsver.version);
+			} else {
+				String namespace = args[0];
+				String version = args[1];
+				if (!namespaceIsExcluded(namespace))
+					compile(namespace, version);
+			}
 		} else {
-			String namespace = args[0];
-			String version = args[1];
-			if (!namespaceIsExcluded(namespace))
-				compile(namespace, version);
+			usage();
 		}
+	}
+
+	private static void usage() {
+		System.out.println("Nothing to do.");
+		System.out.println("Possibilities are:");
+		System.out.println("\t* --compileall");
+		System.out.println("\t* --verifyall");
+		System.out.println("\t* some .typelib file");
+		
 	}
 }
