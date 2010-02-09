@@ -102,7 +102,7 @@ public class GType extends NativeLong {
 			String[] glibPointerUnmapped = new String[] { "Mutex", "Cond", "FreeFunc", "DestroyNotify", "MarkupParser",
 					"SpawnChildSetupFunc", "Node", "CompareFunc", "KeyFile", "PtrArray", "Func", "ThreadPool",
 					"Source", "CompareDataFunc", "Array", "Data", "DataSet", "Date", "IOChannel", "Regex",
-					"MappedFile", "GList", "GSList", "PollFD" };
+					"MappedFile", "GList", "GSList", "PollFD", "ByteArray" };
 			for (String unmapped : glibPointerUnmapped)
 				put("GLib." + unmapped, internalsNamespace + "UnmappedPointer");
 			String[] glibIntegerUnmapped = new String[] { "SpawnFlags", "SeekType", "IOCondition", "RegexMatchFlags", "ThreadPriority" };
