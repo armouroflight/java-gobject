@@ -45,6 +45,9 @@
 
 package gobject.runtime;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import gobject.internals.EnumMapper;
 import gobject.internals.GValueAPI;
 
@@ -76,6 +79,14 @@ public class GValue extends com.sun.jna.Structure {
 
 	public volatile GValueData data[] = new GValueData[2];	
 	
+	
+	@Override
+	protected List getFieldOrder() {
+		final List<String> fields = new LinkedList<>();
+		fields.add("g_type");
+		fields.add("data");
+		return fields;
+	}
 	public GValue(GType type) {
 		super();
 		if (type == null)

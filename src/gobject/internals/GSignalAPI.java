@@ -50,6 +50,8 @@ import gobject.runtime.GObject;
 import gobject.runtime.GType;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 
 import com.sun.jna.Callback;
@@ -100,6 +102,15 @@ public interface GSignalAPI extends Library {
       public int		signal_id;
       public GQuark	detail;
       public int	run_type;
+      
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("signal_id");
+    		fields.add("detail");
+    		fields.add("run_type");
+    		return fields;
+    	}
     };
     
 }

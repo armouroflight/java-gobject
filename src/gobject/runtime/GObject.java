@@ -209,6 +209,23 @@ public abstract class GObject extends NativeObject {
 			GObjectAPI.gobj.g_object_unref(this);
 		}
 	}
+	
+    /**
+     * Get the reference count for an object.  Should only really be used for debugging
+     * @return The reference count for the object
+     */
+    public int getRefCount()
+    {
+        // Check if disposed as a disposed object may
+        // have been free'd and we mustn't access it's
+        // memory or we face possible SEGFAULT
+        if (!disposed)
+        {
+            final GObjectStruct struct = new GObjectStruct(this);
+            return struct.ref_count;
+        }
+        return 0;		
+	}
 
 	private static Initializer getInitializer(GType gtype, Object[] args) {
 		Object[] newArgs;

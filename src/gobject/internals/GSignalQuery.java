@@ -25,6 +25,9 @@
  */
 package gobject.internals;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import gobject.runtime.GType;
 
 import com.sun.jna.Pointer;
@@ -37,4 +40,17 @@ public final class GSignalQuery extends com.sun.jna.Structure {
     public GType return_type; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
     public int n_params;
     public Pointer param_types; /* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */
+    
+    @Override
+    protected List getFieldOrder() {
+    	final List<String> fields = new LinkedList<>();
+    	fields.add("signal_id");
+    	fields.add("signal_name");
+    	fields.add("Type itype");
+    	fields.add("signal_flags");
+    	fields.add("return_type");
+    	fields.add("n_params");
+    	fields.add("param_types");
+    	return fields;
+    }
 }

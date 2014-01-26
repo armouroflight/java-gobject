@@ -1,5 +1,8 @@
 package gobject.internals;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
 
@@ -41,5 +44,13 @@ public class GSList extends Structure implements GenericGList {
 
 	public GenericGList getNext() {
 		return next;
+	}
+	
+	@Override
+	protected List getFieldOrder() {
+		final List<String> fields = new LinkedList<>();
+		fields.add("data");
+		fields.add("next");
+		return fields;
 	}
 }

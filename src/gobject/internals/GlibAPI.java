@@ -47,6 +47,8 @@ package gobject.internals;
 import gobject.runtime.MainLoop;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 
 import com.sun.jna.Callback;
@@ -159,7 +161,10 @@ public interface GlibAPI extends Library {
     Pointer g_log_set_default_handler(GLogFunc log_func, Pointer user_data);    
 
     public static final class GMutex extends Structure {
-    	
+    	@Override
+    	protected List getFieldOrder() {
+    		return new LinkedList<>();
+    	}
     }
     
     /* FIXME - this only works on POSIX */
@@ -173,6 +178,13 @@ public interface GlibAPI extends Library {
         long dummy_long;
       };
       StaticMutex static_mutex;
+      @Override
+      protected List getFieldOrder() {
+    	  final List<String> fields = new LinkedList<>();
+    	  fields.add("runtime_mutex");
+    	  fields.add("static_mutex");
+          return fields;
+	  }
     };
  
     public static final class GSystemThread extends Union
@@ -189,6 +201,14 @@ public interface GlibAPI extends Library {
       public GStaticMutex mutex;
       public int depth;
       public GSystemThread owner;
+      @Override
+      protected List getFieldOrder() {
+    	  final List<String> fields = new LinkedList<>();
+    	  fields.add("mutex");
+    	  fields.add("depth");
+    	  fields.add("owner");
+          return fields;
+	  }
     }
     
 	void g_list_free(GList list);

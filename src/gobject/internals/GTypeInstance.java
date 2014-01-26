@@ -45,6 +45,9 @@
 
 package gobject.internals;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import gobject.runtime.GType;
 
 import com.sun.jna.Pointer;
@@ -60,5 +63,12 @@ public class GTypeInstance extends Structure {
     public static Pointer peekInterface(Pointer pointer, GType type) {
     	Pointer g_class = pointer.getPointer(0);
     	return GObjectAPI.gobj.g_type_interface_peek(g_class, type);
+    }
+    
+    @Override
+    protected List getFieldOrder() {
+    	final List<String> fields = new LinkedList<>();
+    	fields.add("g_class");
+    	return fields;
     }
 }

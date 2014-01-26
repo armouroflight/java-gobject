@@ -50,6 +50,8 @@ import gobject.runtime.GType;
 import gobject.runtime.GValue;
 
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 
 
 import com.sun.jna.Callback;
@@ -137,12 +139,24 @@ public interface GObjectAPI extends Library {
 
         /*< private >*/
         public volatile GType g_type;
+    	@Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		  fields.add("g_type");
+    	    return fields;
+    	}
     }
 
     public static final class GTypeInstance extends com.sun.jna.Structure {
 
         /*< private >*/
         public volatile Pointer g_class;
+        @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		  fields.add("g_class");
+    	    return fields;
+    	}
     }                  
     
     static class GObjectStruct extends com.sun.jna.Structure {
@@ -154,6 +168,15 @@ public interface GObjectAPI extends Library {
             useMemory(obj.getNativeAddress());
             read();
         }
+        
+        @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		  fields.add("g_type_instance");
+    		  fields.add("ref_count");
+    		  fields.add("qdata");
+    	    return fields;
+    	}
     }
     static public class GObjectConstructParam {
         public volatile Pointer spec;
@@ -196,10 +219,30 @@ public interface GObjectAPI extends Library {
             useMemory(ptr);
             read();
         }
+        
+        @Override
+        protected List getFieldOrder() {
+        	final List<String> fields = new LinkedList<>();
+        	fields.add("g_type_class");
+        	fields.add("construct_properties");
+        	fields.add("constructor");
+        	fields.add("set_property");
+        	fields.add("get_property");
+        	fields.add("dispose");
+        	fields.add("finalize");
+        	fields.add("dispatch_properties_changed");
+        	fields.add("notify");
+        	fields.add("p_dummy");
+        	return fields;
+        }
     }
     
     public static final class GInitiallyUnownedClass extends Structure {
     	private GInitiallyUnownedClass() {}
+    	@Override
+    	protected List getFieldOrder() {
+    		return new LinkedList<String>();
+    	}
     }
     
     public static interface GBaseInitFunc extends Callback {
@@ -243,12 +286,34 @@ public interface GObjectAPI extends Library {
         public GInstanceInitFunc instance_init;
 
         /* value handling */
-        public volatile /* GTypeValueTable */ Pointer value_table;                
+        public volatile /* GTypeValueTable */ Pointer value_table; 
+        
+        @Override
+        protected List getFieldOrder() {
+        	final List<String> fields = new LinkedList<>();
+        	fields.add("class_size");
+        	fields.add("base_init");
+        	fields.add("base_finalize");
+        	fields.add("class_init");
+        	fields.add("class_finalize");
+        	fields.add("class_data");
+        	fields.add("instance_size");
+        	fields.add("n_preallocs");
+            fields.add("instance_init");
+        	fields.add("value_table");;
+            return fields;
+        }
     }
     
     public static final class GTypeFundamentalInfo extends Structure
     {
       public int type_flags;
+      @Override
+    	protected List getFieldOrder() {
+    	  final List<String> fields = new LinkedList<>();
+    	  fields.add("type_flags");
+    		return fields;
+    	}
     };
     
     public static final class GInterfaceInfo extends Structure
@@ -256,12 +321,27 @@ public interface GObjectAPI extends Library {
       public Pointer     interface_init;
       public Pointer interface_finalize;
       public Pointer interface_data;
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("interface_init");
+    		fields.add("interface_finalize");
+    		fields.add("interface_data");
+    		return fields;
+    	}
     };
     
     public static final class GTypeInterface extends Structure {
       /*< private >*/
       public GType g_type;         /* iface type */
       public GType g_instance_type;
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("g_type");
+    		fields.add("g_instance_type");
+    		return fields;
+    	}
     };
     
     public static final class GTypeValueTable
@@ -292,6 +372,22 @@ public interface GObjectAPI extends Library {
         public volatile int param_id;      /* sort-criteria */
         
         public GParamSpec() {}
+        
+        @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("g_type_instance");
+    		fields.add("g_name");
+    		fields.add("g_flags");
+    		fields.add("value_type");
+    		fields.add("owner_type");
+            fields.add("_nick");
+    		fields.add("_blurb");
+    		fields.add("qdata");
+    		fields.add("ref_count");
+    		fields.add("param_id");
+    		return fields;
+    	}
     }
     
     public static class GParameter /* auxillary structure for _setv() variants */
@@ -328,6 +424,16 @@ public interface GObjectAPI extends Library {
       public int	      maximum;
       public int	      n_values;
       public GEnumValue[]  values;
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("g_type_class");
+    		fields.add("minimum");
+    		fields.add("maximum");
+			fields.add("n_values");
+			fields.add("values");
+    		return fields;
+    	}
     };
     /**
      * GFlagsClass:
@@ -348,6 +454,15 @@ public interface GObjectAPI extends Library {
       public int	       mask;
       public int	       n_values;
       public GFlagsValue[] values;
+      @Override
+    	protected List getFieldOrder() {
+    	  final List<String> fields = new LinkedList<>();
+    	  fields.add("g_type_class");
+    	  fields.add("mask");
+    	  fields.add("n_values");
+    	  fields.add("values");
+          return fields;
+    	}
     };
     /**
      * GEnumValue:
@@ -363,6 +478,15 @@ public interface GObjectAPI extends Library {
       public int	 value;
       public String value_name;
       public String value_nick;
+      
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("value");
+    		fields.add("value_name");
+    		fields.add("value_nick");
+    		return fields;
+    	}
     };
     /**
      * GFlagsValue:
@@ -378,6 +502,14 @@ public interface GObjectAPI extends Library {
       public int	 value;
       public String value_name;
       public String value_nick;
+      @Override
+  	protected List getFieldOrder() {
+  		final List<String> fields = new LinkedList<>();
+  		fields.add("value");
+  		fields.add("value_name");
+  		fields.add("value_nick");
+  		return fields;
+  	}
     };
     
     /**
@@ -396,6 +528,15 @@ public interface GObjectAPI extends Library {
       public String type_name;
       public int		class_size;
       public int		instance_size;
+      @Override
+    	protected List getFieldOrder() {
+    		final List<String> fields = new LinkedList<>();
+    		fields.add("type");
+    		fields.add("type_name");
+    		fields.add("class_size");
+    		fields.add("instance_size");
+    		return fields;
+    	}
     };
     
     
