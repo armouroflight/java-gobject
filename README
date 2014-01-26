@@ -7,9 +7,7 @@ Gnome gobjects.
 
 You must have gobject-introspection and Python >= 2.3 installed.
 Additionally, the project depends on the following Java libraries:
-ASM: http://asm.objectweb.org/index.html
 JNA: https://jna.dev.java.net/
-gnu-getopt: http://www.urbanophile.com/arenn/hacking/download.html
 
 On Fedora:
 yum install objectweb-asm jna gnu-getopt
