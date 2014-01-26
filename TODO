@@ -1,5 +1,0 @@
-- gtk-doc mapping
-  - Input generated classes
-  - Input .gir files
-  - Output javap-like source, annotated with javadoc version of gtk-doc
-  - Run javadoc on generated source

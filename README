@@ -1,7 +1,7 @@
-== About java-gobject-introspection ==
+= About =
 
-The most up-to-date information is likely to be found on the GNOME
-wiki page: http://live.gnome.org/JGIR
+This project can be used to generate Java classes to integrate with
+Gnome gobjects.
 
 = BUILDING =
 
@@ -14,19 +14,11 @@ gnu-getopt: http://www.urbanophile.com/arenn/hacking/download.html
 On Fedora:
 yum install objectweb-asm jna gnu-getopt
 
-Internally, the waf (http://code.google.com/p/waf/) build system is
-used, but a simple "configure" and "Makefile" wrapper is provided.
-You may use the standard:
+== With thanks ==
 
-./configure --prefix=...
-make 
-sudo make install
+This project is heavily indebted to the JGIR project http://live.gnome.org/JGIR
+which provided the initial code for integrating with gnome goject-introspection.
 
-= Using =
+JGIR creates class files directly which turned out to be more complex than I
+needed, but some people may want to look into it.
 
-After installation, you can run the script:
-
-jgir-compile-all
-
-This will generate .jar files for each .typelib file you have
-installed.
