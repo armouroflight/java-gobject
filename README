@@ -1,16 +1,22 @@
 = About =
 
 This project can be used to generate Java classes to integrate with
-Gnome gobjects.
+Gnome gobjects.  Velocity templates are used to generate the Java
+source in a flexible manner
 
 = BUILDING =
 
 You must have gobject-introspection and Python >= 2.3 installed.
-Additionally, the project depends on the following Java libraries:
-JNA: https://jna.dev.java.net/
+Additional Java depenendencies can be found in pom.xml
 
-On Fedora:
-yum install objectweb-asm jna gnu-getopt
+Standard maven commands can be used to compile:
+mvn compile jar:jar
+
+= TODO =
+1. Complete generation of simple Java classes
+2. Command line arguments
+3. Wrapper shell scripts
+4. Build in compiler using http://docs.oracle.com/javase/6/docs/api/javax/tools/JavaCompiler.html
 
 == With thanks ==
 

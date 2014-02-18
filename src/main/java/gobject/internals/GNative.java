@@ -48,6 +48,7 @@ package gobject.internals;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.HashMap;
 import java.util.Map;
 
 import com.sun.jna.Library;
@@ -66,6 +67,14 @@ public final class GNative {
     private GNative() {
     }
 
+    public static final Map<String, Object> defaultOptions = new HashMap<String, Object>() {
+    	{
+    		put(Library.OPTION_TYPE_MAPPER, new GTypeMapper());
+    	}
+    };
+    public static <T extends Library> T loadLibrary(String name, Class<T> interfaceClass) {
+    	return loadLibrary(name, interfaceClass, defaultOptions);
+    }
     public static <T extends Library> T loadLibrary(String name, Class<T> interfaceClass, Map<String, ?> options) {
         if (Platform.isWindows()) {
             return loadWin32Library(name, interfaceClass, options);

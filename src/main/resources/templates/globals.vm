@@ -1,0 +1,30 @@
+package ${packagePrefix}.${namespace};
+
+public class ${obj.Name}
+{
+    private interface ${obj.Name}API extends Library {
+	    /** Native library */
+	    private static ${obj.Name}API library = GNative.loadLibrary("", ${obj.Name}API.class); 
+## Function is all functions found - including constructors
+		#foreach ($function in $functions)
+			${function.symbol}(args TODO);
+		#end
+	}
+	#*
+    #foreach($ctor in $constructors)
+		${ctor.name}
+    #end
+    #foreach($method in $methods)
+    public ${method.returnType} ${method.name}(
+		#foreach($arg in $method.args)
+			$arg.type ${arg.name}#if ($velocityCount != ${method.args.size}), #{else})#end
+		#end
+    {
+	    #if (method.returnType.isVoid)
+			${obj.Name}API.library
+		#else
+		#end
+    }    
+    #end
+    *#
+}

@@ -1,0 +1,68 @@
+#macro(typeconvert $type)
+${type}##
+#end
+## Macro to declare argument list
+#macro(arglistdecl $args)
+#foreach($arg in $args)##
+#typeconvert(${arg.type}) ${arg.name}#if (${foreach.count} != ${args.size()}), #end##
+#end##
+#end
+## Macro to call method with args
+#macro(arglistcall $args)
+this#if (${args.size()} != 0), #end##
+#foreach($arg in $args)
+${arg.name}#if (${foreach.count} != ${args.size()}), #end##
+#end##
+#end
+## End of Macros!
+package ${packagePrefix}.${namespace};
+
+## Import parent if from different namespace
+#if(${obj.Parent} && ${namespace} != ${obj.Parent.namespace})
+import ${packagePrefix}.${obj.Parent.namespace}.${obj.Parent.Name};
+#end
+import com.sun.jna.*;
+import com.sun.jna.ptr.PointerByReference;
+import gobject.internals.*;
+import gobject.internals.Handle.Initializer;
+
+public class ${obj.Name} #if (${obj.Parent})extends ${obj.Parent.Name}#end
+{
+    public interface ${obj.Name}API extends Library {
+        /** Native library */
+        public static ${obj.Name}API library = GNative.loadLibrary("", ${obj.Name}API.class); 
+## Function is all functions found - including constructors
+#foreach ($function in $functions)
+// TODO add annotations where required like @CallerOwnsReturn
+        public ${function.returnType} ${function.symbol}(#arglistdecl(${function.nativeArgs}));
+#end
+    }
+	
+    /**
+     * Initializer base constructor allowing use of pointers
+     */
+    public ${obj.Name}(final Initializer init)
+    {
+        super(init);
+    }
+#foreach($ctor in $constructors)
+    public ${obj.Name}(#arglistdecl(${ctor.args}))
+    {
+        // Constructors are mapped to functions that return pointers
+        // these are suitable as initialisers
+        this(
+          new Initializer(${obj.Name}API.library.${ctor.symbol}(#arglistcall(${ctor.args}))
+          );
+    }
+#end
+#foreach($method in $methods)
+    public ${method.returnType} ${method.name}(#arglistdecl(${method.args}))
+    {
+#if(${method.isVoidReturn()})
+            ${obj.Name}API.library.${method.symbol}(#arglistcall(${method.args}));
+#else
+            return ${obj.Name}API.library.${method.symbol}(#arglistcall(${method.args}));
+#end
+    }    
+#end
+}
